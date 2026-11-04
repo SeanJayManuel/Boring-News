@@ -1,10 +1,10 @@
 <title>Boring News</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="The day's news, once a day.">
+<meta name="description" content="The day's news, once a day. Free, open, and transparent about how every story is chosen.">
 <link rel="alternate" type="application/rss+xml" title="Boring News" href="/feed.xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400&display=swap">
 <script>
   // Light by default. Dark only if the reader chose it here, or the host app asks for it.
   (function () {
@@ -21,88 +21,178 @@
 <div class="page">
   <header class="top">
     <div class="bar">
-      <span class="name">Boring News</span>
-      <nav class="links" aria-label="Page">
-        <a href="#settings" id="open-settings">Settings</a>
-        <a href="#subscribe">RSS</a>
-        <button type="button" class="theme" id="theme-toggle" aria-pressed="false">Dark</button>
-      </nav>
+      <a class="name" href="#today">Boring News</a>
+      <button type="button" class="theme" id="theme-toggle" aria-pressed="false">Dark</button>
     </div>
-    <p class="date" id="dateline"></p>
-    <h1 class="lede" id="lede"></h1>
-    <p class="sublede" id="sublede"></p>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#today" data-view="today">Today</a>
+      <a href="#all-stories" data-view="all-stories">All stories</a>
+      <a href="#outlets" data-view="outlets">Outlets</a>
+      <a href="#how-it-works" data-view="how-it-works">How it works</a>
+      <a href="#your-feed" data-view="your-feed">Your feed</a>
+    </nav>
     <p class="note" id="sample-note" hidden>This is a sample edition. Every outlet, place and story in it is invented.</p>
   </header>
 
-  <details class="sheet settings" id="settings">
-    <summary>
-      <span class="settings-name">Settings</span>
-      <span class="settings-summary" id="settings-summary"></span>
-      <span class="settings-action" aria-hidden="true"></span>
-    </summary>
-    <div class="settings-body">
-      <fieldset>
-        <legend>How much agreement a story needs</legend>
-        <div class="options" id="threshold"></div>
-        <p class="hint" id="threshold-hint"></p>
-      </fieldset>
-      <fieldset>
-        <legend>Topics</legend>
-        <div class="options grid" id="topics"></div>
-        <p class="hint">Leave all unchecked to see every topic.</p>
-      </fieldset>
-      <fieldset>
-        <legend>Regions</legend>
-        <div class="options" id="regions"></div>
-      </fieldset>
-      <fieldset>
-        <legend>Show</legend>
-        <div class="options">
-          <label for="underreported"><input type="checkbox" id="underreported"> Official sources</label>
-          <label for="headlines-only"><input type="checkbox" id="headlines-only"> Headlines only</label>
-        </div>
-      </fieldset>
-      <fieldset>
-        <legend>Outlets</legend>
-        <p class="hint">Uncheck an outlet to leave it out. Every story is scored again without it.</p>
-        <div class="outlets" id="sources"></div>
-      </fieldset>
-      <div class="settings-foot">
-        <button type="button" id="reset">Reset to defaults</button>
-        <button type="button" class="primary" id="close-settings">Done</button>
-      </div>
+  <!-- Today: the spotlight -->
+  <section class="view" id="view-today" data-view="today">
+    <div class="intro">
+      <p class="date" id="dateline"></p>
+      <h1 class="lede" id="lede"></h1>
+      <p class="sublede" id="sublede"></p>
     </div>
-  </details>
+    <div id="spotlight"></div>
+    <p class="showing" id="showing"></p>
+  </section>
 
-  <main id="edition" aria-live="polite"></main>
+  <!-- All stories, grouped by topic -->
+  <section class="view" id="view-all-stories" data-view="all-stories" hidden>
+    <div class="intro">
+      <h1 class="title">All stories</h1>
+      <p class="sublede" id="all-summary"></p>
+      <nav class="jump" id="topic-jump" aria-label="Topics"></nav>
+    </div>
+    <div id="all"></div>
+    <p class="showing" id="showing-all"></p>
+  </section>
 
-  <footer class="desk">
-    <section id="subscribe" aria-labelledby="subscribe-h">
-      <h2 id="subscribe-h">Get it by RSS</h2>
-      <p>Add this address to any feed reader. It keeps your settings.</p>
-      <div class="feed">
-        <input id="feed-url" type="text" readonly aria-label="Feed address">
-        <button type="button" id="copy-feed">Copy</button>
-      </div>
-      <p class="hint" id="copy-status" role="status"></p>
-    </section>
+  <!-- Outlets: what each one covered -->
+  <section class="view" id="view-outlets" data-view="outlets" hidden>
+    <div class="intro">
+      <h1 class="title">What each outlet covered</h1>
+      <p class="sublede">Bias often shows up in what an outlet chooses to cover, not only in how it writes. This compares each outlet's feed today with the stories that left, center and right all covered.</p>
+    </div>
+    <div id="outlet-list"></div>
+    <p class="fine" id="outlet-caveat">This counts only what each outlet published in its RSS feed during the edition window. A missed story may have run elsewhere on its site. The numbers describe choices; they don't explain them.</p>
+  </section>
 
-    <section id="how" aria-labelledby="how-h">
-      <h2 id="how-h">How we choose</h2>
-      <p>No one picks the stories by hand. A story makes the edition when outlets across the political spectrum covered it, and each one gets a score:</p>
-      <div class="formula" id="formula"></div>
-      <p><b>Breadth</b> is the share of left, center and right outlets that covered it. <b>Coverage</b> counts outlets on a log scale that stops at <span id="cap"></span>. <b>Diversity</b> counts kinds of outlet: wire, national, regional and international. A story also needs at least <span id="min-outlets"></span> outlets.</p>
-      <p>Official sources, such as Congress, the Federal Register and agency releases, are listed separately whether or not the news covered them.</p>
-      <p>Summaries are written from the outlets' reporting. A fact is stated plainly only when at least two outlets agree on it. Otherwise it is attributed.</p>
+  <!-- How it works -->
+  <section class="view" id="view-how-it-works" data-view="how-it-works" hidden>
+    <div class="intro">
+      <h1 class="title">How stories are chosen</h1>
+      <p class="sublede">No editor picks the stories. A published rule does, and you can check every number on this page against the code.</p>
+    </div>
+
+    <div class="sheet prose">
+      <h2>From feeds to an edition</h2>
+      <ol class="steps">
+        <li><b>Collect.</b> Once a day we read the RSS feeds of every outlet on the source list, plus official sources: Congress, the Federal Register, the White House and federal agencies.</li>
+        <li><b>Group.</b> Articles about the same event are grouped into one story by comparing their words. Two documents from the same agency are never merged.</li>
+        <li><b>Score.</b> Each story gets a score from 0 to 1 using the formula below. Nothing about clicks, shares or engagement goes into it.</li>
+        <li><b>Write.</b> A model writes a plain summary from the outlets' own reporting, following our style guide. A banned-word check rejects loaded language, and a fact is stated plainly only when two outlets agree on it.</li>
+        <li><b>Your settings.</b> Your settings decide which stories you see. If you turn off an outlet, every story is scored again without it.</li>
+      </ol>
+    </div>
+
+    <div class="sheet prose">
+      <h2>The score</h2>
+      <div class="weights" id="weights"></div>
+      <dl class="defs">
+        <div><dt>Breadth</dt><dd>Share of left, center and right that covered it. This carries the most weight, so a story only one side covered can't rank near the top.</dd></div>
+        <div><dt>Official record</dt><dd>Whether an official source documents it: a bill's status on Congress.gov, a rule in the Federal Register, a court order. Stories on the record rank higher.</dd></div>
+        <div><dt>Coverage</dt><dd>How many outlets covered it, on a log scale that stops counting at <span id="cap"></span>, so one story can't win on volume alone.</dd></div>
+        <div><dt>Diversity</dt><dd>How many kinds of outlet covered it: wire services, national, regional and international.</dd></div>
+      </dl>
+      <p id="threshold-text"></p>
+    </div>
+
+    <div class="sheet prose">
+      <h2>Today's scores</h2>
+      <p>Every story from today's edition, broken into the four parts of its score. The line marks the <span id="chart-threshold"></span> threshold.</p>
+      <div class="legend" id="legend"></div>
+      <div class="chart" id="score-chart"></div>
+    </div>
+
+    <div class="sheet prose">
+      <h2>Sources and their lean</h2>
+      <p>Lean labels start from public media-bias ratings. They are listed here so you can disagree with them, and you can turn any source off in Your feed.</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Source</th><th>Lean</th><th>Kind</th></tr></thead>
           <tbody id="source-table"></tbody>
         </table>
       </div>
-      <p class="hint" id="rubric-version"></p>
-    </section>
-  </footer>
+      <p class="fine" id="rubric-version"></p>
+    </div>
+  </section>
+
+  <!-- Your feed: settings + docs -->
+  <section class="view" id="view-your-feed" data-view="your-feed" hidden>
+    <div class="intro">
+      <h1 class="title">Make it yours</h1>
+      <p class="sublede">Boring News is free, with no ads, no accounts and no tracking. Your settings stay in your browser and in your feed address, nowhere else.</p>
+    </div>
+
+    <div class="sheet settings">
+      <div class="settings-body">
+        <fieldset>
+          <legend>How much agreement a story needs</legend>
+          <div class="options" id="threshold"></div>
+          <p class="hint" id="threshold-hint"></p>
+        </fieldset>
+        <fieldset>
+          <legend>Topics</legend>
+          <div class="options grid" id="topics"></div>
+          <p class="hint">Leave all unchecked to see every topic.</p>
+        </fieldset>
+        <fieldset>
+          <legend>Regions</legend>
+          <div class="options" id="regions"></div>
+        </fieldset>
+        <fieldset>
+          <legend>Show</legend>
+          <div class="options">
+            <label for="official"><input type="checkbox" id="official"> Official items with no news coverage yet</label>
+            <label for="headlines-only"><input type="checkbox" id="headlines-only"> Headlines only</label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Sources</legend>
+          <p class="hint">Uncheck a source to leave it out. Every story is scored again without it.</p>
+          <div class="outlets-grid" id="sources"></div>
+        </fieldset>
+        <div class="settings-foot">
+          <button type="button" id="reset">Reset to defaults</button>
+          <span class="hint" id="settings-summary"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet prose" id="subscribe">
+      <h2>Get it by RSS</h2>
+      <p>Add this address to any feed reader. It carries the settings above.</p>
+      <label class="check" for="spotlight-only"><input type="checkbox" id="spotlight-only"> Only the top <span class="spot-n"></span> stories each day</label>
+      <div class="feed">
+        <input id="feed-url" type="text" readonly aria-label="Feed address">
+        <button type="button" id="copy-feed">Copy</button>
+      </div>
+      <p class="hint" id="copy-status" role="status"></p>
+    </div>
+
+    <div class="sheet prose">
+      <h2>Build a feed by hand</h2>
+      <p>Every setting is a part of the feed address, so you can write one yourself or share it. Leave out anything you want at its default.</p>
+      <div class="table-wrap">
+        <table class="params">
+          <thead><tr><th>Add</th><th>What it does</th></tr></thead>
+          <tbody id="param-table"></tbody>
+        </table>
+      </div>
+      <h3>Examples</h3>
+      <ul class="examples" id="examples"></ul>
+    </div>
+
+    <div class="sheet prose">
+      <h2>Run your own copy</h2>
+      <p>All of Boring News is open source. To change the rules for everyone who reads your copy, fork the code and edit three files:</p>
+      <ul>
+        <li><code>sources.yaml</code> lists every outlet and official source, with its lean. Add, remove or relabel them.</li>
+        <li><code>boringnews/rubric.py</code> holds the weights and thresholds shown in How it works.</li>
+        <li><code>editorial/style_guide.md</code> holds the writing rules the summaries follow, and <code>editorial/banned_words.txt</code> lists the words the checker rejects.</li>
+      </ul>
+      <p>The code is on <a id="repo-link" href="#">GitHub</a>. Changes to the rules are made in public commits, so you can see when and why anything changed.</p>
+    </div>
+  </section>
 </div>
 
 <script>

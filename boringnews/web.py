@@ -64,12 +64,13 @@ def feed(
     regions: str | None = None,
     exclude: str | None = None,
     threshold: str = "standard",
-    underreported: str = "1",
+    official: str = "1",
+    spotlight: str = "0",
     length: str = "full",
 ):
     prefs = Prefs.from_query({
         "topics": topics, "regions": regions, "exclude": exclude,
-        "threshold": threshold, "underreported": underreported, "length": length,
+        "threshold": threshold, "official": official, "spotlight": spotlight, "length": length,
     })
     d, _, stories = _edition(date)
     sources = _sources()

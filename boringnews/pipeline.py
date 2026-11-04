@@ -61,7 +61,8 @@ def run(args) -> int:
 
     # 2. Cluster this edition's window
     articles = [a for a in articles_between(conn, start, end) if a.source_id in sources]
-    clusters = cluster(articles, config.CLUSTER_SIMILARITY, config.CLUSTER_WINDOW_HOURS)
+    official_ids = frozenset(sid for sid, s in sources.items() if s.type == "primary")
+    clusters = cluster(articles, config.CLUSTER_SIMILARITY, config.CLUSTER_WINDOW_HOURS, separate=official_ids)
     print(f"{len(articles)} articles in window -> {len(clusters)} clusters.")
 
     # 3. Score; only write up clusters that pass the loosest reader setting

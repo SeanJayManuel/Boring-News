@@ -16,6 +16,9 @@ BANNED_WORDS_PATH = ROOT / "editorial" / "banned_words.txt"
 # Public base URL, used for links inside RSS feeds.
 BASE_URL = os.environ.get("BN_BASE_URL", "http://localhost:8000").rstrip("/")
 
+# Where the code lives (linked from the page).
+REPO_URL = os.environ.get("BN_REPO_URL", "https://github.com/SeanJayManuel/Boring-News")
+
 # Model used to write neutral summaries. A small model is enough for this job.
 MODEL = os.environ.get("BN_MODEL", "claude-haiku-5-5")
 

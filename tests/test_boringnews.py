@@ -40,8 +40,8 @@ def test_thresholds_and_lanes():
     assert rubric.lane(one_sided, "broad") == "main"
     assert rubric.lane(one_sided, "standard") is None
     primary = rubric.score(src("rules-register"))
-    assert rubric.lane(primary, "strict", underreported=True) == "underreported"
-    assert rubric.lane(primary, "strict", underreported=False) is None
+    assert rubric.lane(primary, "strict", official=True) == "official"
+    assert rubric.lane(primary, "strict", official=False) is None
 
 
 def test_single_outlet_never_makes_main_lane():
@@ -57,8 +57,9 @@ def test_duplicate_outlet_counts_once():
 
 def test_fixture_clusters_match_events():
     arts = load_fixtures(config.FIXTURE_ARTICLES_PATH)
-    sizes = sorted((len(c) for c in cluster(arts, config.CLUSTER_SIMILARITY)), reverse=True)
-    assert sizes == [7, 4, 4, 3, 3, 3, 2, 1, 1, 1, 1, 1, 1]
+    official = frozenset(sid for sid, s in SOURCES.items() if s.type == "primary")
+    sizes = sorted((len(c) for c in cluster(arts, config.CLUSTER_SIMILARITY, separate=official)), reverse=True)
+    assert sizes == [7, 4, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1, 1]
 
 
 # ---------------------------------------------------------------- linter and fallback writer
@@ -94,17 +95,17 @@ def test_pipeline_is_idempotent(tmp_path):
         pipeline_main(["run", "--fixtures", "--mock-llm", "--date", "2026-11-04", "--db", str(db)])
     conn = connect(db)
     assert editions(conn) == ["2026-11-04"]
-    assert len(load_edition(conn, "2026-11-04")) == 11
+    assert len(load_edition(conn, "2026-11-04")) == 17
 
 
 def test_prefs_filter_and_rescore(edition_db):
     stories = load_edition(edition_db, "2026-11-04")
     default = apply(stories, SOURCES, Prefs())
-    assert [s.lane for s in default].count("main") == 5
-    assert [s.lane for s in default].count("underreported") == 4
+    assert [s.lane for s in default].count("main") == 11
+    assert [s.lane for s in default].count("official") == 4
 
     broad = apply(stories, SOURCES, Prefs(threshold="broad"))
-    assert len(broad) == 11
+    assert len(broad) == 17
 
     # Dropping every right-leaning outlet re-scores the water story but keeps it.
     no_right = Prefs(exclude=["heartland-post", "liberty-daily", "prairie-gazette"])
@@ -112,11 +113,11 @@ def test_prefs_filter_and_rescore(edition_db):
     assert "right" not in water.score.leans
 
     only_courts = apply(stories, SOURCES, Prefs(topics=["courts"]))
-    assert [s.story.topic for s in only_courts] == ["courts"]
+    assert {s.story.topic for s in only_courts} == {"courts"} and len(only_courts) == 2
 
 
 def test_prefs_query_round_trip():
-    p = Prefs(topics=["courts", "economy"], exclude=["npr"], threshold="strict", underreported=False)
+    p = Prefs(topics=["courts", "economy"], exclude=["npr"], threshold="strict", official=False, spotlight=True)
     assert Prefs.from_query(dict(x.split("=") for x in p.to_query().split("&"))) == p
     assert Prefs().to_query() == ""
 
@@ -126,8 +127,8 @@ def test_rss_is_valid_xml(edition_db):
     sel = apply(stories, SOURCES, Prefs())
     root = ET.fromstring(render_rss("2026-11-04", sel, SOURCES, Prefs(), "https://example.org"))
     items = root.findall("./channel/item")
-    assert len(items) == 9
-    assert items[-1].find("title").text.startswith("Underreported:")
+    assert len(items) == 15
+    assert items[-1].find("title").text.startswith("Official:")
 
 
 def test_web_routes(tmp_path, monkeypatch):
@@ -144,7 +145,7 @@ def test_web_routes(tmp_path, monkeypatch):
     assert page.status_code == 200 and "Boring News" in page.text and "__DATA__" not in page.text
     feed = client.get("/feed.xml?topics=courts&threshold=strict")
     assert feed.status_code == 200
-    assert len(ET.fromstring(feed.content).findall("./channel/item")) == 1
+    assert len(ET.fromstring(feed.content).findall("./channel/item")) == 2
     assert client.get("/feed.xml?date=1999-01-01").status_code == 404
 
 
@@ -201,3 +202,24 @@ def test_official_items_are_capped_per_source():
 def test_source_topic_hint_used_by_fallback():
     arts = [a for a in load_fixtures(config.FIXTURE_ARTICLES_PATH) if "armory" in a.url]
     assert fallback(arts, SOURCES, BANNED).topic == "defense"
+
+
+# ---------------------------------------------------------------- v0.2: official record + spotlight
+
+def test_official_record_raises_score():
+    news = src("capital-wire", "northside-tribune", "liberty-daily")
+    assert rubric.score(news + src("westmark-courts")).total == pytest.approx(rubric.score(news).total + 0.25, abs=1e-3)
+
+
+def test_spotlight_is_top_five_covered_stories(edition_db):
+    stories = load_edition(edition_db, "2026-11-04")
+    top = apply(stories, SOURCES, Prefs(spotlight=True))
+    assert len(top) == rubric.SPOTLIGHT and all(x.lane == "main" for x in top)
+    assert [x.score.total for x in top] == sorted((x.score.total for x in top), reverse=True)
+    # The two stories backed by an official record lead the day.
+    assert {x.story.topic for x in top[:2]} == {"economy", "courts"}
+
+
+def test_official_documents_from_one_source_stay_separate():
+    arts = [a for a in load_fixtures(config.FIXTURE_ARTICLES_PATH) if a.source_id == "rules-register"]
+    assert len(cluster(arts, config.CLUSTER_SIMILARITY, separate=frozenset({"rules-register"}))) == 2

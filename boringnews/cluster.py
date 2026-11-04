@@ -28,7 +28,11 @@ class _UnionFind:
         self.parent[self.find(i)] = self.find(j)
 
 
-def cluster(articles: list[Article], similarity: float = 0.15, window_hours: int = 48) -> list[list[Article]]:
+def cluster(articles: list[Article], similarity: float = 0.15, window_hours: int = 48,
+            separate: frozenset[str] = frozenset()) -> list[list[Article]]:
+    """`separate`: source ids whose items are never joined to each other.
+    Official sources go here: two documents from the same agency are two
+    events, even when their boilerplate ("Final rule: ...") looks alike."""
     if not articles:
         return []
     if len(articles) == 1:
@@ -44,6 +48,8 @@ def cluster(articles: list[Article], similarity: float = 0.15, window_hours: int
     for i in range(len(articles)):
         for j in range(i + 1, len(articles)):
             if sim[i, j] < similarity:
+                continue
+            if articles[i].source_id == articles[j].source_id and articles[i].source_id in separate:
                 continue
             if abs((articles[i].published - articles[j].published).total_seconds()) > window:
                 continue

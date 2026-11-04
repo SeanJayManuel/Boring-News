@@ -1,5 +1,7 @@
 # Boring News
 
+https://boringnews.org
+
 The day's news, once a day. Stories are chosen by a published rule (covered
 across left, center and right), rewritten in plain wire-service language,
 and linked back to every source. Readers can change what they see, and every
@@ -34,9 +36,11 @@ uvicorn boringnews.web:app
 
 ## Official sources
 
-These come straight from the government and appear under "Official sources"
-on the page. When news outlets cover the same event, the official item joins
-that story as one more source (it never changes the spectrum score).
+These come straight from the government. When news outlets cover the same
+event, the official item joins that story and adds the `record` part of the
+score (25%), so stories on the official record rank higher. Official items no
+outlet has covered yet are still listed under their topic, marked "On the
+record".
 
 | Source | How | Key |
 | --- | --- | --- |
@@ -84,8 +88,9 @@ sources.yaml ──► ingest (RSS) ──► SQLite ──► cluster (TF-IDF) 
 | `topics` | comma list: politics, congress, defense, economy, world, science-health, tech, regulation, courts, local-state | all |
 | `regions` | comma list: us-national, us-state, world | all |
 | `exclude` | comma list of source ids | none |
-| `threshold` | broad (0.35), standard (0.50), strict (0.65) | standard |
-| `underreported` | 1 or 0 | 1 |
+| `threshold` | broad (0.30), standard (0.40), strict (0.55) | standard |
+| `official` | 1 or 0: include official items no outlet has covered yet | 1 |
+| `spotlight` | 1: only the top 5 stories | 0 |
 | `length` | full or headlines | full |
 
 Example: `/feed.xml?topics=economy,courts&threshold=strict&exclude=ny-post`
@@ -96,6 +101,14 @@ Environment variables: `BN_DB`, `BN_SOURCES`, `BN_BASE_URL` (used in feed
 links), `BN_MODEL` (default `claude-haiku-5-5`), `BN_LOOKBACK_HOURS`,
 `BN_CLUSTER_SIMILARITY` (default 0.15, tuned on the sample data; re-tune on
 real feeds), `BN_SAMPLE=1` (serve the sample source list).
+
+## Free and open
+
+Boring News is free to read and free to copy: no ads, no accounts, no
+tracking. Reader settings live in the browser and in the feed address. The
+code is MIT-licensed; the rules that pick stories (`boringnews/rubric.py`),
+the source list (`sources.yaml`) and the writing rules (`editorial/`) are
+public, and every change to them is a public commit.
 
 ## Tests
 
