@@ -17,5 +17,4 @@ series:
   - {id: DGS10,      label: "10-yr Treasury", kind: rate, decimals: 2, suffix: "%"}
   - {id: DGS2,       label: "2-yr Treasury",  kind: rate, decimals: 2, suffix: "%"}
   - {id: DCOILWTICO, label: "Oil (WTI)",   kind: price, decimals: 2, prefix: "$"}
-  - {id: DEXUSEU,    label: "Euro",        kind: fx, decimals: 4, prefix: "$"}
-  - {id: DEXCAUS,    label: "CAD per USD", kind: fx, decimals: 4}
+  - {id: DTWEXBGS,   label: "US dollar",   kind: fx, decimals: 2}   # Fed's broad dollar index vs. major trading partners

@@ -61,7 +61,6 @@ def edition_json(date: str | None = Query(None)):
 def feed(
     date: str | None = None,
     topics: str | None = None,
-    regions: str | None = None,
     exclude: str | None = None,
     threshold: str = "standard",
     official: str = "1",
@@ -70,7 +69,7 @@ def feed(
     length: str = "full",
 ):
     prefs = Prefs.from_query({
-        "topics": topics, "regions": regions, "exclude": exclude,
+        "topics": topics, "exclude": exclude,
         "threshold": threshold, "official": official, "statements": statements, "spotlight": spotlight, "length": length,
     })
     d, _, stories, _ = _edition(date)

@@ -109,14 +109,14 @@ def explain(sc: Score) -> str:
     """One plain line telling the reader why the story is here."""
     if sc.outlets == 0 and sc.has_primary:
         if sc.has_record:
-            return "From the official record; no news coverage yet."
-        return "An official statement; no news coverage yet."
+            return "A government record; no news coverage yet."
+        return "A government statement; no news coverage yet."
     if not sc.leans:
         spectrum = "no rated outlets"
     elif len(sc.leans) == 1:
         spectrum = sc.leans[0]
     else:
         spectrum = ", ".join(sc.leans[:-1]) + " and " + sc.leans[-1]
-    record = " On the official record." if sc.has_record else ""
+    record = " Backed by a government record." if sc.has_record else ""
     outlet_word = "outlet" if sc.outlets == 1 else "outlets"
     return f"{sc.outlets} {outlet_word} across {spectrum}.{record} Score {sc.total:.2f}."

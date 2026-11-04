@@ -116,8 +116,7 @@ sources.yaml ──► ingest (RSS) ──► SQLite ──► cluster (TF-IDF) 
 
 | Parameter | Values | Default |
 | --- | --- | --- |
-| `topics` | comma list: politics, congress, defense, economy, world, science-health, tech, regulation, courts, local-state | all |
-| `regions` | comma list: us-national, us-state, world | all |
+| `topics` | comma list of categories: government, states, economy, world, health-science, tech | all |
 | `exclude` | comma list of source ids | none |
 | `threshold` | broad (0.30), standard (0.40), strict (0.55) | standard |
 | `official` | 1 or 0: include official items no outlet has covered yet | 1 |
@@ -137,7 +136,7 @@ real feeds), `BN_SAMPLE=1` (serve the sample source list).
 ## Market ticker
 
 The strip at the top of the page shows the previous trading day's closes
-(stock indexes, Treasury yields, oil, currencies) from FRED, the St. Louis
+(stock indexes, Treasury yields, oil and the US dollar) from FRED, the St. Louis
 Fed's data service. Edit `markets.yaml` to change the list. It updates once a
 day with the edition; if FRED can't be reached the ticker is hidden and the
 edition still publishes.

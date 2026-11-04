@@ -112,12 +112,12 @@ def test_prefs_filter_and_rescore(edition_db):
     water = [s for s in apply(stories, SOURCES, no_right) if "water" in s.story.headline.lower()][0]
     assert "right" not in water.score.leans
 
-    only_courts = apply(stories, SOURCES, Prefs(topics=["courts"]))
-    assert {s.story.topic for s in only_courts} == {"courts"} and len(only_courts) == 2
+    only_states = apply(stories, SOURCES, Prefs(topics=["states"]))
+    assert {s.story.topic for s in only_states} == {"states"} and len(only_states) == 7
 
 
 def test_prefs_query_round_trip():
-    p = Prefs(topics=["courts", "economy"], exclude=["npr"], threshold="strict", official=False, spotlight=True)
+    p = Prefs(topics=["economy", "government"], exclude=["npr"], threshold="strict", official=False, spotlight=True)
     assert Prefs.from_query(dict(x.split("=") for x in p.to_query().split("&"))) == p
     assert Prefs().to_query() == ""
 
@@ -128,7 +128,7 @@ def test_rss_is_valid_xml(edition_db):
     root = ET.fromstring(render_rss("2026-11-04", sel, SOURCES, Prefs(), "https://example.org"))
     items = root.findall("./channel/item")
     assert len(items) == 15
-    assert items[-1].find("title").text.startswith("Official:")
+    assert items[-1].find("title").text.startswith("Government ")
 
 
 def test_web_routes(tmp_path, monkeypatch):
@@ -143,9 +143,9 @@ def test_web_routes(tmp_path, monkeypatch):
 
     page = client.get("/")
     assert page.status_code == 200 and "Boring News" in page.text and "__DATA__" not in page.text
-    feed = client.get("/feed.xml?topics=courts&threshold=strict")
+    feed = client.get("/feed.xml?topics=states&threshold=strict")
     assert feed.status_code == 200
-    assert len(ET.fromstring(feed.content).findall("./channel/item")) == 2
+    assert len(ET.fromstring(feed.content).findall("./channel/item")) == 7
     assert client.get("/feed.xml?date=1999-01-01").status_code == 404
 
 
@@ -201,7 +201,7 @@ def test_official_items_are_capped_per_source():
 
 def test_source_topic_hint_used_by_fallback():
     arts = [a for a in load_fixtures(config.FIXTURE_ARTICLES_PATH) if "armory" in a.url]
-    assert fallback(arts, SOURCES, BANNED).topic == "defense"
+    assert fallback(arts, SOURCES, BANNED).topic == "government"
 
 
 # ---------------------------------------------------------------- v0.2: official record + spotlight
@@ -217,7 +217,7 @@ def test_spotlight_is_top_five_covered_stories(edition_db):
     assert len(top) == rubric.SPOTLIGHT and all(x.lane == "main" for x in top)
     assert [x.score.total for x in top] == sorted((x.score.total for x in top), reverse=True)
     # The two stories backed by an official record lead the day.
-    assert {x.story.topic for x in top[:2]} == {"economy", "courts"}
+    assert {x.story.topic for x in top[:2]} == {"economy", "states"}
 
 
 def test_official_documents_from_one_source_stay_separate():

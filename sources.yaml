@@ -89,7 +89,7 @@ sources:
     lean: unrated
     type: primary
     role: record
-    topic: congress
+    topic: government
     max_items: 6
 
   - id: public-laws
@@ -98,7 +98,7 @@ sources:
     lean: unrated
     type: primary
     role: record
-    topic: congress
+    topic: government
     max_items: 5
 
   - id: white-house-actions
@@ -107,7 +107,7 @@ sources:
     lean: unrated
     type: primary
     role: statement
-    topic: politics
+    topic: government
     max_items: 4
 
   - id: federal-register-rules
@@ -120,7 +120,7 @@ sources:
     lean: unrated
     type: primary
     role: record
-    topic: regulation
+    topic: government
     max_items: 5
 
   - id: federal-register-presidential
@@ -132,7 +132,7 @@ sources:
     lean: unrated
     type: primary
     role: record
-    topic: politics
+    topic: government
     max_items: 4
 
   - id: war-department-releases
@@ -141,7 +141,7 @@ sources:
     lean: unrated
     type: primary
     role: statement
-    topic: defense
+    topic: government
     max_items: 4
 
   # More official feeds worth adding (all RSS, no key):

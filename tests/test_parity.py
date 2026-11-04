@@ -24,12 +24,12 @@ QUERIES = [
     "",
     "threshold=broad",
     "threshold=strict",
-    "topics=courts,economy",
+    "topics=economy,government",
     "exclude=heartland-post,liberty-daily,prairie-gazette",
     "statements=0",
     "official=0&threshold=broad",
     "spotlight=1",
-    "regions=world&length=headlines",
+    "topics=world&length=headlines",
 ]
 
 RUNNER = r"""
@@ -55,7 +55,7 @@ await import(pathToFileURL(process.argv[2]).href);           // web/core.js sets
 const mod = await import(pathToFileURL(process.argv[3]).href); // the function, minus its import line
 const edition = readFileSync(process.argv[4], "utf8");
 const env = { ASSETS: { fetch: async () => new Response(edition, { headers: { "content-type": "application/json" } }) } };
-const res = await mod.onRequest({ request: new Request("https://boringnews.org/feed.xml?topics=courts&threshold=strict"), env });
+const res = await mod.onRequest({ request: new Request("https://boringnews.org/feed.xml?topics=government&threshold=strict"), env });
 console.log(JSON.stringify({ status: res.status, type: res.headers.get("content-type"), body: await res.text() }));
 """
 
@@ -105,5 +105,5 @@ def test_pages_function_serves_custom_feed(edition):
     res = json.loads(out.stdout)
     assert res["status"] == 200 and res["type"].startswith("application/rss+xml")
     items = ET.fromstring(res["body"]).findall("./channel/item")
-    expected = apply(stories, sources, Prefs(topics=["courts"], threshold="strict"))
+    expected = apply(stories, sources, Prefs(topics=["government"], threshold="strict"))
     assert [i.findtext("guid") for i in items] == [f"boringnews-2026-11-04-{x.story.id}" for x in expected]

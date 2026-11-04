@@ -106,7 +106,7 @@
       <div class="weights" id="weights"></div>
       <dl class="defs">
         <div><dt>Breadth</dt><dd>Share of left, center and right that covered it. This carries the most weight, so a story only one side covered can't rank near the top.</dd></div>
-        <div><dt>Official record</dt><dd>Whether an official record documents it: a bill's status on Congress.gov, a law, a rule in the Federal Register, a court order, official statistics. Stories on the record rank higher. Official statements, like White House or agency press releases, are listed but never add to the score, because they are an administration describing its own work.</dd></div>
+        <div><dt>Government record</dt><dd>Whether a government record backs it up: a bill's status on Congress.gov, a new law, a rule in the Federal Register, a court ruling or official statistics. Stories with a record rank higher. Government statements, like White House or agency press releases, are listed but never add to the score, because they are an administration describing its own work.</dd></div>
         <div><dt>Coverage</dt><dd>How many outlets covered it, on a log scale that stops counting at <span id="cap"></span>, so one story can't win on volume alone.</dd></div>
         <div><dt>Diversity</dt><dd>How many kinds of outlet covered it: wire services, national, regional and international.</dd></div>
       </dl>
@@ -160,19 +160,15 @@
           <p class="hint" id="threshold-hint"></p>
         </fieldset>
         <fieldset>
-          <legend>Topics</legend>
-          <div class="options grid" id="topics"></div>
-          <p class="hint">Leave all unchecked to see every topic.</p>
-        </fieldset>
-        <fieldset>
-          <legend>Regions</legend>
-          <div class="options" id="regions"></div>
+          <legend>Categories</legend>
+          <p class="hint">Every story has one category. Leave all unchecked to see everything.</p>
+          <div class="options cats" id="topics"></div>
         </fieldset>
         <fieldset>
           <legend>Show</legend>
           <div class="options">
-            <label for="official"><input type="checkbox" id="official"> Official items with no news coverage yet</label>
-            <label for="statements"><input type="checkbox" id="statements"> Official statements, such as press releases</label>
+            <label for="official"><input type="checkbox" id="official"> Government records and statements no outlet covered</label>
+            <label for="statements"><input type="checkbox" id="statements"> Government statements, like press releases</label>
             <label for="headlines-only"><input type="checkbox" id="headlines-only"> Headlines only</label>
           </div>
         </fieldset>

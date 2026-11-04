@@ -2,7 +2,6 @@
 just a link, and the same parameters drive the web page and /feed.xml.
 
     topics=economy,courts        only these topics (empty = all)
-    regions=us-national,world    only these regions (empty = all)
     exclude=ny-post,npr          drop these sources, then re-score every story
     threshold=broad|standard|strict
     official=1|0                 include official items no outlet covered
@@ -21,7 +20,7 @@ from urllib.parse import urlencode
 from . import rubric
 from .db import Story
 from .sources import Source
-from .topics import REGIONS, TOPICS
+from .topics import TOPICS
 
 FALSE = ("0", "false", "no")
 
@@ -36,7 +35,6 @@ def _csv(value: str | None, allowed=None) -> list[str]:
 @dataclass
 class Prefs:
     topics: list[str] = field(default_factory=list)
-    regions: list[str] = field(default_factory=list)
     exclude: list[str] = field(default_factory=list)
     threshold: str = "standard"
     official: bool = True
@@ -50,7 +48,6 @@ class Prefs:
         length = q.get("length") or "full"
         return cls(
             topics=_csv(q.get("topics"), TOPICS),
-            regions=_csv(q.get("regions"), REGIONS),
             exclude=_csv(q.get("exclude")),
             threshold=threshold if threshold in rubric.THRESHOLDS else "standard",
             official=(q.get("official") or "1") not in FALSE,
@@ -64,8 +61,6 @@ class Prefs:
         q = {}
         if self.topics:
             q["topics"] = ",".join(self.topics)
-        if self.regions:
-            q["regions"] = ",".join(self.regions)
         if self.exclude:
             q["exclude"] = ",".join(self.exclude)
         if self.threshold != "standard":
@@ -98,8 +93,6 @@ def apply(stories: list[Story], sources: dict[str, Source], prefs: Prefs) -> lis
         excluded |= {sid for sid, src in sources.items() if src.type == "primary" and src.role != "record"}
     for s in stories:
         if prefs.topics and s.topic not in prefs.topics:
-            continue
-        if prefs.regions and s.region not in prefs.regions:
             continue
         kept = [a for a in s.articles if a.source_id in sources and a.source_id not in excluded]
         if not kept:

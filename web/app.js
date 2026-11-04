@@ -5,7 +5,7 @@
   var D = window.BORING_NEWS;
   var R = D.rubric;
   var PARTS = [
-    ["breadth", "Breadth"], ["record", "Official record"], ["coverage", "Coverage"], ["diversity", "Diversity"]
+    ["breadth", "Breadth"], ["record", "Government record"], ["coverage", "Coverage"], ["diversity", "Diversity"]
   ];
   var C = window.BoringCore.create(D);
   var SPECTRUM = window.BoringCore.SPECTRUM;
@@ -15,7 +15,7 @@
   var THRESHOLD_HINTS = {
     broad: "Includes stories that only one side of the spectrum covered.",
     standard: "Usually needs coverage from at least two of left, center and right.",
-    strict: "Usually needs left, center and right, or two sides plus an official record."
+    strict: "Usually needs left, center and right, or two sides plus a government record."
   };
   var VIEWS = ["today", "all-stories", "outlets", "how-it-works", "your-feed"];
 
@@ -24,7 +24,7 @@
   var fromQuery = C.fromQuery, toQuery = C.toQuery;
 
   function loadPrefs() {
-    if (/[?&](topics|regions|exclude|threshold|official|statements|spotlight|length)=/.test(location.search)) return fromQuery(location.search);
+    if (/[?&](topics|exclude|threshold|official|statements|spotlight|length)=/.test(location.search)) return fromQuery(location.search);
     try {
       var saved = localStorage.getItem(STORE_KEY);
       if (saved !== null) return fromQuery("?" + saved);
@@ -81,8 +81,10 @@
     var s = item.story, sc = item.score;
     var topicLine = el("p", { className: "topic" }, [el("span", { className: "topic-name", text: D.topics[s.topic] || s.topic })]);
     if (s.day > 1) topicLine.appendChild(el("span", { className: "badge day", text: "Day " + s.day }));
-    if (sc.hasRecord) topicLine.appendChild(el("span", { className: "badge", text: "On the record" }));
-    else if (sc.hasStatement) topicLine.appendChild(el("span", { className: "badge statement", text: "Official statement" }));
+    if (sc.hasRecord) topicLine.appendChild(el("span", { className: "badge", text: "Government record",
+      title: "Backed by a law, rule, court ruling, vote or official statistics" }));
+    else if (sc.hasStatement) topicLine.appendChild(el("span", { className: "badge statement", text: "Government statement",
+      title: "A government press release or announcement. It doesn't add to the score." }));
     var node = el("article", { className: "story", id: "story-" + s.id }, [topicLine, el("h3", { className: "headline", text: s.headline })]);
     if (headlinesOnly) return node;
 
@@ -102,7 +104,7 @@
     var list = el("ul", { className: "sources", hidden: "" }, item.articles.map(function (a) {
       var src = D.sources[a.source_id];
       var who = src.type !== "primary" ? src.name + ", " + src.lean
-        : src.name + (src.role === "record" ? ", official record" : ", official statement (not counted in the score)");
+        : src.name + (src.role === "record" ? ", government record" : ", government statement (doesn't add to the score)");
       return el("li", {}, [el("span", { className: "who", text: who }),
         el("a", { href: a.url, target: "_blank", rel: "noopener", text: a.title })]);
     }));
@@ -151,7 +153,7 @@
     var box = $(target);
     box.innerHTML = "";
     var bits = [THRESHOLD_LABELS[prefs.threshold] + " agreement"];
-    bits.push(prefs.topics.length ? plural(prefs.topics.length, "topic", "topics") : "all topics");
+    bits.push(prefs.topics.length ? plural(prefs.topics.length, "category", "categories") : "all categories");
     if (prefs.exclude.length) bits.push(plural(prefs.exclude.length, "source", "sources") + " off");
     var text = "Showing " + listWords(bits) + ". ";
     if (res.hidden) text += plural(res.hidden, "story", "stories") + " left out by your settings. ";
@@ -167,8 +169,8 @@
       ? countWord(top.length) + (top.length === 1 ? " story today." : " stories today.")
       : "Nothing matches your settings.";
     $("sublede").textContent = top.length
-      ? "The stories covered most widely across the spectrum, with extra weight for those on the official record."
-      : "Try needing less agreement, or turn on more topics.";
+      ? "Ranked by how widely left, center and right outlets covered them. Stories backed by a government record, like a new law or a court ruling, rank higher."
+      : "Try needing less agreement, or turn on more categories.";
     var box = $("spotlight");
     box.innerHTML = "";
     box.className = hl ? "headlines-only" : "";
@@ -177,9 +179,9 @@
     unc.innerHTML = "";
     var records = res.shown.filter(function (x) { return x.lane === "official" && x.score.hasRecord; });
     if (records.length) {
-      var sh = el("section", { className: "sheet", "aria-label": "On the record, not in the news" }, [
-        el("div", { className: "sheet-head" }, [el("h2", { text: "On the record, not in the news" }),
-          el("p", { text: "Official records no outlet covered" })])
+      var sh = el("section", { className: "sheet", "aria-label": "Government records the news missed" }, [
+        el("div", { className: "sheet-head" }, [el("h2", { text: "Government records the news missed" }),
+          el("p", { text: "Laws, rules and rulings no outlet covered" })])
       ]);
       sh.appendChild(el("ul", { className: "quick" }, records.map(function (x) {
         var a = el("a", { href: "#story-" + x.story.id, text: x.story.headline });
@@ -191,7 +193,7 @@
     unc.style.marginTop = "20px";
     if (rest > 0) {
       unc.appendChild(el("div", { className: "more" }, [el("a", { href: "#all-stories",
-        text: "See all " + res.shown.length + " stories, by topic" })]));
+        text: "See all " + res.shown.length + " stories, by category" })]));
       unc.lastChild.style.marginTop = "20px";
     }
     showingLine("showing", res);
@@ -208,8 +210,8 @@
 
     var official = res.shown.filter(function (x) { return x.score.hasRecord; }).length;
     $("all-summary").textContent = res.shown.length
-      ? plural(res.shown.length, "story", "stories") + " in " + plural(order.length, "topic", "topics") +
-        ", highest score first in each. " + official + " are on the official record."
+      ? plural(res.shown.length, "story", "stories") + " in " + plural(order.length, "category", "categories") +
+        ", highest score first in each. " + official + " are backed by a government record."
       : "Nothing matches your settings.";
 
     var jump = $("topic-jump");
@@ -291,7 +293,7 @@
     $("threshold-text").textContent = "A story makes the edition when its score reaches your threshold (broad " +
       R.thresholds.broad.toFixed(2) + ", standard " + R.thresholds.standard.toFixed(2) + ", strict " +
       R.thresholds.strict.toFixed(2) + ") and at least " + R.min_outlets + " outlets covered it. The top " + R.spotlight +
-      " make Today's spotlight. Official items with no coverage yet are listed under their topic.";
+      " make Today's spotlight. Government records and statements that no outlet covered are listed under their category.";
 
     var lg = $("legend");
     lg.innerHTML = "";
@@ -332,7 +334,7 @@
         el("td", { text: s.type === "primary" ? "Not rated" : cap(s.lean) }),
         el("td", { text: raters }),
         el("td", { text: s.type === "primary" ? "" : (s.weight || 1).toFixed(2) + " outlets" }),
-        el("td", { text: s.type !== "primary" ? cap(s.type) : (s.role === "record" ? "Official record" : "Official statement") })]));
+        el("td", { text: s.type !== "primary" ? cap(s.type) : (s.role === "record" ? "Government record" : "Government statement") })]));
     });
     var cbox = $("corrections");
     cbox.innerHTML = "";
@@ -364,11 +366,13 @@
       input.addEventListener("change", function () { prefs.threshold = k; update(); });
       th.appendChild(el("label", { for: "threshold-" + k }, [input, THRESHOLD_LABELS[k]]));
     });
-    [["topics", D.topics], ["regions", D.regions]].forEach(function (pair) {
+    [["topics", D.topics]].forEach(function (pair) {
       var key = pair[0], map = pair[1], box = $(key);
       box.innerHTML = "";
       Object.keys(map).forEach(function (k) {
-        box.appendChild(checkbox(key + "-" + k, map[k], prefs[key].indexOf(k) >= 0, function (on) {
+        var label = el("span", { className: "opt" }, [el("span", { text: map[k] }),
+          D.topic_descriptions && D.topic_descriptions[k] ? el("small", { text: D.topic_descriptions[k] }) : null]);
+        box.appendChild(checkbox(key + "-" + k, label, prefs[key].indexOf(k) >= 0, function (on) {
           prefs[key] = toggleIn(prefs[key], k, on); update();
         }));
       });
@@ -392,8 +396,8 @@
      ["Center", function (s) { return s.lean === "center"; }],
      ["Right", function (s) { return s.lean === "right"; }],
      ["Unrated", function (s) { return s.lean === "unrated" && s.type !== "primary"; }],
-     ["Official records", function (s) { return s.type === "primary" && s.role === "record"; }],
-     ["Official statements", function (s) { return s.type === "primary" && s.role !== "record"; }]].forEach(function (b) {
+     ["Government records", function (s) { return s.type === "primary" && s.role === "record"; }],
+     ["Government statements", function (s) { return s.type === "primary" && s.role !== "record"; }]].forEach(function (b) {
       var ids = Object.keys(D.sources).filter(function (id) { return b[1](D.sources[id]); })
         .sort(function (x, y) { return D.sources[x].name.localeCompare(D.sources[y].name); });
       if (!ids.length) return;
@@ -410,12 +414,11 @@
   function renderDocs() {
     var any = Object.keys(D.sources)[0];
     var rows = [
-      ["topics=economy,courts", "Only these topics. Topics: " + Object.keys(D.topics).join(", ") + "."],
-      ["regions=world", "Only these regions: " + Object.keys(D.regions).join(", ") + "."],
+      ["topics=economy,world", "Only these categories: " + Object.keys(D.topics).join(", ") + "."],
       ["exclude=" + any, "Leave out these sources by their id, then score every story again. Ids are listed in sources.yaml."],
       ["threshold=strict", "How much agreement a story needs: broad, standard (default) or strict."],
-      ["official=0", "Leave out official items that no outlet has covered yet."],
-      ["statements=0", "Leave out official statements, such as White House and agency press releases. Records still count."],
+      ["official=0", "Leave out government records and statements that no outlet has covered yet."],
+      ["statements=0", "Leave out government statements, such as White House and agency press releases. Records still count."],
       ["spotlight=1", "Only the top " + R.spotlight + " stories each day."],
       ["length=headlines", "Headlines without the bullet points."]
     ];
@@ -426,8 +429,8 @@
     var base = D.base_url + "/feed.xml";
     var ex = [
       ["Just the spotlight", base + "?spotlight=1"],
-      ["Economy and courts, strict agreement", base + "?topics=courts,economy&threshold=strict"],
-      ["Only what's on the official record", base + "?topics=congress,regulation,courts"]
+      ["Economy and world news, strict agreement", base + "?topics=economy,world&threshold=strict"],
+      ["Politics and government, no press releases", base + "?topics=government&statements=0"]
     ];
     var ul = $("examples");
     ul.innerHTML = "";
@@ -438,11 +441,10 @@
 
   function renderSettingsSummary() {
     var bits = [THRESHOLD_LABELS[prefs.threshold] + " agreement"];
-    bits.push(prefs.topics.length ? prefs.topics.map(function (t) { return D.topics[t]; }).join(", ") : "all topics");
-    if (prefs.regions.length) bits.push(prefs.regions.map(function (r) { return D.regions[r]; }).join(", "));
+    bits.push(prefs.topics.length ? prefs.topics.map(function (t) { return D.topics[t]; }).join(", ") : "all categories");
     if (prefs.exclude.length) bits.push(plural(prefs.exclude.length, "source", "sources") + " off");
-    if (!prefs.official) bits.push("no uncovered official items");
-    if (!prefs.statements) bits.push("no official statements");
+    if (!prefs.official) bits.push("no uncovered government items");
+    if (!prefs.statements) bits.push("no government statements");
     if (prefs.length === "headlines") bits.push("headlines only");
     $("settings-summary").textContent = "Now: " + bits.join(", ") + ".";
     $("threshold-hint").textContent = THRESHOLD_HINTS[prefs.threshold];

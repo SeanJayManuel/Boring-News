@@ -25,7 +25,7 @@ from pathlib import Path
 
 from .db import Article
 from .sources import Source
-from .topics import REGIONS, TOPICS, guess_region, guess_topic
+from .topics import TOPIC_DESCRIPTIONS, TOPICS, guess_region, guess_topic, normalize
 
 QUOTE_RE = re.compile(r"\"[^\"]*\"|“[^”]*”")
 SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
@@ -72,14 +72,13 @@ def lint_draft(d: Draft, banned: list[str]) -> list[str]:
 
 # ---------------------------------------------------------------- prompt
 
-OUTPUT_CONTRACT = f"""
+OUTPUT_CONTRACT = """
 Return ONLY a JSON object, no prose, with these keys:
   "headline":   string, under 12 words
   "bullets":    array of 3 to 5 strings, one fact each
   "whats_next": string or null (a scheduled vote, ruling, deadline or effective date only)
-  "topic":      one of {list(TOPICS)}
-  "region":     one of {list(REGIONS)}
-"""
+  "topic":      the one category that fits best:
+""" + "".join(f"                {k}: {v}\n" for k, v in TOPIC_DESCRIPTIONS.items())
 
 
 def build_prompt(articles: list[Article], sources: dict[str, Source]) -> str:
@@ -107,8 +106,8 @@ def _parse(text: str) -> dict:
         "headline": str(data["headline"]).strip(),
         "bullets": bullets[:5],
         "whats_next": (str(data["whats_next"]).strip() or None) if data.get("whats_next") else None,
-        "topic": data.get("topic") if data.get("topic") in TOPICS else None,
-        "region": data.get("region") if data.get("region") in REGIONS else None,
+        "topic": normalize(data.get("topic")),
+        "region": None,
     }
 
 
@@ -222,7 +221,7 @@ def _to_draft(data: dict, articles: list[Article], sources: dict[str, Source], w
         headline=data["headline"],
         bullets=list(data["bullets"]),
         whats_next=data.get("whats_next"),
-        topic=data.get("topic") or hint or guess_topic(text),
+        topic=normalize(data.get("topic")) or normalize(hint) or guess_topic(text),
         region=data.get("region") or guess_region(text, types),
         written_by=written_by,
     )

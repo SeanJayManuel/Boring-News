@@ -1,43 +1,63 @@
-"""Topic and region taxonomy, plus a keyword fallback when no model is used."""
+"""Categories. Six of them, one per story, each with a plain description that
+the site shows to readers and the model is given when it picks one.
+
+(Stories also keep an internal `region` guess, which is not shown or filtered on.)
+"""
 
 from __future__ import annotations
 
 TOPICS = {
-    "politics": "Politics",
-    "congress": "Congress",
-    "defense": "Defense",
-    "economy": "Economy",
+    "government": "Politics & government",
+    "states": "States & cities",
+    "economy": "Economy & business",
     "world": "World",
-    "science-health": "Science & health",
-    "tech": "Tech",
-    "regulation": "Regulation",
-    "courts": "Courts",
-    "local-state": "State & local",
+    "health-science": "Health & science",
+    "tech": "Technology",
 }
 
-REGIONS = {
-    "us-national": "U.S. national",
-    "us-state": "U.S. states",
-    "world": "World",
+TOPIC_DESCRIPTIONS = {
+    "government": "Congress, the White House, federal courts, federal agencies and the military.",
+    "states": "Governors, state legislatures, state courts, cities and schools.",
+    "economy": "Jobs, prices, interest rates, trade and companies.",
+    "world": "Other countries and international affairs.",
+    "health-science": "Medicine, public health, research and the environment.",
+    "tech": "Tech companies, product recalls, data breaches and the internet.",
 }
+
+# Older category names map to the current ones, so old editions still read correctly.
+LEGACY = {
+    "politics": "government", "congress": "government", "courts": "government",
+    "regulation": "government", "defense": "government",
+    "local-state": "states", "science-health": "health-science",
+}
+
+REGIONS = {"us-national": "U.S. national", "us-state": "U.S. states", "world": "World"}
 
 _KEYWORDS = {
-    "congress": ["h.r.", "s.res", "public law", "passed house", "passed senate", "cloture"],
-    "defense": ["navy", "army", "air force", "marine corps", "pentagon", "department of war", "military", "contract award"],
-    "courts": ["court", "judge", "ruling", "ruled", "opinion", "lawsuit", "appeal", "justices"],
-    "regulation": ["rule", "regulation", "agency", "final rule", "comment period", "federal register"],
-    "economy": ["inflation", "interest rate", "jobs", "unemployment", "gdp", "tariff", "central bank", "prices", "budget"],
-    "science-health": ["study", "researchers", "trial", "vaccine", "disease", "climate", "nasa", "hospital", "health"],
-    "tech": ["recall", "software", "ai ", "artificial intelligence", "chip", "app", "e-bike", "cyber", "data breach"],
-    "politics": ["senate", "congress", "governor", "election", "campaign", "president", "ethics", "lawmakers", "vote"],
-    "local-state": ["mayor", "city council", "county", "legislature", "state", "university", "school board"],
-    "world": ["minister", "parliament", "un ", "united nations", "nato", "embassy", "foreign"],
+    "government": ["congress", "senate", "house passed", "h.r.", "president", "white house", "federal",
+                   "supreme court", "final rule", "federal register", "pentagon", "military", "department of war",
+                   "navy", "army", "election", "campaign"],
+    "states": ["governor", "legislature", "state ", "mayor", "city council", "county", "school board",
+               "university", "district court"],
+    "economy": ["inflation", "interest rate", "jobs", "unemployment", "gdp", "tariff", "central bank",
+                "prices", "earnings", "payrolls", "trade agreement"],
+    "world": ["minister", "parliament", "united nations", "nato", "embassy", "foreign"],
+    "health-science": ["study", "researchers", "trial", "vaccine", "disease", "climate", "hospital", "health",
+                       "measles"],
+    "tech": ["recall", "software", "artificial intelligence", "chip", "app", "e-bike", "cyber", "data breach",
+             "hackers"],
 }
+
+
+def normalize(topic: str | None) -> str | None:
+    if topic in TOPICS:
+        return topic
+    return LEGACY.get(topic or "")
 
 
 def guess_topic(text: str) -> str:
     t = f" {text.lower()} "
-    best, best_hits = "politics", 0
+    best, best_hits = "government", 0
     for topic, words in _KEYWORDS.items():
         hits = sum(t.count(w) for w in words)
         if hits > best_hits:

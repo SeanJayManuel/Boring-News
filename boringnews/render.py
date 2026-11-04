@@ -11,7 +11,7 @@ import yaml
 from . import config, rubric
 from .db import Story
 from .sources import Source
-from .topics import REGIONS, TOPICS
+from .topics import TOPIC_DESCRIPTIONS, TOPICS
 
 WEB = config.ROOT / "web"
 
@@ -44,7 +44,7 @@ def page_data(edition_date: str, editions: list[str], stories: list[Story],
             "spotlight": rubric.SPOTLIGHT,
         },
         "topics": TOPICS,
-        "regions": REGIONS,
+        "topic_descriptions": TOPIC_DESCRIPTIONS,
         "sources": {
             sid: {"name": s.name, "lean": s.lean, "type": s.type, "role": s.role,
                   "weight": s.weight, "ratings": s.ratings}

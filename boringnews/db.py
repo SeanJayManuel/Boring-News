@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .topics import normalize
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS articles (
     id           INTEGER PRIMARY KEY,
@@ -181,7 +183,7 @@ def load_edition(conn: sqlite3.Connection, edition_date: str) -> list[Story]:
                 headline=r["headline"],
                 bullets=json.loads(r["bullets"]),
                 whats_next=r["whats_next"],
-                topic=r["topic"],
+                topic=normalize(r["topic"]) or r["topic"],
                 region=r["region"],
                 written_by=r["written_by"],
                 articles=[_article(a) for a in arts],
