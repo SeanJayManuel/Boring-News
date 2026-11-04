@@ -42,6 +42,7 @@
       <p class="sublede" id="sublede"></p>
     </div>
     <div id="spotlight"></div>
+    <div id="uncovered"></div>
     <p class="showing" id="showing"></p>
   </section>
 
@@ -63,7 +64,11 @@
       <p class="sublede">Bias often shows up in what an outlet chooses to cover, not only in how it writes. This compares each outlet's feed today with the stories that left, center and right all covered.</p>
     </div>
     <div id="outlet-list"></div>
-    <p class="fine" id="outlet-caveat">This counts only what each outlet published in its RSS feed during the edition window. A missed story may have run elsewhere on its site. The numbers describe choices; they don't explain them.</p>
+    <div class="sheet prose">
+      <h2>How this is measured</h2>
+      <p>A story counts as "every side covered" when at least one left, one center and one right outlet ran it. For each outlet we count how many of those stories appeared in its RSS feed during the edition window, which is about the last 36 hours.</p>
+      <p>Feeds don't carry everything an outlet publishes, so a story listed under "Didn't run" may have appeared elsewhere on its site. These numbers describe what each feed contained. They don't explain why, and one day is a small sample.</p>
+    </div>
   </section>
 
   <!-- How it works -->
@@ -104,11 +109,22 @@
     </div>
 
     <div class="sheet prose">
+      <h2>Checking the summaries</h2>
+      <p>Every summary is checked against its sources before it's published. Any number in a bullet has to appear in the sources, and when a model writes the summary, a second pass confirms each bullet is supported. Bullets that fail are removed, and every removal is listed under the story's sources, so you can see what was cut and why.</p>
+      <p id="data-line"></p>
+    </div>
+
+    <div class="sheet prose">
+      <h2>Corrections</h2>
+      <div id="corrections"></div>
+    </div>
+
+    <div class="sheet prose">
       <h2>Sources and their lean</h2>
-      <p>Lean labels start from public media-bias ratings. They are listed here so you can disagree with them, and you can turn any source off in Your feed.</p>
+      <p>Every source starts with a lean label. When ratings from published media-bias services are added for a source, its label becomes their average, and the raters are listed under "Rated by". If the list has more outlets on one side than another, outlets are weighted so each side counts equally toward coverage; "Counts as" shows each outlet's weight. You can turn any source off in Your feed.</p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Source</th><th>Lean</th><th>Kind</th></tr></thead>
+          <thead><tr><th>Source</th><th>Lean</th><th>Rated by</th><th>Counts as</th><th>Kind</th></tr></thead>
           <tbody id="source-table"></tbody>
         </table>
       </div>

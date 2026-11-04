@@ -31,7 +31,10 @@ CREATE TABLE IF NOT EXISTS stories (
     topic        TEXT NOT NULL,
     region       TEXT NOT NULL,
     written_by   TEXT NOT NULL,          -- model id, 'mock', or 'fallback'
-    created_at   TEXT NOT NULL
+    created_at   TEXT NOT NULL,
+    checks       TEXT NOT NULL DEFAULT '{}',  -- JSON: fact-check method and anything dropped
+    thread_id    TEXT,                        -- same id for a story followed across days
+    day          INTEGER NOT NULL DEFAULT 1   -- which day of that thread this is
 );
 CREATE INDEX IF NOT EXISTS idx_stories_edition ON stories(edition_date);
 
@@ -57,6 +60,14 @@ class Article:
         return datetime.fromisoformat(self.published_at.replace("Z", "+00:00"))
 
 
+# Columns added after the first schema; older databases get them on connect.
+MIGRATIONS = {
+    "checks": "ALTER TABLE stories ADD COLUMN checks TEXT NOT NULL DEFAULT '{}'",
+    "thread_id": "ALTER TABLE stories ADD COLUMN thread_id TEXT",
+    "day": "ALTER TABLE stories ADD COLUMN day INTEGER NOT NULL DEFAULT 1",
+}
+
+
 @dataclass
 class Story:
     edition_date: str
@@ -68,6 +79,9 @@ class Story:
     written_by: str
     articles: list[Article] = field(default_factory=list)
     id: int | None = None
+    checks: dict = field(default_factory=dict)
+    thread_id: str | None = None
+    day: int = 1
 
 
 def now_iso() -> str:
@@ -81,6 +95,11 @@ def connect(path: Path) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
+    have = {r[1] for r in conn.execute("PRAGMA table_info(stories)")}
+    for col, sql in MIGRATIONS.items():
+        if col not in have:
+            conn.execute(sql)
+    conn.commit()
     return conn
 
 
@@ -110,10 +129,10 @@ def replace_edition(conn: sqlite3.Connection, edition_date: str, stories: list[S
         conn.execute("DELETE FROM stories WHERE edition_date = ?", (edition_date,))
         for s in stories:
             cur = conn.execute(
-                "INSERT INTO stories (edition_date, headline, bullets, whats_next, topic, region, written_by, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO stories (edition_date, headline, bullets, whats_next, topic, region, written_by, "
+                "created_at, checks, thread_id, day) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (s.edition_date, s.headline, json.dumps(s.bullets), s.whats_next, s.topic, s.region,
-                 s.written_by, now_iso()),
+                 s.written_by, now_iso(), json.dumps(s.checks), s.thread_id, s.day),
             )
             s.id = cur.lastrowid
             conn.executemany(
@@ -147,6 +166,9 @@ def load_edition(conn: sqlite3.Connection, edition_date: str) -> list[Story]:
                 region=r["region"],
                 written_by=r["written_by"],
                 articles=[_article(a) for a in arts],
+                checks=json.loads(r["checks"] or "{}"),
+                thread_id=r["thread_id"],
+                day=r["day"] or 1,
             )
         )
     return stories

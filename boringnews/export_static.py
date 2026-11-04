@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from pathlib import Path
 
 from . import config
@@ -27,7 +28,7 @@ from .topics import TOPICS
 
 
 def export(out: Path, db_path: Path, sample: bool, base_url: str, cname: str | None = None,
-           static_feed: bool = False) -> list[Path]:
+           static_feed: bool = False, archive_dir: Path | None = None) -> list[Path]:
     conn = connect(db_path)
     dates = editions(conn)
     if not dates:
@@ -39,7 +40,16 @@ def export(out: Path, db_path: Path, sample: bool, base_url: str, cname: str | N
     (out / "feeds").mkdir(exist_ok=True)
     written = []
 
-    data = page_data(dates[0], dates, stories, sources, base_url, sample=sample)
+    # Publish the edition files so anyone can download and re-check them.
+    data_url = None
+    if archive_dir and Path(archive_dir).is_dir():
+        (out / "archive").mkdir(exist_ok=True)
+        for f in sorted(Path(archive_dir).glob("*.json")):
+            shutil.copy(f, out / "archive" / f.name)
+            written.append(out / "archive" / f.name)
+        if (out / "archive" / f"{dates[0]}.json").exists():
+            data_url = f"{base_url}/archive/{dates[0]}.json"
+    data = page_data(dates[0], dates, stories, sources, base_url, sample=sample, data_url=data_url)
     (out / "index.html").write_text(render_page(data))
     (out / "edition.json").write_text(json.dumps(data, ensure_ascii=False))
     written += [out / "index.html", out / "edition.json"]
@@ -66,9 +76,11 @@ def main(argv=None):
     ap.add_argument("--sample", action="store_true", help="label the page as sample data")
     ap.add_argument("--base-url", default=config.BASE_URL)
     ap.add_argument("--cname", help="custom domain for GitHub Pages, e.g. boringnews.org")
+    ap.add_argument("--archive", default=str(config.ARCHIVE_DIR), help="folder of edition files to publish")
     ap.add_argument("--static-feed", action="store_true", help="also write a fixed feed.xml (hosts without functions)")
     args = ap.parse_args(argv)
-    for p in export(Path(args.out), Path(args.db), args.sample, args.base_url.rstrip("/"), args.cname, args.static_feed):
+    for p in export(Path(args.out), Path(args.db), args.sample, args.base_url.rstrip("/"), args.cname, args.static_feed,
+                    Path(args.archive)):
         print("wrote", p)
 
 

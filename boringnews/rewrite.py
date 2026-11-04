@@ -8,13 +8,19 @@ Three writers, tried in order:
 
 Every result goes through the linter. A model draft that fails is retried once
 with the violations named; if it still fails, the fallback is used.
+
+Then every draft is fact-checked against its sources (`check_facts`):
+  - numbers: every number in a bullet must appear in the sources
+  - model (when a key is set): a second call confirms each bullet is supported
+Unsupported bullets are dropped and logged in `Draft.checks`, which is
+published with the edition.
 """
 
 from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .db import Article
@@ -35,6 +41,7 @@ class Draft:
     topic: str
     region: str
     written_by: str
+    checks: dict = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------- linter
@@ -145,6 +152,22 @@ class ClaudeWriter:
         return None
 
 
+def _verify_with_model(writer, bullets, articles, sources) -> dict[int, dict]:
+    listing = "\n".join(f"{i}. {b}" for i, b in enumerate(bullets, 1))
+    content = build_prompt(articles, sources).rsplit("\n", 1)[0] + "\n\nStatements:\n" + listing
+    resp = writer.client.messages.create(
+        model=writer.model, max_tokens=600, system=VERIFY_PROMPT,
+        messages=[{"role": "user", "content": content}],
+    )
+    text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+    start, end = text.find("["), text.rfind("]")
+    items = json.loads(text[start : end + 1])
+    return {int(x["n"]): x for x in items}
+
+
+ClaudeWriter.verify = lambda self, bullets, articles, sources: _verify_with_model(self, bullets, articles, sources)
+
+
 class MockWriter:
     """Demo writer: returns the canned output whose match_url is in the cluster."""
 
@@ -205,6 +228,84 @@ def _to_draft(data: dict, articles: list[Article], sources: dict[str, Source], w
     )
 
 
+# ---------------------------------------------------------------- fact check
+
+NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
+MONTHS = {m: i for i, m in enumerate(
+    ["january", "february", "march", "april", "may", "june", "july", "august",
+     "september", "october", "november", "december"], 1)}
+
+
+def numbers(text: str) -> set[str]:
+    """Numbers in a text, normalized: '14,200' -> '14200', '03' -> '3'.
+    Month names count as their number, so 'November 3' matches '2026-11-03'."""
+    out = set()
+    for n in NUM_RE.findall(text):
+        n = n.replace(",", "").rstrip(".")
+        whole, _, frac = n.partition(".")
+        out.add((whole.lstrip("0") or "0") + ("." + frac if frac else ""))
+    for name, i in MONTHS.items():  # capitalized whole words only, so the verb "may" isn't May
+        if re.search(rf"\b{name.capitalize()}\b", text):
+            out.add(str(i))
+    return out
+
+
+def unsupported_numbers(text: str, source_text: str) -> set[str]:
+    return numbers(text) - numbers(source_text)
+
+
+VERIFY_PROMPT = """Below are news articles and a list of numbered statements written from them.
+For each statement, decide if the articles support it. A statement is supported only if
+every fact in it appears in at least one article; attributed claims ("X said") are
+supported if the article reports that X said it.
+
+Return ONLY a JSON array, one object per statement: {"n": <number>, "supported": true|false, "reason": "<short>"}.
+"""
+
+
+def check_facts(draft: Draft, articles: list[Article], sources: dict[str, Source], writer=None) -> Draft:
+    source_text = " ".join(a.title + " " + a.summary for a in articles)
+    dropped = []
+    kept = []
+    for b in draft.bullets:
+        bad = unsupported_numbers(b, source_text)
+        if bad:
+            dropped.append({"text": b, "reason": "numbers not in sources: " + ", ".join(sorted(bad))})
+        else:
+            kept.append(b)
+    method = "numbers"
+
+    if writer is not None and hasattr(writer, "verify") and kept:
+        try:
+            verdicts = writer.verify(kept, articles, sources)
+            method = "numbers+model"
+            still = []
+            for i, b in enumerate(kept, 1):
+                v = verdicts.get(i, {"supported": True})
+                if v.get("supported", True):
+                    still.append(b)
+                else:
+                    dropped.append({"text": b, "reason": "model: " + str(v.get("reason", "not supported"))})
+            kept = still
+        except Exception as exc:  # a failed check never blocks the edition; it is logged
+            method = f"numbers (model check failed: {exc.__class__.__name__})"
+
+    whats_next = draft.whats_next
+    if whats_next and unsupported_numbers(whats_next, source_text):
+        dropped.append({"text": whats_next, "reason": "what's next: numbers not in sources"})
+        whats_next = None
+
+    headline_ok = not unsupported_numbers(draft.headline, source_text)
+    if not headline_ok:
+        dropped.append({"text": draft.headline, "reason": "headline: numbers not in sources"})
+
+    draft.bullets = kept
+    draft.whats_next = whats_next
+    draft.checks = {"method": method, "checked": len(kept) + len(dropped), "dropped": dropped,
+                    "headline_ok": headline_ok}
+    return draft
+
+
 def write_story(articles, sources, banned, writer=None) -> Draft:
     if writer is not None:
         try:
@@ -213,5 +314,11 @@ def write_story(articles, sources, banned, writer=None) -> Draft:
             print(f"  writer error, using fallback: {exc}")
             draft = None
         if draft is not None and not lint_draft(draft, banned):
-            return draft
-    return fallback(articles, sources, banned)
+            draft = check_facts(draft, articles, sources, writer)
+            if draft.bullets and draft.checks["headline_ok"]:
+                return draft
+            reason = "every bullet failed the fact check" if not draft.bullets else "headline failed the fact check"
+            fb = check_facts(fallback(articles, sources, banned), articles, sources)
+            fb.checks["replaced_draft"] = {"reason": reason, "dropped": draft.checks["dropped"]}
+            return fb
+    return check_facts(fallback(articles, sources, banned), articles, sources)

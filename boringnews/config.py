@@ -6,6 +6,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 DB_PATH = Path(os.environ.get("BN_DB", ROOT / "data" / "boringnews.db"))
+ARCHIVE_DIR = Path(os.environ.get("BN_ARCHIVE", ROOT / "archive"))
+CORRECTIONS_PATH = ROOT / "corrections.yaml"
 SOURCES_PATH = Path(os.environ.get("BN_SOURCES", ROOT / "sources.yaml"))
 FIXTURE_SOURCES_PATH = ROOT / "fixtures" / "sources.yaml"
 FIXTURE_ARTICLES_PATH = ROOT / "fixtures" / "articles.json"
@@ -27,3 +29,7 @@ MODEL = os.environ.get("BN_MODEL", "claude-haiku-5-5")
 LOOKBACK_HOURS = int(os.environ.get("BN_LOOKBACK_HOURS", "36"))
 CLUSTER_WINDOW_HOURS = int(os.environ.get("BN_CLUSTER_WINDOW_HOURS", "48"))
 CLUSTER_SIMILARITY = float(os.environ.get("BN_CLUSTER_SIMILARITY", "0.15"))
+
+# Two stories on consecutive days are the same developing story when their
+# headlines and article titles are this similar, or when they share an article.
+THREAD_SIMILARITY = float(os.environ.get("BN_THREAD_SIMILARITY", "0.25"))

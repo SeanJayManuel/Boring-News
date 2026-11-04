@@ -32,7 +32,7 @@
       var types = OUTLET_TYPES.filter(function (t) { return outlets.some(function (s) { return s.type === t; }); });
       var parts = {
         breadth: leans.length / 3,
-        coverage: Math.min(Math.log2(1 + outlets.length) / Math.log2(1 + R.coverage_cap), 1),
+        coverage: Math.min(Math.log2(1 + outlets.reduce(function (n, s) { return n + (s.weight || 1); }, 0)) / Math.log2(1 + R.coverage_cap), 1),
         diversity: Math.min(types.length / 3, 1),
         record: hasRecord ? 1 : 0
       };

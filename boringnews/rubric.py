@@ -7,7 +7,8 @@ This file is the editorial policy in code. It is published on the
     score = 0.40 * breadth + 0.25 * coverage + 0.10 * diversity + 0.25 * record
 
 breadth   share of left / center / right that covered the story (0, 1/3, 2/3, 1)
-coverage  distinct outlets, log-scaled, capped at 10 outlets
+coverage  distinct outlets, log-scaled, capped at 10 outlets. Each outlet counts by its
+          weight, so a side with more outlets on the list can't inflate coverage.
 diversity distinct outlet types (wire, national, regional, international) / 3, capped at 1
 record    1 if an official RECORD documents it (a law, a rule, a court ruling, a vote,
           official statistics), else 0. Official STATEMENTS (press releases) never count.
@@ -18,6 +19,7 @@ because they matter whether or not anyone wrote about them.
 
 The top SPOTLIGHT stories by score are the day's spotlight.
 
+v0.4 (2026-11-04): coverage counts weighted outlets (each side counts equally).
 v0.3 (2026-11-04): only official records earn `record`; statements are listed
 but add nothing, so an administration's press releases can't lift a story.
 v0.2 (2026-11-04): added `record`, so stories backed by an official source
@@ -33,7 +35,7 @@ from typing import Iterable
 
 from .sources import Source
 
-VERSION = "0.3"
+VERSION = "0.4"
 WEIGHTS = {"breadth": 0.40, "coverage": 0.25, "diversity": 0.10, "record": 0.25}
 THRESHOLDS = {"broad": 0.30, "standard": 0.40, "strict": 0.55}
 COVERAGE_CAP = 10
@@ -72,7 +74,7 @@ def score(sources: Iterable[Source]) -> Score:
 
     parts = {
         "breadth": len(leans) / len(SPECTRUM),
-        "coverage": min(math.log2(1 + len(outlets)) / math.log2(1 + COVERAGE_CAP), 1.0),
+        "coverage": min(math.log2(1 + sum(s.weight for s in outlets)) / math.log2(1 + COVERAGE_CAP), 1.0),
         "diversity": min(len(types) / 3, 1.0),
         "record": 1.0 if has_record else 0.0,
     }

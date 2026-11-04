@@ -1,0 +1,8 @@
+# Corrections, newest first. Published on the site under How it works.
+# Add one whenever a published story was wrong, even if it was fixed quickly.
+#
+#   - date: 2026-11-05            # when the correction was made
+#     edition: 2026-11-04         # the edition that had the error
+#     story: "Headline as it was published"
+#     correction: "What was wrong, and what is right."
+corrections: []

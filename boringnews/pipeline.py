@@ -14,7 +14,7 @@ import os
 import sys
 from datetime import date, datetime, time, timedelta, timezone
 
-from . import config, rubric
+from . import archive, config, rubric, threads
 from .cluster import cluster
 from .db import Story, articles_between, connect, replace_edition, upsert_articles
 from .ingest import fetch_all, load_fixtures
@@ -84,13 +84,26 @@ def run(args) -> int:
                 region=draft.region,
                 written_by=draft.written_by,
                 articles=group,
+                checks=draft.checks,
             )
         )
-        print(f"  [{sc.total:.2f}] {draft.headline}  ({len(group)} articles, {draft.written_by})")
+        dropped = len(draft.checks.get("dropped", []))
+        note = f", {dropped} dropped by fact check" if dropped else ""
+        print(f"  [{sc.total:.2f}] {draft.headline}  ({len(group)} articles, {draft.written_by}{note})")
 
-    # 5. Store
+    # 5. Follow developing stories from the previous edition
+    linked = threads.link(conn, edition_date, stories, config.THREAD_SIMILARITY)
+    if linked:
+        print(f"{linked} stories continue from the previous edition.")
+
+    # 6. Store, and write the public edition file
     replace_edition(conn, edition_date, stories)
     print(f"Edition {edition_date}: {len(stories)} stories stored in {args.db}.")
+    archive_dir = args.archive or (None if args.fixtures else str(config.ARCHIVE_DIR))
+    if archive_dir and not args.no_archive:
+        model = getattr(writer, "model", None) or ("mock" if args.mock_llm else "none (fallback writer)")
+        path = archive.write(archive_dir, archive.build(edition_date, sources, articles, clusters, stories, model))
+        print(f"Edition file written to {path}.")
     return 0
 
 
@@ -136,6 +149,8 @@ def main(argv=None) -> int:
     r.add_argument("--mock-llm", action="store_true", help="use canned example rewrites (demo)")
     r.add_argument("--date", help="edition date, YYYY-MM-DD (default: today, UTC)")
     r.add_argument("--db", default=str(config.DB_PATH))
+    r.add_argument("--archive", help="folder for the edition file (default: archive/; none with --fixtures)")
+    r.add_argument("--no-archive", action="store_true", help="don't write the edition file")
     sub.add_parser("check-feeds", help="test every feed in sources.yaml")
     args = p.parse_args(argv)
     return run(args) if args.cmd == "run" else check_feeds(args)

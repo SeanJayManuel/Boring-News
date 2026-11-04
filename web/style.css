@@ -142,6 +142,17 @@ code { font: 400 0.88em/1 var(--code); background: var(--well); padding: 2px 5px
   background: color-mix(in srgb, var(--c-record) 12%, transparent);
   padding: 2px 8px; border-radius: 999px; margin-left: 8px; vertical-align: 1px;
 }
+.badge.day { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.sources .checks { font-size: 13.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+.sources .checks s { color: var(--muted); }
+.quick { list-style: none; margin: 0; padding: 4px 28px 22px; display: grid; gap: 10px; }
+.quick li { display: grid; gap: 2px; }
+.quick a { font-weight: 600; text-decoration: none; letter-spacing: -0.01em; }
+.quick a:hover { text-decoration: underline; }
+.quick span { font-size: 14px; color: var(--muted); }
+.corrections { list-style: none; margin: 0; padding: 0 !important; display: grid; gap: 12px !important; }
+.corrections li { display: grid; gap: 2px; }
+.corrections .when { font-size: 13.5px; color: var(--muted); }
 .badge.statement { color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); }
 .headline { font-size: 21px; line-height: 1.3; font-weight: 600; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
 .headlines-only .story { padding-block: 16px 18px; }
@@ -247,6 +258,7 @@ th { font-weight: 500; color: var(--muted); font-size: 14px; }
 #source-table td:not(:first-child) { color: var(--muted); }
 
 @media (max-width: 520px) {
+  .quick { padding-left: 20px; padding-right: 20px; }
   body { font-size: 16px; }
   .page { padding-block: 14px 64px; }
   .top { padding: 0 4px; }

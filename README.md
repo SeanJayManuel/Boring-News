@@ -133,6 +133,32 @@ links), `BN_MODEL` (default `claude-haiku-5-5`), `BN_LOOKBACK_HOURS`,
 `BN_CLUSTER_SIMILARITY` (default 0.15, tuned on the sample data; re-tune on
 real feeds), `BN_SAMPLE=1` (serve the sample source list).
 
+## Transparency features
+
+- **Balanced coverage.** Outlets are weighted so each side of the spectrum
+  counts equally toward coverage, however many outlets of each lean are on
+  the list (`weight` in `sources.py`, shown as "Counts as" on the site).
+- **Rating inputs.** A source can list ratings from several services instead
+  of a single `lean`:
+  ```yaml
+  - id: example
+    ratings: {ServiceA: lean left, ServiceB: center}   # left, lean left, center, lean right, right
+  ```
+  Its lean becomes their average, and the raters are shown on the site. Fill
+  these in from each service's current published rating.
+- **Fact check.** Every bullet is checked against its sources before
+  publishing: numbers must appear in the sources, and with an API key a second
+  model call confirms each bullet. Removed bullets are logged with the reason
+  and shown under the story.
+- **Edition files.** Each run writes `archive/YYYY-MM-DD.json`: every article
+  read, how they were grouped, every score, the fact-check log, the rubric
+  version and hashes of the editorial files. These files are the project's
+  storage (committed nightly, published at `/archive/`), and
+  `python -m boringnews.archive restore` rebuilds the database from them.
+- **Developing stories.** A story that continues from the previous edition
+  keeps its thread and shows "Day 2", "Day 3" (`boringnews/threads.py`).
+- **Corrections.** `corrections.yaml` is published under How it works.
+
 ## Free and open
 
 Boring News is free to read and free to copy: no ads, no accounts, no
