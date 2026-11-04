@@ -9,7 +9,8 @@ This file is the editorial policy in code. It is published on the
 breadth   share of left / center / right that covered the story (0, 1/3, 2/3, 1)
 coverage  distinct outlets, log-scaled, capped at 10 outlets
 diversity distinct outlet types (wire, national, regional, international) / 3, capped at 1
-record    1 if an official source (Congress, an agency, a court) documents it, else 0
+record    1 if an official RECORD documents it (a law, a rule, a court ruling, a vote,
+          official statistics), else 0. Official STATEMENTS (press releases) never count.
 
 A story makes the edition with score >= threshold AND at least two outlets.
 Official items that no outlet covered are listed too, under their topic,
@@ -17,6 +18,8 @@ because they matter whether or not anyone wrote about them.
 
 The top SPOTLIGHT stories by score are the day's spotlight.
 
+v0.3 (2026-11-04): only official records earn `record`; statements are listed
+but add nothing, so an administration's press releases can't lift a story.
 v0.2 (2026-11-04): added `record`, so stories backed by an official source
 rank higher; thresholds recalibrated for the new weights.
 v0.1 (2026-11-04): breadth 0.50, coverage 0.35, diversity 0.15.
@@ -30,7 +33,7 @@ from typing import Iterable
 
 from .sources import Source
 
-VERSION = "0.2"
+VERSION = "0.3"
 WEIGHTS = {"breadth": 0.40, "coverage": 0.25, "diversity": 0.10, "record": 0.25}
 THRESHOLDS = {"broad": 0.30, "standard": 0.40, "strict": 0.55}
 COVERAGE_CAP = 10
@@ -51,6 +54,8 @@ class Score:
     leans: list[str]
     types: list[str]
     has_primary: bool
+    has_record: bool = False
+    has_statement: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -61,13 +66,15 @@ def score(sources: Iterable[Source]) -> Score:
     outlets = [s for s in sources if s.type != "primary"]
     leans = sorted({s.lean for s in outlets if s.lean in SPECTRUM}, key=SPECTRUM.index)
     types = sorted({s.type for s in outlets if s.type in OUTLET_TYPES}, key=OUTLET_TYPES.index)
-    has_primary = any(s.type == "primary" for s in sources)
+    has_record = any(s.type == "primary" and s.role == "record" for s in sources)
+    has_statement = any(s.type == "primary" and s.role != "record" for s in sources)
+    has_primary = has_record or has_statement
 
     parts = {
         "breadth": len(leans) / len(SPECTRUM),
         "coverage": min(math.log2(1 + len(outlets)) / math.log2(1 + COVERAGE_CAP), 1.0),
         "diversity": min(len(types) / 3, 1.0),
-        "record": 1.0 if has_primary else 0.0,
+        "record": 1.0 if has_record else 0.0,
     }
     total = sum(WEIGHTS[k] * v for k, v in parts.items())
     return Score(
@@ -77,6 +84,8 @@ def score(sources: Iterable[Source]) -> Score:
         leans=leans,
         types=types,
         has_primary=has_primary,
+        has_record=has_record,
+        has_statement=has_statement,
     )
 
 
@@ -97,11 +106,15 @@ def is_candidate(sc: Score) -> bool:
 def explain(sc: Score) -> str:
     """One plain line telling the reader why the story is here."""
     if sc.outlets == 0 and sc.has_primary:
-        return "From an official source; no news coverage yet."
+        if sc.has_record:
+            return "From the official record; no news coverage yet."
+        return "An official statement; no news coverage yet."
     if not sc.leans:
         spectrum = "no rated outlets"
+    elif len(sc.leans) == 1:
+        spectrum = sc.leans[0]
     else:
-        spectrum = ", ".join(sc.leans[:-1]) + (" and " if len(sc.leans) > 1 else "") + sc.leans[-1]
-    record = " On the official record." if sc.has_primary else ""
+        spectrum = ", ".join(sc.leans[:-1]) + " and " + sc.leans[-1]
+    record = " On the official record." if sc.has_record else ""
     outlet_word = "outlet" if sc.outlets == 1 else "outlets"
     return f"{sc.outlets} {outlet_word} across {spectrum}.{record} Score {sc.total:.2f}."

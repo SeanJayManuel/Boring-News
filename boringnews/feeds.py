@@ -34,7 +34,7 @@ def render_rss(edition_date: str, selected: list[Selected], sources: dict[str, S
     items = []
     for sel in selected:
         s = sel.story
-        link = f"{base_url}/?date={edition_date}#story-{s.id}"
+        link = f"{base_url}/#story-{s.id}"
         title = s.headline if sel.lane == "main" else f"Official: {s.headline}"
         items.append(
             "<item>"

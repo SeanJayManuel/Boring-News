@@ -6,6 +6,7 @@ just a link, and the same parameters drive the web page and /feed.xml.
     exclude=ny-post,npr          drop these sources, then re-score every story
     threshold=broad|standard|strict
     official=1|0                 include official items no outlet covered
+    statements=1|0               include official statements (press releases)
     spotlight=1                  only the top 5 stories (default: the full edition)
     length=full|headlines
 
@@ -39,6 +40,7 @@ class Prefs:
     exclude: list[str] = field(default_factory=list)
     threshold: str = "standard"
     official: bool = True
+    statements: bool = True
     spotlight: bool = False
     length: str = "full"
 
@@ -52,6 +54,7 @@ class Prefs:
             exclude=_csv(q.get("exclude")),
             threshold=threshold if threshold in rubric.THRESHOLDS else "standard",
             official=(q.get("official") or "1") not in FALSE,
+            statements=(q.get("statements") or "1") not in FALSE,
             spotlight=(q.get("spotlight") or "0") not in FALSE,
             length=length if length in ("full", "headlines") else "full",
         )
@@ -69,6 +72,8 @@ class Prefs:
             q["threshold"] = self.threshold
         if not self.official:
             q["official"] = "0"
+        if not self.statements:
+            q["statements"] = "0"
         if self.spotlight:
             q["spotlight"] = "1"
         if self.length != "full":
@@ -88,12 +93,15 @@ class Selected:
 def apply(stories: list[Story], sources: dict[str, Source], prefs: Prefs) -> list[Selected]:
     """Filter, score and order an edition for one reader: highest score first."""
     out = []
+    excluded = set(prefs.exclude)
+    if not prefs.statements:
+        excluded |= {sid for sid, src in sources.items() if src.type == "primary" and src.role != "record"}
     for s in stories:
         if prefs.topics and s.topic not in prefs.topics:
             continue
         if prefs.regions and s.region not in prefs.regions:
             continue
-        kept = [a for a in s.articles if a.source_id in sources and a.source_id not in prefs.exclude]
+        kept = [a for a in s.articles if a.source_id in sources and a.source_id not in excluded]
         if not kept:
             continue
         sc = rubric.score(sources[a.source_id] for a in kept)

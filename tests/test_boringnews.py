@@ -223,3 +223,34 @@ def test_spotlight_is_top_five_covered_stories(edition_db):
 def test_official_documents_from_one_source_stay_separate():
     arts = [a for a in load_fixtures(config.FIXTURE_ARTICLES_PATH) if a.source_id == "rules-register"]
     assert len(cluster(arts, config.CLUSTER_SIMILARITY, separate=frozenset({"rules-register"}))) == 2
+
+
+# ---------------------------------------------------------------- v0.3: records vs statements
+
+def test_statements_never_add_to_score():
+    news = src("capital-wire", "northside-tribune", "liberty-daily")
+    with_statement = rubric.score(news + src("westmark-defense"))
+    assert with_statement.total == rubric.score(news).total
+    assert with_statement.has_statement and not with_statement.has_record
+
+
+def test_records_add_to_score():
+    sc = rubric.score(src("westmark-labor"))
+    assert sc.has_record and sc.record == 1.0 and sc.total == 0.25
+
+
+def test_statements_can_be_turned_off(edition_db):
+    stories = load_edition(edition_db, "2026-11-04")
+    on = apply(stories, SOURCES, Prefs())
+    off = apply(stories, SOURCES, Prefs(statements=False))
+    assert any(x.score.has_statement for x in on)
+    assert not any(x.score.has_statement for x in off)
+    assert len(on) - len(off) == 1  # the armory contract press release
+    assert Prefs.from_query({"statements": "0"}).to_query() == "statements=0"
+
+
+def test_official_sources_default_to_statement(tmp_path):
+    from boringnews.sources import load_sources
+    p = tmp_path / "s.yaml"
+    p.write_text("sources:\n  - {id: agency, name: Agency, url: x, type: primary}\n")
+    assert load_sources(p)["agency"].role == "statement"

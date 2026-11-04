@@ -4,13 +4,13 @@
   "use strict";
   var D = window.BORING_NEWS;
   var R = D.rubric;
-  var SPECTRUM = ["left", "center", "right"];
-  var OUTLET_TYPES = ["wire", "national", "regional", "international"];
   var PARTS = [
     ["breadth", "Breadth"], ["record", "Official record"], ["coverage", "Coverage"], ["diversity", "Diversity"]
   ];
-  var STORE_KEY = "boringnews.prefs.v2";
-  var DEFAULTS = { topics: [], regions: [], exclude: [], threshold: "standard", official: true, spotlight: false, length: "full" };
+  var C = window.BoringCore.create(D);
+  var SPECTRUM = window.BoringCore.SPECTRUM;
+  var DEFAULTS = C.DEFAULTS;
+  var STORE_KEY = "boringnews.prefs.v3";
   var THRESHOLD_LABELS = { broad: "Broad", standard: "Standard", strict: "Strict" };
   var THRESHOLD_HINTS = {
     broad: "Includes stories that only one side of the spectrum covered.",
@@ -19,86 +19,12 @@
   };
   var VIEWS = ["today", "all-stories", "outlets", "how-it-works", "your-feed"];
 
-  // ---------- rubric (mirror of rubric.py)
-  function score(sourceIds) {
-    var seen = {}, outlets = [], hasPrimary = false;
-    sourceIds.forEach(function (id) {
-      var s = D.sources[id];
-      if (!s || seen[id]) return;
-      seen[id] = true;
-      if (s.type === "primary") hasPrimary = true; else outlets.push(s);
-    });
-    var leans = SPECTRUM.filter(function (l) { return outlets.some(function (s) { return s.lean === l; }); });
-    var types = OUTLET_TYPES.filter(function (t) { return outlets.some(function (s) { return s.type === t; }); });
-    var parts = {
-      breadth: leans.length / 3,
-      coverage: Math.min(Math.log2(1 + outlets.length) / Math.log2(1 + R.coverage_cap), 1),
-      diversity: Math.min(types.length / 3, 1),
-      record: hasPrimary ? 1 : 0
-    };
-    var total = 0;
-    Object.keys(parts).forEach(function (k) { total += R.weights[k] * parts[k]; });
-    return { total: Math.round(total * 1000) / 1000, parts: parts, outlets: outlets.length, leans: leans, hasPrimary: hasPrimary };
-  }
-  function lane(sc, p) {
-    if (sc.outlets >= R.min_outlets && sc.total >= R.thresholds[p.threshold]) return "main";
-    if (sc.hasPrimary && p.official) return "official";
-    return null;
-  }
-  function scoreStory(s, exclude) {
-    var kept = s.articles.filter(function (a) { return D.sources[a.source_id] && exclude.indexOf(a.source_id) < 0; });
-    return { story: s, articles: kept, score: score(kept.map(function (a) { return a.source_id; })) };
-  }
-  function select(p) {
-    var shown = [], hidden = 0;
-    D.stories.forEach(function (s) {
-      if (p.topics.length && p.topics.indexOf(s.topic) < 0) { hidden++; return; }
-      if (p.regions.length && p.regions.indexOf(s.region) < 0) { hidden++; return; }
-      var x = scoreStory(s, p.exclude);
-      if (!x.articles.length) { hidden++; return; }
-      x.lane = lane(x.score, p);
-      if (!x.lane) { hidden++; return; }
-      shown.push(x);
-    });
-    shown.sort(function (a, b) { return b.score.total - a.score.total || a.story.id - b.story.id; });
-    return { shown: shown, hidden: hidden };
-  }
-  function spotlight(shown) {
-    return shown.filter(function (x) { return x.lane === "main"; }).slice(0, R.spotlight);
-  }
+  // Rubric and settings live in core.js, shared with the feed function.
+  var lane = C.lane, scoreStory = C.scoreStory, select = C.select, spotlight = C.spotlight;
+  var fromQuery = C.fromQuery, toQuery = C.toQuery;
 
-  // ---------- preferences (mirror of prefs.py)
-  function csv(v, allowed) {
-    return (v || "").split(",").map(function (x) { return x.trim(); })
-      .filter(function (x) { return x && (!allowed || allowed[x]); })
-      .filter(function (x, i, arr) { return arr.indexOf(x) === i; }).sort();
-  }
-  var FALSE = ["0", "false", "no"];
-  function fromQuery(search) {
-    var q = new URLSearchParams(search);
-    var p = JSON.parse(JSON.stringify(DEFAULTS));
-    if (q.has("topics")) p.topics = csv(q.get("topics"), D.topics);
-    if (q.has("regions")) p.regions = csv(q.get("regions"), D.regions);
-    if (q.has("exclude")) p.exclude = csv(q.get("exclude"));
-    if (R.thresholds[q.get("threshold")] !== undefined) p.threshold = q.get("threshold");
-    if (q.has("official")) p.official = FALSE.indexOf(q.get("official")) < 0;
-    if (q.has("spotlight")) p.spotlight = FALSE.indexOf(q.get("spotlight")) < 0;
-    if (q.get("length") === "headlines") p.length = "headlines";
-    return p;
-  }
-  function toQuery(p) {
-    var parts = [];
-    if (p.topics.length) parts.push("topics=" + p.topics.join(","));
-    if (p.regions.length) parts.push("regions=" + p.regions.join(","));
-    if (p.exclude.length) parts.push("exclude=" + p.exclude.join(","));
-    if (p.threshold !== "standard") parts.push("threshold=" + p.threshold);
-    if (!p.official) parts.push("official=0");
-    if (p.spotlight) parts.push("spotlight=1");
-    if (p.length !== "full") parts.push("length=" + p.length);
-    return parts.join("&");
-  }
   function loadPrefs() {
-    if (/[?&](topics|regions|exclude|threshold|official|spotlight|length)=/.test(location.search)) return fromQuery(location.search);
+    if (/[?&](topics|regions|exclude|threshold|official|statements|spotlight|length)=/.test(location.search)) return fromQuery(location.search);
     try {
       var saved = localStorage.getItem(STORE_KEY);
       if (saved !== null) return fromQuery("?" + saved);
@@ -154,7 +80,8 @@
   function storyNode(item, headlinesOnly) {
     var s = item.story, sc = item.score;
     var topicLine = el("p", { className: "topic" }, [el("span", { className: "topic-name", text: D.topics[s.topic] || s.topic })]);
-    if (sc.hasPrimary) topicLine.appendChild(el("span", { className: "badge", text: "On the record" }));
+    if (sc.hasRecord) topicLine.appendChild(el("span", { className: "badge", text: "On the record" }));
+    else if (sc.hasStatement) topicLine.appendChild(el("span", { className: "badge statement", text: "Official statement" }));
     var node = el("article", { className: "story", id: "story-" + s.id }, [topicLine, el("h3", { className: "headline", text: s.headline })]);
     if (headlinesOnly) return node;
 
@@ -173,7 +100,8 @@
 
     var list = el("ul", { className: "sources", hidden: "" }, item.articles.map(function (a) {
       var src = D.sources[a.source_id];
-      var who = src.type === "primary" ? src.name + ", official record" : src.name + ", " + src.lean;
+      var who = src.type !== "primary" ? src.name + ", " + src.lean
+        : src.name + (src.role === "record" ? ", official record" : ", official statement (not counted in the score)");
       return el("li", {}, [el("span", { className: "who", text: who }),
         el("a", { href: a.url, target: "_blank", rel: "noopener", text: a.title })]);
     }));
@@ -247,7 +175,7 @@
       return groups[b][0].score.total - groups[a][0].score.total || topicOrder().indexOf(a) - topicOrder().indexOf(b);
     });
 
-    var official = res.shown.filter(function (x) { return x.score.hasPrimary; }).length;
+    var official = res.shown.filter(function (x) { return x.score.hasRecord; }).length;
     $("all-summary").textContent = res.shown.length
       ? plural(res.shown.length, "story", "stories") + " in " + plural(order.length, "topic", "topics") +
         ", highest score first in each. " + official + " are on the official record."
@@ -340,7 +268,7 @@
 
     var thr = R.thresholds[prefs.threshold];
     $("chart-threshold").textContent = THRESHOLD_LABELS[prefs.threshold].toLowerCase() + " (" + thr.toFixed(2) + ")";
-    var rows = D.stories.map(function (s) { return scoreStory(s, prefs.exclude); })
+    var rows = D.stories.map(function (s) { return scoreStory(s, C.excluded(prefs)); })
       .filter(function (x) { return x.articles.length; })
       .sort(function (a, b) { return b.score.total - a.score.total; });
     var chart = $("score-chart");
@@ -368,7 +296,7 @@
       var s = D.sources[id];
       tb.appendChild(el("tr", {}, [el("td", { text: s.name }),
         el("td", { text: s.type === "primary" ? "Not rated" : cap(s.lean) }),
-        el("td", { text: s.type === "primary" ? "Official" : cap(s.type) })]));
+        el("td", { text: s.type !== "primary" ? cap(s.type) : (s.role === "record" ? "Official record" : "Official statement") })]));
     });
     $("rubric-version").textContent = "Selection rubric version " + R.version + ". Edition of " + longDate(D.edition) + ".";
   }
@@ -395,6 +323,9 @@
     var off = $("official");
     off.checked = prefs.official;
     off.onchange = function () { prefs.official = off.checked; update(); };
+    var st = $("statements");
+    st.checked = prefs.statements;
+    st.onchange = function () { prefs.statements = st.checked; update(); };
     var ho = $("headlines-only");
     ho.checked = prefs.length === "headlines";
     ho.onchange = function () { prefs.length = ho.checked ? "headlines" : "full"; update(); };
@@ -408,7 +339,8 @@
      ["Center", function (s) { return s.lean === "center"; }],
      ["Right", function (s) { return s.lean === "right"; }],
      ["Unrated", function (s) { return s.lean === "unrated" && s.type !== "primary"; }],
-     ["Official", function (s) { return s.type === "primary"; }]].forEach(function (b) {
+     ["Official records", function (s) { return s.type === "primary" && s.role === "record"; }],
+     ["Official statements", function (s) { return s.type === "primary" && s.role !== "record"; }]].forEach(function (b) {
       var ids = Object.keys(D.sources).filter(function (id) { return b[1](D.sources[id]); })
         .sort(function (x, y) { return D.sources[x].name.localeCompare(D.sources[y].name); });
       if (!ids.length) return;
@@ -430,6 +362,7 @@
       ["exclude=" + any, "Leave out these sources by their id, then score every story again. Ids are listed in sources.yaml."],
       ["threshold=strict", "How much agreement a story needs: broad, standard (default) or strict."],
       ["official=0", "Leave out official items that no outlet has covered yet."],
+      ["statements=0", "Leave out official statements, such as White House and agency press releases. Records still count."],
       ["spotlight=1", "Only the top " + R.spotlight + " stories each day."],
       ["length=headlines", "Headlines without the bullet points."]
     ];
@@ -456,6 +389,7 @@
     if (prefs.regions.length) bits.push(prefs.regions.map(function (r) { return D.regions[r]; }).join(", "));
     if (prefs.exclude.length) bits.push(plural(prefs.exclude.length, "source", "sources") + " off");
     if (!prefs.official) bits.push("no uncovered official items");
+    if (!prefs.statements) bits.push("no official statements");
     if (prefs.length === "headlines") bits.push("headlines only");
     $("settings-summary").textContent = "Now: " + bits.join(", ") + ".";
     $("threshold-hint").textContent = THRESHOLD_HINTS[prefs.threshold];

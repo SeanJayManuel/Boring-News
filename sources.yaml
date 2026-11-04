@@ -75,10 +75,12 @@ sources:
     type: international
 
   # ---- official sources, straight from the government ----
-  # These feed the "Official sources" section. They count toward a story's
-  # sources when news outlets covered the same event, but never toward its
-  # spectrum score. `max_items` caps how many uncovered items each one adds
-  # per edition, newest first.
+  # role: record     legal or statistical standing (laws, rules, rulings, votes,
+  #                   official statistics). Adds the 25% `record` part of the score.
+  # role: statement  an institution describing its own work (press releases).
+  #                   Listed, labeled "Official statement", never adds to the score.
+  # Official sources never count toward a story's spectrum score. `max_items`
+  # caps how many uncovered items each one adds per edition, newest first.
 
   - id: congress
     name: Congress.gov
@@ -86,6 +88,7 @@ sources:
     fetcher: congress          # needs CONGRESS_API_KEY; keeps passed / signed / vetoed bills only
     lean: unrated
     type: primary
+    role: record
     topic: congress
     max_items: 6
 
@@ -94,6 +97,7 @@ sources:
     url: https://www.govinfo.gov/rss/plaw.xml
     lean: unrated
     type: primary
+    role: record
     topic: congress
     max_items: 5
 
@@ -102,6 +106,7 @@ sources:
     url: https://www.whitehouse.gov/presidential-actions/feed/
     lean: unrated
     type: primary
+    role: statement
     topic: politics
     max_items: 4
 
@@ -114,14 +119,28 @@ sources:
       significant: true
     lean: unrated
     type: primary
+    role: record
     topic: regulation
     max_items: 5
+
+  - id: federal-register-presidential
+    name: Federal Register (presidential documents)
+    url: https://www.federalregister.gov/api/v1/documents.json
+    fetcher: federal_register  # executive orders and proclamations as legally published
+    params:
+      types: [PRESDOCU]
+    lean: unrated
+    type: primary
+    role: record
+    topic: politics
+    max_items: 4
 
   - id: war-department-releases
     name: Department of War (news releases)
     url: https://www.war.gov/news/rss_releases2.xml
     lean: unrated
     type: primary
+    role: statement
     topic: defense
     max_items: 4
 

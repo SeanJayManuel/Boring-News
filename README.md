@@ -36,24 +36,54 @@ uvicorn boringnews.web:app
 
 ## Official sources
 
-These come straight from the government. When news outlets cover the same
-event, the official item joins that story and adds the `record` part of the
-score (25%), so stories on the official record rank higher. Official items no
-outlet has covered yet are still listed under their topic, marked "On the
-record".
+These come straight from the government, in two roles:
 
-| Source | How | Key |
-| --- | --- | --- |
-| Congress.gov | API; keeps only bills that passed a chamber, went to the President, were signed or vetoed | `CONGRESS_API_KEY` |
-| GovInfo public laws | RSS | none |
-| White House presidential actions | RSS | none |
-| Federal Register significant rules | API | none |
-| Department of War news releases | RSS (check-feeds flags it if it goes stale) | none |
+- **Records** have legal or statistical standing: laws, rules, court rulings,
+  votes, official statistics. When news outlets cover the same event, a record
+  adds the `record` part of the score (25%), so stories on the record rank higher.
+- **Statements** are an institution describing its own work, like a press
+  release. They are listed and labeled "Official statement" but never add to
+  the score, so no administration's messaging can lift a story. Readers can
+  hide them with `statements=0`.
+
+Every official source must say `role: record` to earn the boost; anything
+without a role is treated as a statement.
+
+| Source | Role | How | Key |
+| --- | --- | --- | --- |
+| Congress.gov | record | API; only bills that passed a chamber, went to the President, were signed or vetoed | `CONGRESS_API_KEY` |
+| GovInfo public laws | record | RSS | none |
+| Federal Register significant rules | record | API | none |
+| Federal Register presidential documents | record | API (executive orders as legally published) | none |
+| White House presidential actions | statement | RSS | none |
+| Department of War news releases | statement | RSS (check-feeds flags it if it goes stale) | none |
 
 Each has a `max_items` cap in `sources.yaml` so busy days don't flood the
 edition. GovInfo publishes about 250 more official feeds (Congressional
 Record, GAO reports, federal court opinions); any of them can be added as a
-`type: primary` RSS source. The Supreme Court does not publish an RSS feed.
+`type: primary` source. The Supreme Court does not publish an RSS feed.
+
+## Hosting (boringnews.org)
+
+The site is static files plus one Cloudflare Pages function,
+`functions/feed.xml.js`, which builds each custom feed on request from
+`edition.json` using the same rubric code as the page (`web/core.js`).
+GitHub Pages can't run functions, so custom feed addresses would silently
+return the default feed there.
+
+One-time setup:
+
+1. Create a free Cloudflare account and a Pages project named `boring-news`
+   (Workers & Pages → Create → Pages → Direct upload; the workflow uploads to it).
+2. Add `boringnews.org` as a custom domain on that project. If the domain is
+   registered elsewhere, point its nameservers to Cloudflare first.
+3. In the GitHub repo, add these secrets: `ANTHROPIC_API_KEY`, `CONGRESS_API_KEY`,
+   `CLOUDFLARE_API_TOKEN` (a token with "Cloudflare Pages: Edit") and
+   `CLOUDFLARE_ACCOUNT_ID`.
+
+The nightly workflow then builds the edition, exports the site and deploys it.
+To host somewhere without functions, export with `--static-feed` to get a
+fixed default `feed.xml`.
 
 Run `pipeline run` once a day (cron, or the GitHub Actions workflow in
 `.github/workflows/nightly.yml`). Re-running for the same date replaces that
@@ -90,6 +120,7 @@ sources.yaml ──► ingest (RSS) ──► SQLite ──► cluster (TF-IDF) 
 | `exclude` | comma list of source ids | none |
 | `threshold` | broad (0.30), standard (0.40), strict (0.55) | standard |
 | `official` | 1 or 0: include official items no outlet has covered yet | 1 |
+| `statements` | 1 or 0: include official statements (press releases) | 1 |
 | `spotlight` | 1: only the top 5 stories | 0 |
 | `length` | full or headlines | full |
 

@@ -65,12 +65,13 @@ def feed(
     exclude: str | None = None,
     threshold: str = "standard",
     official: str = "1",
+    statements: str = "1",
     spotlight: str = "0",
     length: str = "full",
 ):
     prefs = Prefs.from_query({
         "topics": topics, "regions": regions, "exclude": exclude,
-        "threshold": threshold, "official": official, "spotlight": spotlight, "length": length,
+        "threshold": threshold, "official": official, "statements": statements, "spotlight": spotlight, "length": length,
     })
     d, _, stories = _edition(date)
     sources = _sources()

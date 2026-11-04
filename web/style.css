@@ -134,6 +134,7 @@ code { font: 400 0.88em/1 var(--code); background: var(--well); padding: 2px 5px
 /* ---------- Stories */
 .story { padding: 24px 28px 26px; scroll-margin-top: 16px; }
 #all .topic-name { display: none; }
+#all .badge { margin-left: 0; }
 .story + .story { border-top: 1px solid var(--line); }
 .topic { font-size: 14px; font-weight: 500; color: var(--muted); margin: 0 0 6px; }
 .badge {
@@ -141,6 +142,7 @@ code { font: 400 0.88em/1 var(--code); background: var(--well); padding: 2px 5px
   background: color-mix(in srgb, var(--c-record) 12%, transparent);
   padding: 2px 8px; border-radius: 999px; margin-left: 8px; vertical-align: 1px;
 }
+.badge.statement { color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); }
 .headline { font-size: 21px; line-height: 1.3; font-weight: 600; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
 .headlines-only .story { padding-block: 16px 18px; }
 .headlines-only .headline { font-size: 18px; }

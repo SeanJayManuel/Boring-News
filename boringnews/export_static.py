@@ -1,15 +1,20 @@
-"""Export the latest edition as a static site (no server needed).
+"""Export the latest edition as a static site.
 
     python -m boringnews.export_static --out site
 
-Writes index.html (customization works in the browser), feed.xml (default
-settings) and one feed per topic under feeds/. Fully custom feed URLs need
-the server (boringnews.web) or a small serverless function.
+Writes index.html (settings work in the browser), edition.json (the data),
+and one ready-made feed per topic under feeds/.
+
+Custom feed addresses (/feed.xml?topics=...) are built on request by the
+Cloudflare Pages function in functions/feed.xml.js, which reads edition.json.
+Pass --static-feed to also write a fixed feed.xml for hosts without functions
+(GitHub Pages, any plain file host); that file ignores feed settings.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from . import config
@@ -21,7 +26,8 @@ from .sources import load_sources
 from .topics import TOPICS
 
 
-def export(out: Path, db_path: Path, sample: bool, base_url: str, cname: str | None = None) -> list[Path]:
+def export(out: Path, db_path: Path, sample: bool, base_url: str, cname: str | None = None,
+           static_feed: bool = False) -> list[Path]:
     conn = connect(db_path)
     dates = editions(conn)
     if not dates:
@@ -33,13 +39,15 @@ def export(out: Path, db_path: Path, sample: bool, base_url: str, cname: str | N
     (out / "feeds").mkdir(exist_ok=True)
     written = []
 
-    page = render_page(page_data(dates[0], dates, stories, sources, base_url, sample=sample))
-    (out / "index.html").write_text(page)
-    written.append(out / "index.html")
+    data = page_data(dates[0], dates, stories, sources, base_url, sample=sample)
+    (out / "index.html").write_text(render_page(data))
+    (out / "edition.json").write_text(json.dumps(data, ensure_ascii=False))
+    written += [out / "index.html", out / "edition.json"]
 
-    default = Prefs()
-    (out / "feed.xml").write_text(render_rss(dates[0], apply(stories, sources, default), sources, default, base_url))
-    written.append(out / "feed.xml")
+    if static_feed:
+        default = Prefs()
+        (out / "feed.xml").write_text(render_rss(dates[0], apply(stories, sources, default), sources, default, base_url))
+        written.append(out / "feed.xml")
     if cname:  # GitHub Pages custom domain
         (out / "CNAME").write_text(cname.strip() + "\n")
         written.append(out / "CNAME")
@@ -58,8 +66,9 @@ def main(argv=None):
     ap.add_argument("--sample", action="store_true", help="label the page as sample data")
     ap.add_argument("--base-url", default=config.BASE_URL)
     ap.add_argument("--cname", help="custom domain for GitHub Pages, e.g. boringnews.org")
+    ap.add_argument("--static-feed", action="store_true", help="also write a fixed feed.xml (hosts without functions)")
     args = ap.parse_args(argv)
-    for p in export(Path(args.out), Path(args.db), args.sample, args.base_url.rstrip("/"), args.cname):
+    for p in export(Path(args.out), Path(args.db), args.sample, args.base_url.rstrip("/"), args.cname, args.static_feed):
         print("wrote", p)
 
 
