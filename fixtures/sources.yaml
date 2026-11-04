@@ -1,0 +1,15 @@
+# Invented outlets for the demo edition. Not real publications.
+sources:
+  - {id: northside-tribune, name: Northside Tribune, url: fixture, lean: left, type: national}
+  - {id: metro-ledger, name: Metro Ledger, url: fixture, lean: left, type: national}
+  - {id: bay-chronicle, name: Bay Chronicle, url: fixture, lean: left, type: regional}
+  - {id: capital-wire, name: Capital Wire, url: fixture, lean: center, type: wire}
+  - {id: national-courier, name: National Courier, url: fixture, lean: center, type: national}
+  - {id: global-report, name: Global Report, url: fixture, lean: center, type: international}
+  - {id: heartland-post, name: Heartland Post, url: fixture, lean: right, type: national}
+  - {id: liberty-daily, name: Liberty Daily, url: fixture, lean: right, type: national}
+  - {id: prairie-gazette, name: Prairie Gazette, url: fixture, lean: right, type: regional}
+  - {id: westmark-legislature, name: Westmark Legislature, url: fixture, lean: unrated, type: primary, topic: congress}
+  - {id: rules-register, name: Westmark Rules Register, url: fixture, lean: unrated, type: primary, topic: regulation}
+  - {id: westmark-courts, name: Westmark Court Opinions, url: fixture, lean: unrated, type: primary, topic: courts}
+  - {id: westmark-defense, name: Westmark Department of Defense, url: fixture, lean: unrated, type: primary, topic: defense}

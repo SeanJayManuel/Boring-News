@@ -1,0 +1,37 @@
+# One term per line. Matched case-insensitively as whole words/phrases in
+# headlines and bullets (text inside double quotes is ignored).
+# Add any word a graded edition lets through.
+historic
+landmark
+shocking
+stunning
+bombshell
+controversial
+radical
+extreme
+extremist
+far-left
+far-right
+chaos
+chaotic
+slammed
+slams
+blasted
+blasts
+rips
+admitted
+claimed
+touted
+ram through
+rammed through
+grab
+crisis
+disaster
+devastating
+outrage
+outraged
+furious
+war on
+destroys
+epic
+massive

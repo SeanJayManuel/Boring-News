@@ -1,0 +1,113 @@
+<title>Boring News</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="The day's news, once a day.">
+<link rel="alternate" type="application/rss+xml" title="Boring News" href="/feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+<script>
+  // Light by default. Dark only if the reader chose it here, or the host app asks for it.
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem("boringnews.theme"); } catch (e) {}
+    if (!t && document.documentElement.getAttribute("data-theme") === "dark") t = "dark";
+    if (t === "dark") document.documentElement.classList.add("bn-dark");
+  })();
+</script>
+<style>
+/*__CSS__*/
+</style>
+
+<div class="page">
+  <header class="top">
+    <div class="bar">
+      <span class="name">Boring News</span>
+      <nav class="links" aria-label="Page">
+        <a href="#settings" id="open-settings">Settings</a>
+        <a href="#subscribe">RSS</a>
+        <button type="button" class="theme" id="theme-toggle" aria-pressed="false">Dark</button>
+      </nav>
+    </div>
+    <p class="date" id="dateline"></p>
+    <h1 class="lede" id="lede"></h1>
+    <p class="sublede" id="sublede"></p>
+    <p class="note" id="sample-note" hidden>This is a sample edition. Every outlet, place and story in it is invented.</p>
+  </header>
+
+  <details class="sheet settings" id="settings">
+    <summary>
+      <span class="settings-name">Settings</span>
+      <span class="settings-summary" id="settings-summary"></span>
+      <span class="settings-action" aria-hidden="true"></span>
+    </summary>
+    <div class="settings-body">
+      <fieldset>
+        <legend>How much agreement a story needs</legend>
+        <div class="options" id="threshold"></div>
+        <p class="hint" id="threshold-hint"></p>
+      </fieldset>
+      <fieldset>
+        <legend>Topics</legend>
+        <div class="options grid" id="topics"></div>
+        <p class="hint">Leave all unchecked to see every topic.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Regions</legend>
+        <div class="options" id="regions"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Show</legend>
+        <div class="options">
+          <label for="underreported"><input type="checkbox" id="underreported"> Official sources</label>
+          <label for="headlines-only"><input type="checkbox" id="headlines-only"> Headlines only</label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Outlets</legend>
+        <p class="hint">Uncheck an outlet to leave it out. Every story is scored again without it.</p>
+        <div class="outlets" id="sources"></div>
+      </fieldset>
+      <div class="settings-foot">
+        <button type="button" id="reset">Reset to defaults</button>
+        <button type="button" class="primary" id="close-settings">Done</button>
+      </div>
+    </div>
+  </details>
+
+  <main id="edition" aria-live="polite"></main>
+
+  <footer class="desk">
+    <section id="subscribe" aria-labelledby="subscribe-h">
+      <h2 id="subscribe-h">Get it by RSS</h2>
+      <p>Add this address to any feed reader. It keeps your settings.</p>
+      <div class="feed">
+        <input id="feed-url" type="text" readonly aria-label="Feed address">
+        <button type="button" id="copy-feed">Copy</button>
+      </div>
+      <p class="hint" id="copy-status" role="status"></p>
+    </section>
+
+    <section id="how" aria-labelledby="how-h">
+      <h2 id="how-h">How we choose</h2>
+      <p>No one picks the stories by hand. A story makes the edition when outlets across the political spectrum covered it, and each one gets a score:</p>
+      <div class="formula" id="formula"></div>
+      <p><b>Breadth</b> is the share of left, center and right outlets that covered it. <b>Coverage</b> counts outlets on a log scale that stops at <span id="cap"></span>. <b>Diversity</b> counts kinds of outlet: wire, national, regional and international. A story also needs at least <span id="min-outlets"></span> outlets.</p>
+      <p>Official sources, such as Congress, the Federal Register and agency releases, are listed separately whether or not the news covered them.</p>
+      <p>Summaries are written from the outlets' reporting. A fact is stated plainly only when at least two outlets agree on it. Otherwise it is attributed.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Source</th><th>Lean</th><th>Kind</th></tr></thead>
+          <tbody id="source-table"></tbody>
+        </table>
+      </div>
+      <p class="hint" id="rubric-version"></p>
+    </section>
+  </footer>
+</div>
+
+<script>
+window.BORING_NEWS = "__DATA__";
+</script>
+<script>
+/*__APP__*/
+</script>

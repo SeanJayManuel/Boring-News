@@ -1,0 +1,133 @@
+# Boring News source list (v0.1)
+#
+# lean:  left | center | right | unrated   (unrated outlets count toward coverage, not breadth)
+# type:  wire | national | regional | international | primary
+#
+# Lean labels are starting assumptions based on public media-bias ratings
+# (e.g. AllSides, Ad Fontes). They are editable on purpose and are published
+# on the "How we choose" page. Review quarterly.
+#
+# Feed URLs are unverified until `python -m boringnews.pipeline check-feeds`
+# reports them healthy. Reuters and AP do not offer public RSS feeds.
+
+sources:
+  # ---- left ----
+  - id: npr
+    name: NPR
+    url: https://feeds.npr.org/1001/rss.xml
+    lean: left
+    type: national
+  - id: nyt-us
+    name: The New York Times (U.S.)
+    url: https://rss.nytimes.com/services/xml/rss/nyt/US.xml
+    lean: left
+    type: national
+  - id: guardian-us
+    name: The Guardian (U.S.)
+    url: https://www.theguardian.com/us-news/rss
+    lean: left
+    type: national
+  - id: cbs
+    name: CBS News
+    url: https://www.cbsnews.com/latest/rss/main
+    lean: left
+    type: national
+
+  # ---- center ----
+  - id: the-hill
+    name: The Hill
+    url: https://thehill.com/news/feed/
+    lean: center
+    type: national
+  - id: bbc-world
+    name: BBC News (World)
+    url: https://feeds.bbci.co.uk/news/world/rss.xml
+    lean: center
+    type: international
+  - id: wsj-world
+    name: The Wall Street Journal (World)
+    url: https://feeds.a.dj.com/rss/RSSWorldNews.xml
+    lean: center
+    type: national
+
+  # ---- right ----
+  - id: fox-politics
+    name: Fox News (Politics)
+    url: https://moxie.foxnews.com/google-publisher/politics.xml
+    lean: right
+    type: national
+  - id: ny-post
+    name: New York Post
+    url: https://nypost.com/feed/
+    lean: right
+    type: national
+  - id: washington-times
+    name: The Washington Times
+    url: https://www.washingtontimes.com/rss/headlines/news/politics/
+    lean: right
+    type: national
+
+  # ---- unrated / international ----
+  - id: al-jazeera
+    name: Al Jazeera English
+    url: https://www.aljazeera.com/xml/rss/all.xml
+    lean: unrated
+    type: international
+
+  # ---- official sources, straight from the government ----
+  # These feed the "Official sources" section. They count toward a story's
+  # sources when news outlets covered the same event, but never toward its
+  # spectrum score. `max_items` caps how many uncovered items each one adds
+  # per edition, newest first.
+
+  - id: congress
+    name: Congress.gov
+    url: https://api.congress.gov/v3/bill
+    fetcher: congress          # needs CONGRESS_API_KEY; keeps passed / signed / vetoed bills only
+    lean: unrated
+    type: primary
+    topic: congress
+    max_items: 6
+
+  - id: public-laws
+    name: GovInfo (new public laws)
+    url: https://www.govinfo.gov/rss/plaw.xml
+    lean: unrated
+    type: primary
+    topic: congress
+    max_items: 5
+
+  - id: white-house-actions
+    name: White House (presidential actions)
+    url: https://www.whitehouse.gov/presidential-actions/feed/
+    lean: unrated
+    type: primary
+    topic: politics
+    max_items: 4
+
+  - id: federal-register-rules
+    name: Federal Register (significant rules)
+    url: https://www.federalregister.gov/api/v1/documents.json
+    fetcher: federal_register  # no key needed
+    params:
+      types: [RULE]
+      significant: true
+    lean: unrated
+    type: primary
+    topic: regulation
+    max_items: 5
+
+  - id: war-department-releases
+    name: Department of War (news releases)
+    url: https://www.war.gov/news/rss_releases2.xml
+    lean: unrated
+    type: primary
+    topic: defense
+    max_items: 4
+
+  # More official feeds worth adding (all RSS, no key):
+  #   https://www.govinfo.gov/rss/crec.xml        Congressional Record
+  #   https://www.govinfo.gov/rss/bills-enr.xml   Enrolled bills (passed both chambers)
+  #   https://www.govinfo.gov/rss/gaoreports.xml  GAO reports
+  #   https://www.govinfo.gov/rss/uscourts-cadc.xml  D.C. Circuit opinions (one feed per court)
+  # Full list: https://www.govinfo.gov/feeds
