@@ -138,3 +138,35 @@ def test_developing_story_continues_across_days(tmp_path):
     assert threads.link(conn, "2026-11-05", [follow_up, unrelated], config.THREAD_SIMILARITY) == 1
     assert follow_up.day == 2 and follow_up.thread_id == voter.thread_id
     assert unrelated.day == 1 and unrelated.thread_id == "2026-11-05-2"
+
+
+# ---------------------------------------------------------------- market ticker
+
+from boringnews import markets
+
+
+def test_fred_parsing_skips_missing_days():
+    data = {"observations": [{"date": "2026-11-03", "value": "6812.40"}, {"date": "2026-11-02", "value": "."},
+                             {"date": "2026-10-31", "value": "6783.91"}]}
+    assert markets.parse_fred(data) == [("2026-11-03", 6812.40), ("2026-10-31", 6783.91)]
+
+
+def test_ticker_changes_percent_and_points():
+    idx = markets.summarize({"id": "SP500", "label": "S&P 500", "kind": "index"}, [("d2", 110.0), ("d1", 100.0)])
+    rate = markets.summarize({"id": "DGS10", "label": "10-yr", "kind": "rate"}, [("d2", 4.08), ("d1", 4.11)])
+    assert idx["change"] == 10.0 and rate["change"] == -0.03
+    assert idx["source_url"] == "https://fred.stlouisfed.org/series/SP500"
+
+
+def test_ticker_without_key_is_skipped_not_fatal(monkeypatch):
+    monkeypatch.delenv("FRED_API_KEY", raising=False)
+    items, problems = markets.fetch(markets.load_series())
+    assert items == [] and "FRED_API_KEY" in problems[0]
+
+
+def test_demo_edition_has_ticker(tmp_path):
+    from boringnews.db import load_extra
+    db = tmp_path / "t.db"
+    pipeline_main(["run", "--fixtures", "--mock-llm", "--date", "2026-11-04", "--db", str(db)])
+    ticker = load_extra(connect(db), "2026-11-04", "markets")
+    assert len(ticker) == len(markets.load_series()) and ticker[0]["label"] == "S&P 500"

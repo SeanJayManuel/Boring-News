@@ -28,6 +28,7 @@ can see the target style. Leave it off to see the no-model fallback writer.
 
 ```bash
 export CONGRESS_API_KEY=...                        # free: https://api.congress.gov/sign-up/
+export FRED_API_KEY=...                            # free: https://fred.stlouisfed.org/docs/api/api_key.html
 export ANTHROPIC_API_KEY=...                       # optional; without it, the fallback writer is used
 python -m boringnews.pipeline check-feeds          # which sources work, and which look stale
 python -m boringnews.pipeline run                  # today's edition, UTC
@@ -79,7 +80,7 @@ One-time setup:
    registered elsewhere, point its nameservers to Cloudflare first.
 3. In the GitHub repo, add these secrets: `ANTHROPIC_API_KEY`, `CONGRESS_API_KEY`,
    `CLOUDFLARE_API_TOKEN` (a token with "Cloudflare Pages: Edit") and
-   `CLOUDFLARE_ACCOUNT_ID`.
+   `CLOUDFLARE_ACCOUNT_ID`, plus `FRED_API_KEY` for the market ticker.
 
 The nightly workflow then builds the edition, exports the site and deploys it.
 To host somewhere without functions, export with `--static-feed` to get a
@@ -132,6 +133,18 @@ Environment variables: `BN_DB`, `BN_SOURCES`, `BN_BASE_URL` (used in feed
 links), `BN_MODEL` (default `claude-haiku-5-5`), `BN_LOOKBACK_HOURS`,
 `BN_CLUSTER_SIMILARITY` (default 0.15, tuned on the sample data; re-tune on
 real feeds), `BN_SAMPLE=1` (serve the sample source list).
+
+## Market ticker
+
+The strip at the top of the page shows the previous trading day's closes
+(stock indexes, Treasury yields, oil, currencies) from FRED, the St. Louis
+Fed's data service. Edit `markets.yaml` to change the list. It updates once a
+day with the edition; if FRED can't be reached the ticker is hidden and the
+edition still publishes.
+
+Before launch, check each series' notes on FRED: the S&P 500 and Dow series
+are copyrighted by S&P Dow Jones Indices and FRED says reproducing them needs
+the owner's permission. Remove any series you can't use.
 
 ## Transparency features
 

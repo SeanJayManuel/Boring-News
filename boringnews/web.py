@@ -17,7 +17,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from . import config
-from .db import connect, editions, load_edition
+from .db import connect, editions, load_edition, load_extra
 from .feeds import render_rss
 from .prefs import Prefs, apply
 from .render import page_data, render_page
@@ -40,21 +40,21 @@ def _edition(date: str | None):
         d = date or all_dates[0]
         if d not in all_dates:
             raise HTTPException(404, f"No edition for {d}")
-        return d, all_dates, load_edition(conn, d)
+        return d, all_dates, load_edition(conn, d), load_extra(conn, d, "markets", [])
     finally:
         conn.close()
 
 
 @app.get("/", response_class=HTMLResponse)
 def index(date: str | None = Query(None)):
-    d, all_dates, stories = _edition(date)
-    return render_page(page_data(d, all_dates, stories, _sources(), config.BASE_URL, sample=SAMPLE))
+    d, all_dates, stories, ticker = _edition(date)
+    return render_page(page_data(d, all_dates, stories, _sources(), config.BASE_URL, sample=SAMPLE, markets=ticker))
 
 
 @app.get("/api/edition.json")
 def edition_json(date: str | None = Query(None)):
-    d, all_dates, stories = _edition(date)
-    return JSONResponse(page_data(d, all_dates, stories, _sources(), config.BASE_URL, sample=SAMPLE))
+    d, all_dates, stories, ticker = _edition(date)
+    return JSONResponse(page_data(d, all_dates, stories, _sources(), config.BASE_URL, sample=SAMPLE, markets=ticker))
 
 
 @app.get("/feed.xml")
@@ -73,7 +73,7 @@ def feed(
         "topics": topics, "regions": regions, "exclude": exclude,
         "threshold": threshold, "official": official, "statements": statements, "spotlight": spotlight, "length": length,
     })
-    d, _, stories = _edition(date)
+    d, _, stories, _ = _edition(date)
     sources = _sources()
     xml = render_rss(d, apply(stories, sources, prefs), sources, prefs, config.BASE_URL)
     return Response(xml, media_type="application/rss+xml; charset=utf-8",

@@ -25,7 +25,7 @@ def load_corrections() -> list[dict]:
 
 def page_data(edition_date: str, editions: list[str], stories: list[Story],
               sources: dict[str, Source], base_url: str, sample: bool = False,
-              data_url: str | None = None) -> dict:
+              data_url: str | None = None, markets: list[dict] | None = None) -> dict:
     return {
         "edition": edition_date,
         "editions": editions,
@@ -34,6 +34,7 @@ def page_data(edition_date: str, editions: list[str], stories: list[Story],
         "repo_url": config.REPO_URL,
         "data_url": data_url,
         "corrections": load_corrections(),
+        "markets": markets or [],
         "rubric": {
             "version": rubric.VERSION,
             "weights": rubric.WEIGHTS,

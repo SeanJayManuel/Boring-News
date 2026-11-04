@@ -38,6 +38,14 @@ CREATE TABLE IF NOT EXISTS stories (
 );
 CREATE INDEX IF NOT EXISTS idx_stories_edition ON stories(edition_date);
 
+-- Other per-edition data, such as the market ticker. JSON per key.
+CREATE TABLE IF NOT EXISTS extras (
+    edition_date TEXT NOT NULL,
+    key          TEXT NOT NULL,
+    data         TEXT NOT NULL,
+    PRIMARY KEY (edition_date, key)
+);
+
 CREATE TABLE IF NOT EXISTS story_articles (
     story_id   INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
     article_id INTEGER NOT NULL REFERENCES articles(id),
@@ -139,6 +147,17 @@ def replace_edition(conn: sqlite3.Connection, edition_date: str, stories: list[S
                 "INSERT INTO story_articles (story_id, article_id) VALUES (?, ?)",
                 [(s.id, a.id) for a in s.articles],
             )
+
+
+def save_extra(conn: sqlite3.Connection, edition_date: str, key: str, value) -> None:
+    with conn:
+        conn.execute("INSERT OR REPLACE INTO extras (edition_date, key, data) VALUES (?, ?, ?)",
+                     (edition_date, key, json.dumps(value)))
+
+
+def load_extra(conn: sqlite3.Connection, edition_date: str, key: str, default=None):
+    row = conn.execute("SELECT data FROM extras WHERE edition_date = ? AND key = ?", (edition_date, key)).fetchone()
+    return json.loads(row[0]) if row else default
 
 
 def editions(conn: sqlite3.Connection) -> list[str]:

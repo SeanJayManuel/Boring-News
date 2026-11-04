@@ -14,9 +14,9 @@ import os
 import sys
 from datetime import date, datetime, time, timedelta, timezone
 
-from . import archive, config, rubric, threads
+from . import archive, config, markets, rubric, threads
 from .cluster import cluster
-from .db import Story, articles_between, connect, replace_edition, upsert_articles
+from .db import Story, articles_between, connect, replace_edition, save_extra, upsert_articles
 from .ingest import fetch_all, load_fixtures
 from .rewrite import ClaudeWriter, MockWriter, load_banned, write_story
 from .sources import load_sources
@@ -99,10 +99,20 @@ def run(args) -> int:
     # 6. Store, and write the public edition file
     replace_edition(conn, edition_date, stories)
     print(f"Edition {edition_date}: {len(stories)} stories stored in {args.db}.")
+
+    # 7. Yesterday's market closes for the ticker (never blocks the edition)
+    if args.fixtures:
+        ticker = markets.load_fixture(config.FIXTURE_MARKETS_PATH)
+    else:
+        ticker, problems = markets.fetch(markets.load_series())
+        for p in problems:
+            print(f"  ticker: {p}")
+    save_extra(conn, edition_date, "markets", ticker)
+    print(f"Ticker: {len(ticker)} market closes.")
     archive_dir = args.archive or (None if args.fixtures else str(config.ARCHIVE_DIR))
     if archive_dir and not args.no_archive:
         model = getattr(writer, "model", None) or ("mock" if args.mock_llm else "none (fallback writer)")
-        path = archive.write(archive_dir, archive.build(edition_date, sources, articles, clusters, stories, model))
+        path = archive.write(archive_dir, archive.build(edition_date, sources, articles, clusters, stories, model, ticker))
         print(f"Edition file written to {path}.")
     return 0
 

@@ -23,7 +23,7 @@ import json
 from pathlib import Path
 
 from . import config, rubric
-from .db import Article, Story, connect, now_iso, replace_edition, upsert_articles
+from .db import Article, Story, connect, now_iso, replace_edition, save_extra, upsert_articles
 from .sources import Source
 
 FORMAT = 1
@@ -34,7 +34,8 @@ def _sha(path: Path) -> str:
 
 
 def build(edition_date: str, sources: dict[str, Source], articles: list[Article],
-          clusters: list[list[Article]], stories: list[Story], model: str) -> dict:
+          clusters: list[list[Article]], stories: list[Story], model: str,
+          markets: list[dict] | None = None) -> dict:
     return {
         "format": FORMAT,
         "edition": edition_date,
@@ -53,6 +54,7 @@ def build(edition_date: str, sources: dict[str, Source], articles: list[Article]
         "articles": [{"source_id": a.source_id, "url": a.url, "title": a.title, "summary": a.summary,
                       "published_at": a.published_at} for a in articles],
         "clusters": [[a.url for a in g] for g in clusters],
+        "markets": markets or [],
         "stories": [
             {
                 "headline": s.headline, "bullets": s.bullets, "whats_next": s.whats_next,
@@ -92,6 +94,7 @@ def restore(directory: Path, db_path: Path) -> int:
                                  s["region"], s["written_by"], arts, checks=s.get("checks", {}),
                                  thread_id=s.get("thread_id"), day=s.get("day", 1)))
         replace_edition(conn, data["edition"], stories)
+        save_extra(conn, data["edition"], "markets", data.get("markets", []))
     conn.close()
     return len(files)
 

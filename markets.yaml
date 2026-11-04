@@ -1,0 +1,21 @@
+# The market ticker: yesterday's closing values from FRED, the St. Louis Fed's
+# free data service (https://fred.stlouisfed.org). Needs a free key in
+# FRED_API_KEY (https://fred.stlouisfed.org/docs/api/api_key.html).
+#
+# kind decides how the change is shown:
+#   index, price, fx   percent change from the previous close
+#   rate               change in percentage points
+#
+# LICENSING: FRED marks some series as copyrighted by their owners. The S&P 500
+# and Dow Jones series are owned by S&P Dow Jones Indices, and their FRED pages
+# say reproduction needs the owner's permission. Check each series' notes on
+# FRED before publishing it, and remove any you can't use.
+series:
+  - {id: SP500,      label: "S&P 500",     kind: index, decimals: 2}
+  - {id: DJIA,       label: "Dow",         kind: index, decimals: 2}
+  - {id: NASDAQCOM,  label: "Nasdaq",      kind: index, decimals: 2}
+  - {id: DGS10,      label: "10-yr Treasury", kind: rate, decimals: 2, suffix: "%"}
+  - {id: DGS2,       label: "2-yr Treasury",  kind: rate, decimals: 2, suffix: "%"}
+  - {id: DCOILWTICO, label: "Oil (WTI)",   kind: price, decimals: 2, prefix: "$"}
+  - {id: DEXUSEU,    label: "Euro",        kind: fx, decimals: 4, prefix: "$"}
+  - {id: DEXCAUS,    label: "CAD per USD", kind: fx, decimals: 4}

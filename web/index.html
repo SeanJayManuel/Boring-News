@@ -1,6 +1,6 @@
 <title>Boring News</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="The day's news, once a day. Free, open, and transparent about how every story is chosen.">
+<meta name="description" content="The day's news, once a day. 100% transparent. 100% free.">
 <link rel="alternate" type="application/rss+xml" title="Boring News" href="/feed.xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,10 +18,22 @@
 /*__CSS__*/
 </style>
 
+<div class="ticker" id="ticker" hidden>
+  <div class="ticker-inner">
+    <a class="ticker-label" id="ticker-label" href="#how-it-works"></a>
+    <div class="ticker-window">
+      <div class="ticker-track" id="ticker-track"></div>
+    </div>
+  </div>
+</div>
+
 <div class="page">
   <header class="top">
     <div class="bar">
-      <a class="name" href="#today">Boring News</a>
+      <div class="brand">
+        <a class="name" href="#today">Boring News</a>
+        <span class="tagline">100% transparent. 100% free.</span>
+      </div>
       <button type="button" class="theme" id="theme-toggle" aria-pressed="false">Dark</button>
     </div>
     <nav class="tabs" aria-label="Sections">
@@ -128,6 +140,7 @@
           <tbody id="source-table"></tbody>
         </table>
       </div>
+      <p>The market ticker at the top shows the previous trading day's closing values from FRED, the St. Louis Fed's free data service. It updates once a day with the edition, and each value links to its source.</p>
       <p class="fine" id="rubric-version"></p>
     </div>
   </section>

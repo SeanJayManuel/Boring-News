@@ -450,6 +450,42 @@
     $("feed-url").value = D.base_url + "/feed.xml" + (q ? "?" + q : "");
   }
 
+  // ---------- market ticker (yesterday's closes)
+  function renderTicker() {
+    var items = D.markets || [];
+    var box = $("ticker");
+    if (!items.length) { box.hidden = true; return; }
+    function fmt(v, d) { return v.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); }
+    function tick(m) {
+      var dir = m.change > 0 ? "up" : m.change < 0 ? "down" : "flat";
+      var arrow = dir === "up" ? "\u25B2" : dir === "down" ? "\u25BC" : "";
+      var size = Math.abs(m.change);
+      var change = m.kind === "rate" ? fmt(size, 2) + " pt" : fmt(size, 2) + "%";
+      var sign = dir === "up" ? "+" : dir === "down" ? "\u2212" : "";
+      var words = m.label + " " + m.prefix + fmt(m.value, m.decimals) + m.suffix + ", " +
+        (dir === "flat" ? "unchanged" : (dir === "up" ? "up " : "down ") + change);
+      return el("a", { className: "tick", href: m.source_url, target: "_blank", rel: "noopener", title: words + " (FRED)" }, [
+        el("b", { text: m.label }),
+        el("span", { text: m.prefix + fmt(m.value, m.decimals) + m.suffix }),
+        el("span", { className: dir, text: dir === "flat" ? "unch" : arrow + " " + sign + change })
+      ]);
+    }
+    var track = $("ticker-track");
+    track.innerHTML = "";
+    track.appendChild(el("span", { className: "tick-set" }, items.map(tick)));
+    var copy = el("span", { className: "tick-set", "aria-hidden": "true" }, items.map(tick));
+    Array.prototype.forEach.call(copy.querySelectorAll("a"), function (a) { a.setAttribute("tabindex", "-1"); });
+    track.appendChild(copy);
+    track.style.setProperty("--tick-duration", Math.max(30, items.length * 7) + "s");
+    var day = items[0].date;
+    var label = new Date(day + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    $("ticker-label").textContent = (D.sample ? "Sample. " : "") + "Close, " + label;
+    $("ticker-label").setAttribute("title", "End-of-day values from FRED, the St. Louis Fed's data service");
+    $("ticker-label").href = "#how-it-works";
+    box.setAttribute("aria-label", "Market closes for " + label);
+    box.hidden = false;
+  }
+
   // ---------- routing
   function route() {
     var h = (location.hash || "").replace("#", "");
@@ -503,6 +539,7 @@
 
   $("dateline").textContent = longDate(D.edition);
   $("sample-note").hidden = !D.sample;
+  renderTicker();
   renderControls();
   renderDocs();
   renderOutlets();

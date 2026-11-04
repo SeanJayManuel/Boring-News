@@ -19,7 +19,7 @@ import shutil
 from pathlib import Path
 
 from . import config
-from .db import connect, editions, load_edition
+from .db import connect, editions, load_edition, load_extra
 from .feeds import render_rss
 from .prefs import Prefs, apply
 from .render import page_data, render_page
@@ -49,7 +49,8 @@ def export(out: Path, db_path: Path, sample: bool, base_url: str, cname: str | N
             written.append(out / "archive" / f.name)
         if (out / "archive" / f"{dates[0]}.json").exists():
             data_url = f"{base_url}/archive/{dates[0]}.json"
-    data = page_data(dates[0], dates, stories, sources, base_url, sample=sample, data_url=data_url)
+    data = page_data(dates[0], dates, stories, sources, base_url, sample=sample, data_url=data_url,
+                     markets=load_extra(conn, dates[0], "markets", []))
     (out / "index.html").write_text(render_page(data))
     (out / "edition.json").write_text(json.dumps(data, ensure_ascii=False))
     written += [out / "index.html", out / "edition.json"]

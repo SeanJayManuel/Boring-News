@@ -1,0 +1,13 @@
+{
+ "_note": "Invented numbers for the demo edition. Not real market data.",
+ "series": [
+  {"id": "SP500", "date": "2026-11-03", "value": 6812.4, "previous_date": "2026-11-02", "previous": 6783.91},
+  {"id": "DJIA", "date": "2026-11-03", "value": 47215.12, "previous_date": "2026-11-02", "previous": 47301.55},
+  {"id": "NASDAQCOM", "date": "2026-11-03", "value": 23460.88, "previous_date": "2026-11-02", "previous": 23312.07},
+  {"id": "DGS10", "date": "2026-11-03", "value": 4.08, "previous_date": "2026-11-02", "previous": 4.11},
+  {"id": "DGS2", "date": "2026-11-03", "value": 3.62, "previous_date": "2026-11-02", "previous": 3.62},
+  {"id": "DCOILWTICO", "date": "2026-11-03", "value": 64.27, "previous_date": "2026-11-02", "previous": 65.02},
+  {"id": "DEXUSEU", "date": "2026-11-03", "value": 1.1542, "previous_date": "2026-11-02", "previous": 1.1519},
+  {"id": "DEXCAUS", "date": "2026-11-03", "value": 1.3988, "previous_date": "2026-11-02", "previous": 1.4011}
+ ]
+}
