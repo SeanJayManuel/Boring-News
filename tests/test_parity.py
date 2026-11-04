@@ -107,3 +107,46 @@ def test_pages_function_serves_custom_feed(edition):
     items = ET.fromstring(res["body"]).findall("./channel/item")
     expected = apply(stories, sources, Prefs(topics=["government"], threshold="strict"))
     assert [i.findtext("guid") for i in items] == [f"boringnews-2026-11-04-{x.story.id}" for x in expected]
+
+
+RESEARCH_RUNNER = r"""
+require(process.argv[2]);
+const idx = JSON.parse(require("fs").readFileSync(process.argv[3], "utf8"));
+const R = globalThis.BoringCore.research;
+const q = (s) => R.lookup(idx, s).matches.map(m => m.story.headline);
+console.log(JSON.stringify({
+  claim: q("Judge blocked the voter ID rule"),
+  numbers: q("Westmark unemployment 4.1%"),
+  nothing: q("aliens landed in Westmark"),
+  exact: R.lookup(idx, "https://example.com/liberty-daily/water-bill-farms").how,
+  slug: q("https://news.example.org/2026/11/brightline-ebike-recall-battery"),
+  uncovered: R.searchRecords(idx, {uncovered: true}).length,
+  statements: R.searchRecords(idx, {role: "statement"}).map(r => r.source_id),
+  words: R.searchRecords(idx, {q: "voter"}).map(r => r.source_id),
+}));
+"""
+
+
+def test_research_tools(edition, tmp_path):
+    from boringnews import research
+    from boringnews.db import connect as dbconnect
+    tmp, path, stories, sources = edition
+    db = next(tmp.glob("*.db"))
+    index = research.build(dbconnect(db), sources)
+    assert len(index["stories"]) == 17 and len(index["records"]) == 7
+    assert sum(1 for r in index["records"] if r["outlets"] == 0) == 4
+
+    idx_path = tmp_path / "research.json"
+    idx_path.write_text(json.dumps(index))
+    runner = tmp_path / "r.js"
+    runner.write_text(RESEARCH_RUNNER)
+    out = json.loads(subprocess.run([NODE, str(runner), str(config.ROOT / "web" / "core.js"), str(idx_path)],
+                                    capture_output=True, text=True, check=True).stdout)
+    assert out["claim"][0] == "Judge blocks Westmark voter ID rule until trial"
+    assert out["numbers"][0].startswith("Westmark adds 14,200 jobs")
+    assert out["nothing"] == []                       # no coverage is reported as none, never as false
+    assert out["exact"] == "link"
+    assert out["slug"][0].startswith("Brightline recalls")
+    assert out["uncovered"] == 4
+    assert out["statements"] == ["westmark-defense"]
+    assert out["words"] == ["westmark-courts"]

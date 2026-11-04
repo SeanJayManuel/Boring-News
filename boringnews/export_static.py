@@ -19,6 +19,7 @@ import shutil
 from pathlib import Path
 
 from . import config
+from . import research
 from .db import connect, editions, load_edition, load_extra
 from .feeds import render_rss
 from .prefs import Prefs, apply
@@ -28,7 +29,8 @@ from .topics import TOPICS
 
 
 def export(out: Path, db_path: Path, sample: bool, base_url: str, cname: str | None = None,
-           static_feed: bool = False, archive_dir: Path | None = None) -> list[Path]:
+           static_feed: bool = False, archive_dir: Path | None = None,
+           inline_research: bool = False) -> list[Path]:
     conn = connect(db_path)
     dates = editions(conn)
     if not dates:
@@ -49,8 +51,14 @@ def export(out: Path, db_path: Path, sample: bool, base_url: str, cname: str | N
             written.append(out / "archive" / f.name)
         if (out / "archive" / f"{dates[0]}.json").exists():
             data_url = f"{base_url}/archive/{dates[0]}.json"
+    # Research tab: the last 30 days, fetched by the page when the tab opens.
+    index = research.build(conn, sources)
+    (out / "research.json").write_text(json.dumps(index, ensure_ascii=False))
+    written.append(out / "research.json")
+
     data = page_data(dates[0], dates, stories, sources, base_url, sample=sample, data_url=data_url,
-                     markets=load_extra(conn, dates[0], "markets", []))
+                     markets=load_extra(conn, dates[0], "markets", []),
+                     research_url="research.json", research=index if inline_research else None)
     (out / "index.html").write_text(render_page(data))
     (out / "edition.json").write_text(json.dumps(data, ensure_ascii=False))
     written += [out / "index.html", out / "edition.json"]
@@ -78,10 +86,12 @@ def main(argv=None):
     ap.add_argument("--base-url", default=config.BASE_URL)
     ap.add_argument("--cname", help="custom domain for GitHub Pages, e.g. boringnews.org")
     ap.add_argument("--archive", default=str(config.ARCHIVE_DIR), help="folder of edition files to publish")
+    ap.add_argument("--inline-research", action="store_true",
+                    help="embed the research index in the page (for a single-file preview)")
     ap.add_argument("--static-feed", action="store_true", help="also write a fixed feed.xml (hosts without functions)")
     args = ap.parse_args(argv)
     for p in export(Path(args.out), Path(args.db), args.sample, args.base_url.rstrip("/"), args.cname, args.static_feed,
-                    Path(args.archive)):
+                    Path(args.archive), args.inline_research):
         print("wrote", p)
 
 

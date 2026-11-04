@@ -48,7 +48,8 @@ def _edition(date: str | None):
 @app.get("/", response_class=HTMLResponse)
 def index(date: str | None = Query(None)):
     d, all_dates, stories, ticker = _edition(date)
-    return render_page(page_data(d, all_dates, stories, _sources(), config.BASE_URL, sample=SAMPLE, markets=ticker))
+    return render_page(page_data(d, all_dates, stories, _sources(), config.BASE_URL, sample=SAMPLE, markets=ticker,
+                                 research_url="research.json"))
 
 
 @app.get("/api/edition.json")
@@ -77,6 +78,16 @@ def feed(
     xml = render_rss(d, apply(stories, sources, prefs), sources, prefs, config.BASE_URL)
     return Response(xml, media_type="application/rss+xml; charset=utf-8",
                     headers={"Cache-Control": "public, max-age=900"})
+
+
+@app.get("/research.json")
+def research_json():
+    from . import research
+    conn = connect(config.DB_PATH)
+    try:
+        return JSONResponse(research.build(conn, _sources()))
+    finally:
+        conn.close()
 
 
 @app.get("/healthz")

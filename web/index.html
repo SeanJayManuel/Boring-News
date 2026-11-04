@@ -40,6 +40,7 @@
       <a href="#today" data-view="today">Today</a>
       <a href="#all-stories" data-view="all-stories">All stories</a>
       <a href="#outlets" data-view="outlets">Outlets</a>
+      <a href="#research" data-view="research">Research</a>
       <a href="#how-it-works" data-view="how-it-works">How it works</a>
       <a href="#your-feed" data-view="your-feed">Your feed</a>
     </nav>
@@ -80,6 +81,46 @@
       <h2>How this is measured</h2>
       <p>A story counts as "every side covered" when at least one left, one center and one right outlet ran it. For each outlet we count how many of those stories appeared in its RSS feed during the edition window, which is about the last 36 hours.</p>
       <p>Feeds don't carry everything an outlet publishes, so a story listed under "Didn't run" may have appeared elsewhere on its site. These numbers describe what each feed contained. They don't explain why, and one day is a small sample.</p>
+    </div>
+  </section>
+
+  <!-- Research: tools for journalists and anyone checking a claim -->
+  <section class="view" id="view-research" data-view="research" hidden>
+    <div class="intro">
+      <h1 class="title">Research</h1>
+      <p class="sublede">Free tools for reporters and anyone checking what they read. They search the last 30 days of editions and show who covered what. They never say whether something is true.</p>
+    </div>
+
+    <div class="sheet prose">
+      <h2>Look up coverage</h2>
+      <p>Paste a claim, a headline or a link. You'll see which outlets covered it, which didn't, and any government record behind it.</p>
+      <form class="search" id="lookup-form" role="search">
+        <input id="lookup-q" type="search" autocomplete="off" placeholder="For example: judge blocks voter ID rule" aria-label="Claim, headline or link">
+        <button type="submit">Look up</button>
+      </form>
+      <div id="lookup-results" aria-live="polite"></div>
+    </div>
+
+    <div class="sheet prose">
+      <h2>Search government records</h2>
+      <p>Every bill, rule, ruling and official statement we've read, newest first. Records no outlet covered are often worth a closer look.</p>
+      <div class="filters">
+        <input id="rec-q" type="search" autocomplete="off" placeholder="Search words" aria-label="Search records">
+        <select id="rec-source" aria-label="Source"><option value="">All sources</option></select>
+        <select id="rec-role" aria-label="Kind">
+          <option value="">Records and statements</option>
+          <option value="record">Records only</option>
+          <option value="statement">Statements only</option>
+        </select>
+        <label class="check" for="rec-uncovered"><input type="checkbox" id="rec-uncovered"> Only ones no outlet covered</label>
+      </div>
+      <p class="hint" id="rec-count"></p>
+      <ul class="records" id="rec-list"></ul>
+    </div>
+
+    <div class="sheet prose">
+      <h2>Use the data</h2>
+      <p>Both tools run on files anyone can download: <a id="research-file" href="research.json">the last 30 days</a> in one file, and a file for each edition with every article, score and fact check. Use them for anything. A link back is appreciated.</p>
     </div>
   </section>
 

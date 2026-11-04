@@ -145,6 +145,20 @@ Before launch, check each series' notes on FRED: the S&P 500 and Dow series
 are copyrighted by S&P Dow Jones Indices and FRED says reproducing them needs
 the owner's permission. Remove any series you can't use.
 
+## Research tools
+
+The Research tab has two free tools for reporters and anyone checking a claim.
+Both run in the browser over `research.json`, the last 30 days of editions,
+which the export writes next to the page.
+
+- **Look up coverage:** paste a claim, headline or link. It shows which outlets
+  covered the matching story (grouped left, center, right), which didn't, and
+  any government record behind it, with a copyable citation. It describes
+  coverage only; it never says whether a claim is true.
+- **Search government records:** every bill, rule, ruling and statement read
+  in the last 30 days, filtered by source, kind, and whether any outlet
+  covered it.
+
 ## Transparency features
 
 - **Balanced coverage.** Outlets are weighted so each side of the spectrum
