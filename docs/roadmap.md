@@ -37,7 +37,9 @@ What this showed:
 - **Grouping misses far more than it wrongly merges.** Most articles stayed alone, and raising the similarity setting makes that worse, while 0.10 chains 54 articles together. 0.15 is about right, so word matching itself looks like the limit (D4). It also merged two different stories: Mike Johnson stepping aside and Hakeem Jeffries's bid for speaker.
 - **One-sided stories are being lost (T1).** Five of the six one-sided stories were dropped, on the left, center and right.
 - **Sports reached the edition.** A Lions injury and a Valkyries story made the list (D8).
-- **Reposted laws looked new.** GovInfo reposts old laws with fresh dates, so 2021 laws appeared as today's records. Fixed: only laws numbered above those already posted now count.
+- **Reposted laws looked new.** GovInfo reposted old laws with fresh dates, so 2021 laws appeared as today's records, and it was weeks behind on real ones. Fixed by F7.
+
+With the Congress key added, the same check found no bills with a significant action in the window, so records didn't change the result that day. Congress was just past an election, so this needs a week in session to judge. A rerun later that day gave 8 stories rather than 10, because the feeds had moved on, so treat these counts as rough.
 
 ## Order of work
 
@@ -98,11 +100,10 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 
 ### L4. Verify every live source 🟡 S
 
-- **Exists:** `python -m boringnews.pipeline check-feeds`, and tests for the failure paths. Checked live on 2026-11-05: 14 of 17 sources work.
+- **Exists:** `python -m boringnews.pipeline check-feeds`, and tests for the failure paths. Checked live on 2026-11-05: 14 of 16 sources work.
 - **Gaps:**
   - `wsj-world` answers, but its newest item is from January 2025. It needs replacing (T3).
   - `war-department-releases` returns 403 Access Denied to our requests. It may behave differently from GitHub, which is unknown.
-  - `congress` needs a free [API key](https://api.congress.gov/sign-up/), so it's untested. Without it the edition has almost no records, which make up 25% of the score. It also unlocks F4 and F6 to F11.
   - Each official source's `max_items` cap is a guess.
 - **Done when:** every source reports healthy or is removed, with the reason in the commit.
 
@@ -273,19 +274,17 @@ Goal: the claim that records sit next to the reporting holds for all three branc
 
 ### More from the Congress.gov API
 
-We read only `/bill` today. The [API](https://github.com/LibraryOfCongress/api.congress.gov/) has about 20 areas, allows 5,000 requests an hour, and is free. Everything below needs `CONGRESS_API_KEY`, the same key the bills source needs, and none of it has been tested live. Each new source needs the same care as public laws: count real events, not routine record updates.
+We read only `/bill` today. The [API](https://github.com/LibraryOfCongress/api.congress.gov/) has about 20 areas, allows 5,000 requests an hour, and is free. Everything below needs `CONGRESS_API_KEY`, the same key the bills source needs. Each new source needs the same care as public laws: count real events, not routine record updates.
 
-### F6. Bill summaries from the Congressional Research Service ⬜ S to M
+### F6. Bill summaries from the Congressional Research Service ✅ S to M
 
-- **Exists:** a bill's only text today is its title and latest action.
-- **Gaps:** `/summaries` holds nonpartisan summaries, filterable by date. Using them gives the writer and the fact check real source material. Not every bill will have one when it moves, so stories need to work without it.
-- **Done when:** bills with a summary carry it into writing and the fact check, and the source is linked.
+- **Built:** a bill the edition keeps now carries its newest summary, labeled with the bill version it describes, so the writer and the fact check have real source material.
+- **Limit:** a summary may describe an older version of the bill. A bill with no summary, or a failed call, stays a record with its title and latest action. Not yet tried with a real model.
 
-### F7. Laws from Congress.gov ⬜ S
+### F7. Laws from Congress.gov ✅ S
 
-- **Exists:** GovInfo's feed, with a rule that only higher-numbered laws count as new, because it reposts old ones.
-- **Gaps:** `/law` may give real dates. That isn't confirmed.
-- **Done when:** either it replaces the GovInfo rule with real dates, or we record why it can't.
+- **Built:** the GovInfo laws source is gone. Congress.gov gives real dates and showed laws GovInfo's feed hadn't posted, and the bills source already catches each signing on its real date.
+- **Limit:** an action only counts if Congress.gov shows it within the edition's window. If it posts an action late, that action is missed. Check this over a week in session.
 
 ### F8. Nominations ⬜ S to M
 

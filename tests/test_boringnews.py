@@ -3,15 +3,15 @@ from datetime import datetime, timezone
 
 import pytest
 
-from boringnews import config, rubric
+from boringnews import config, ingest, rubric
 from boringnews.cluster import cluster
-from boringnews.db import Article, connect, load_edition, editions
+from boringnews.db import connect, load_edition, editions
 from boringnews.edition import Edition
-from boringnews.ingest import load_fixtures, public_law_items
+from boringnews.ingest import load_fixtures
 from boringnews.pipeline import main as pipeline_main
 from boringnews.reader import feeds
 from boringnews.rewrite import fallback, lint, load_banned
-from boringnews.sources import load_sources
+from boringnews.sources import Source, load_sources
 
 from .core import select
 
@@ -273,31 +273,67 @@ def test_official_sources_default_to_statement(tmp_path):
     assert load_sources(p)["agency"].role == "statement"
 
 
-# ---------------------------------------------------------------- public laws
+# ---------------------------------------------------------------- Congress.gov
 
-def law(number, title, posted, summary="Content Files PDF TEXT"):
-    return Article("public-laws", f"https://x/{number}", f"Public Law {number} - {title}", summary, posted)
-
-
-def test_only_laws_newer_than_those_already_posted_count():
-    since = datetime(2026, 11, 4, tzinfo=timezone.utc)
-    items = [
-        law("119 - 108", "Earlier law", "2026-10-30T12:00:00+00:00"),
-        law("119 - 111", "Latest law before the window", "2026-10-30T12:00:00+00:00"),
-        law("117 - 9", "Old law reposted", "2026-11-04T16:00:00+00:00"),
-        law("119 - 49", "Older law from this Congress reposted", "2026-11-04T16:00:00+00:00"),
-        law("119 - 112", "Really new", "2026-11-04T16:00:00+00:00"),
-        law("120 - 1", "First law of a new Congress", "2026-11-04T16:00:00+00:00"),
-    ]
-    assert [a.title for a in public_law_items(items, since)] == [
-        "Public Law 119 - 112 - Really new", "Public Law 120 - 1 - First law of a new Congress"]
+SIGNED = {"type": "HR", "number": "12", "congress": 119, "title": "A Test Act",
+          "latestAction": {"actionDate": "2026-11-04", "text": "Signed by President."}}
+BILL_SINCE = datetime(2026, 11, 3, tzinfo=timezone.utc)
 
 
-def test_public_law_summaries_are_dropped_because_the_feed_only_lists_files():
-    since = datetime(2026, 11, 4, tzinfo=timezone.utc)
-    assert public_law_items([law("119 - 1", "New", "2026-11-04T16:00:00+00:00")], since)[0].summary == ""
+def congress_api(monkeypatch, pages, summaries=None):
+    calls = []
+
+    def fake(url, params):
+        calls.append((url, params))
+        if url.endswith("/summaries"):
+            if isinstance(summaries, Exception):
+                raise summaries
+            return {"summaries": summaries or []}
+        return {"bills": pages[params["offset"] // 250]}
+
+    monkeypatch.setenv("CONGRESS_API_KEY", "x")
+    monkeypatch.setattr(ingest, "_get_json", fake)
+    return calls
 
 
-def test_real_source_list_treats_public_laws_this_way():
-    live = load_sources(config.SOURCES_PATH)
-    assert live["public-laws"].fetcher == "public_laws"
+def fetch(pages=None):
+    src = Source(id="congress", name="Congress.gov", url="x", lean="unrated", type="primary", fetcher="congress")
+    return ingest.fetch_congress(src, BILL_SINCE)
+
+
+def test_every_page_of_bills_is_read(monkeypatch):
+    noise = {**SIGNED, "latestAction": {"actionDate": "2026-11-04", "text": "Referred to committee."}}
+    calls = congress_api(monkeypatch, [[noise] * 250, [noise] * 250, [SIGNED]])
+    assert len(fetch()) == 1
+    assert [p["offset"] for u, p in calls if not u.endswith("/summaries")] == [0, 250, 500]
+
+
+def test_a_bill_carries_its_latest_nonpartisan_summary(monkeypatch):
+    congress_api(monkeypatch, [[SIGNED]], [
+        {"actionDesc": "Introduced in House", "updateDate": "2026-01-01T00:00:00Z", "text": "<p>Old text.</p>"},
+        {"actionDesc": "Passed House", "updateDate": "2026-06-01T00:00:00Z", "text": "<p>This bill does a thing.</p>"},
+    ])
+    summary = fetch()[0].summary
+    assert summary == ("Latest action on 2026-11-04: Signed by President. "
+                       "Congressional Research Service summary (Passed House): This bill does a thing.")
+
+
+def test_a_bill_without_a_summary_is_still_a_record(monkeypatch):
+    congress_api(monkeypatch, [[SIGNED]])
+    assert fetch()[0].summary == "Latest action on 2026-11-04: Signed by President."
+
+
+def test_a_failed_summary_call_keeps_the_bill(monkeypatch):
+    congress_api(monkeypatch, [[SIGNED]], OSError("no route"))
+    assert fetch()[0].summary == "Latest action on 2026-11-04: Signed by President."
+
+
+def test_only_kept_bills_cost_a_summary_call(monkeypatch):
+    noise = {**SIGNED, "number": "13", "latestAction": {"actionDate": "2026-11-04", "text": "Referred to committee."}}
+    calls = congress_api(monkeypatch, [[noise, SIGNED]])
+    fetch()
+    assert [u for u, _ in calls if u.endswith("/summaries")] == [ingest.CONGRESS_API + "/119/hr/12/summaries"]
+
+
+def test_public_laws_come_from_congress_gov_not_a_second_source():
+    assert "public-laws" not in load_sources(config.SOURCES_PATH)

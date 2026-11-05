@@ -192,8 +192,7 @@ without a role is treated as a statement.
 
 | Source | Role | How | Key |
 | --- | --- | --- | --- |
-| Congress.gov | record | API; only bills that passed a chamber, went to the President, were signed or vetoed | `CONGRESS_API_KEY` |
-| GovInfo public laws | record | RSS; only laws numbered above those already posted, because the feed reposts old ones | none |
+| Congress.gov | record | API; only bills that passed a chamber, went to the President, were signed or vetoed, with the Congressional Research Service summary when there is one. New laws arrive here, on the day they're signed | `CONGRESS_API_KEY` |
 | Federal Register significant rules | record | API | none |
 | Federal Register presidential documents | record | API (executive orders as legally published) | none |
 | White House presidential actions | statement | RSS | none |

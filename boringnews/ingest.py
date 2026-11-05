@@ -15,7 +15,7 @@ import os
 import re
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from time import mktime
@@ -122,6 +122,8 @@ def fetch_federal_register(src: Source, since: datetime) -> list[Article]:
 # ---------------------------------------------------------------- Congress.gov
 
 CONGRESS_API = "https://api.congress.gov/v3/bill"
+CONGRESS_PAGE = 250       # the most the API returns at once
+CONGRESS_MAX_BILLS = 5000  # a limit on a runaway loop, far above a day's changes
 # Only actions a general reader would want to know about. Introductions and
 # committee referrals happen by the hundred every day; they are skipped.
 SIGNIFICANT_ACTION = re.compile(
@@ -145,7 +147,18 @@ def _ordinal(n: int) -> str:
     return f"{n}{suffix}"
 
 
-def congress_items(data: dict, source_id: str, since: datetime) -> list[Article]:
+def bill_summary(data: dict) -> str:
+    """The newest Congressional Research Service summary, labeled with the bill
+    version it describes, which may be older than the bill's latest action."""
+    summaries = sorted(data.get("summaries", []), key=lambda s: s.get("updateDate", ""))
+    if not summaries:
+        return ""
+    latest = summaries[-1]
+    return clean(f"Congressional Research Service summary ({latest.get('actionDesc', 'latest')}): {latest.get('text', '')}", 1200)
+
+
+def congress_items(data: dict, source_id: str, since: datetime, summary_for=lambda bill: "") -> list[Article]:
+    """`summary_for` is only called for bills that are kept, since each one is a request."""
     out = []
     for b in data.get("bills", []):
         action = b.get("latestAction") or {}
@@ -157,8 +170,8 @@ def congress_items(data: dict, source_id: str, since: datetime) -> list[Article]
             continue
         url = f"https://www.congress.gov/bill/{_ordinal(congress)}-congress/{BILL_PATH[btype]}/{number}"
         label = f"{BILL_LABEL[btype]} {number}"
-        out.append(Article(source_id, url, clean(f"{label}: {b.get('title', '')}", 300),
-                           clean(f"Latest action on {day}: {text}"), _noon_utc(day)))
+        summary = " ".join(filter(None, [clean(f"Latest action on {day}: {text}"), summary_for(b)]))
+        out.append(Article(source_id, url, clean(f"{label}: {b.get('title', '')}", 300), summary, _noon_utc(day)))
     return out
 
 
@@ -171,41 +184,29 @@ def fetch_congress(src: Source, since: datetime) -> list[Article]:
         "fromDateTime": since.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "toDateTime": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "sort": "updateDate desc",
-        "limit": 250,
+        "limit": CONGRESS_PAGE,
         "api_key": key,
     }
-    return congress_items(_get_json(CONGRESS_API, params), src.id, since)
+    bills = []
+    for offset in range(0, CONGRESS_MAX_BILLS, CONGRESS_PAGE):
+        page = _get_json(CONGRESS_API, {**params, "offset": offset}).get("bills", [])
+        bills += page
+        if len(page) < CONGRESS_PAGE:
+            break
 
+    def summary_for(bill: dict) -> str:
+        url = f"{CONGRESS_API}/{bill['congress']}/{bill['type'].lower()}/{bill['number']}/summaries"
+        try:
+            return bill_summary(_get_json(url, {"format": "json", "api_key": key}))
+        except (OSError, ValueError):  # a bill is still a record without its summary
+            return ""
 
-# ---------------------------------------------------------------- public laws
-#
-# GovInfo's feed dates a law by when a file was posted, and it reposts old ones,
-# so a 2021 law can look like today's. The feed gives no enactment date, but laws
-# are numbered in order: a law is new only if it's numbered above every law posted
-# before the edition's window. Its summary is just a list of files, so it's dropped.
-
-LAW_RE = re.compile(r"Public Law (\d+)\s*-\s*(\d+)")
-
-
-def _law_number(a: Article) -> tuple[int, int] | None:
-    m = LAW_RE.search(a.title)
-    return (int(m[1]), int(m[2])) if m else None
-
-
-def public_law_items(articles: list[Article], since: datetime) -> list[Article]:
-    latest = max((_law_number(a) for a in articles if a.published < since and _law_number(a)), default=(0, 0))
-    return [replace(a, summary="") for a in articles
-            if a.published >= since and _law_number(a) and _law_number(a) > latest]
-
-
-def fetch_public_laws(src: Source, since: datetime) -> list[Article]:
-    return public_law_items(fetch_rss(src, since), since)
+    return congress_items({"bills": bills}, src.id, since, summary_for)
 
 
 # ---------------------------------------------------------------- dispatch
 
-FETCHERS = {"rss": fetch_rss, "public_laws": fetch_public_laws, "federal_register": fetch_federal_register,
-            "congress": fetch_congress}
+FETCHERS = {"rss": fetch_rss, "federal_register": fetch_federal_register, "congress": fetch_congress}
 
 
 def fetch_source(src: Source, since: datetime) -> tuple[list[Article], FeedHealth]:

@@ -92,16 +92,6 @@ sources:
     topic: government
     max_items: 6
 
-  - id: public-laws
-    name: GovInfo (new public laws)
-    url: https://www.govinfo.gov/rss/plaw.xml
-    fetcher: public_laws     # the feed reposts old laws, so only higher-numbered ones count as new
-    lean: unrated
-    type: primary
-    role: record
-    topic: government
-    max_items: 5
-
   - id: white-house-actions
     name: White House (presidential actions)
     url: https://www.whitehouse.gov/presidential-actions/feed/
