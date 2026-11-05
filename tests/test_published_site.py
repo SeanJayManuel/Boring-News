@@ -332,3 +332,17 @@ def test_function_serves_custom_weights_and_a_named_feed(site, tmp_path):
     assert root.findtext("title") == "Standard Edition (reader recipe: Records)"
     assert [i.findtext("title") for i in root.findall("item")] != \
         [i.findtext("title") for i in ET.fromstring(plain["body"]).findall("./channel/item")]
+
+
+@jsdom
+def test_front_page_shows_what_each_side_ran_and_what_one_side_missed(site):
+    assert open_page(site, f"{BASE}/")["sideColumns"] == ["Left", "Center", "Right"]
+    page = open_page(site, f"{BASE}/?threshold=broad")
+    assert page["errors"] == [] and page["oneSide"] and page["gapSides"]
+    assert all(link.startswith("#story-") and link[1:] in page["anchors"] for link in page["oneSide"])
+
+
+def test_page_is_a_real_document_that_fits_a_phone(site):
+    html = (site / "index.html").read_text()
+    assert html.lower().startswith("<!doctype html>")
+    assert 'name="viewport"' in html.split("<style>")[0]

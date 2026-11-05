@@ -1,10 +1,13 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Standard Edition</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="The day's news, once a day. 100% transparent. 100% free.">
 <link rel="alternate" type="application/rss+xml" title="Standard Edition" href="/feed.xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Geist+Mono:wght@400&display=swap">
 <script>
   // Light by default. Dark only if the reader chose it here, or the host app asks for it.
   (function () {
@@ -18,24 +21,16 @@
 /*__CSS__*/
 </style>
 
-<div class="ticker" id="ticker" hidden>
-  <div class="ticker-inner">
-    <a class="ticker-label" id="ticker-label" href="#how-it-works"></a>
-    <div class="ticker-window">
-      <div class="ticker-track" id="ticker-track"></div>
-    </div>
-  </div>
-</div>
-
-<div class="page">
-  <header class="top">
-    <div class="bar">
-      <div class="brand">
-        <a class="name" href="#today">Standard Edition</a>
-        <span class="tagline">100% transparent. 100% free.</span>
+<header class="masthead">
+  <div class="mast-inner">
+    <div class="mast-row">
+      <a class="name" href="#today">Standard Edition</a>
+      <div class="mast-side">
+        <p class="date" id="dateline"></p>
+        <button type="button" class="theme" id="theme-toggle" aria-pressed="false">Dark</button>
       </div>
-      <button type="button" class="theme" id="theme-toggle" aria-pressed="false">Dark</button>
     </div>
+    <p class="tagline">All the news, from every side, with nothing hidden.</p>
     <nav class="tabs" aria-label="Sections">
       <a href="#today" data-view="today">Today</a>
       <a href="#all-stories" data-view="all-stories">All stories</a>
@@ -44,19 +39,36 @@
       <a href="#how-it-works" data-view="how-it-works">How it works</a>
       <a href="#your-feed" data-view="your-feed">Your feed</a>
     </nav>
-    <p class="note" id="sample-note" hidden>This is a sample edition. Every outlet, place and story in it is invented.</p>
-  </header>
+  </div>
+  <div class="ticker" id="ticker" hidden>
+    <div class="ticker-inner">
+      <a class="ticker-label" id="ticker-label" href="#how-it-works"></a>
+      <div class="ticker-window">
+        <div class="ticker-track" id="ticker-track"></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+  <p class="note" id="sample-note" hidden>This is a sample edition. Every outlet, place and story in it is invented.</p>
 
   <!-- Today: the spotlight -->
   <section class="view" id="view-today" data-view="today">
     <div class="intro">
-      <p class="date" id="dateline"></p>
       <h1 class="lede" id="lede"></h1>
       <p class="sublede" id="sublede"></p>
       <p class="recipe-note" id="recipe-note" hidden></p>
     </div>
-    <div id="spotlight"></div>
-    <div id="uncovered"></div>
+    <div class="front">
+      <div id="spotlight"></div>
+      <aside class="below" aria-label="What coverage missed">
+        <div id="one-side"></div>
+        <div id="uncovered"></div>
+      </aside>
+    </div>
+    <div id="spot-rest"></div>
+    <div id="see-all"></div>
     <p class="showing" id="showing"></p>
     <div id="left-out"></div>
   </section>

@@ -69,6 +69,8 @@ async function main() {
   const docs = [...document.querySelectorAll("#param-table code")].map((n) => n.textContent.split("=")[0]);
   const anchors = [...document.querySelectorAll("[id^='story-']")].map((n) => n.id);
   const loaded = see();
+  const gapSides = document.querySelectorAll(".side.gap").length;
+  const oneSide = [...document.querySelectorAll("#one-side .quick a")].map((n) => n.getAttribute("href"));
   const threshold = byId("threshold-strict");
   threshold.checked = true;
   threshold.dispatchEvent(new Event("change"));
@@ -77,7 +79,7 @@ async function main() {
   const report = {
     errors,
     lede: byId("lede").textContent,
-    spotlight: document.querySelectorAll("#spotlight article.story").length,
+    spotlight: document.querySelectorAll("#spotlight article.story, #spot-rest article.story").length,
     anchors,
     duplicates: anchors.filter((id, i) => anchors.indexOf(id) !== i),
     scrolledTo: scrolledTo && scrolledTo.id,
@@ -86,6 +88,9 @@ async function main() {
     dataLink: !!document.querySelector("#data-line a"),
     feedUrl: byId("feed-url").value,
     docs,
+    sideColumns: [...document.querySelectorAll("#spotlight .side-col h4")].map((n) => n.textContent),
+    gapSides,
+    oneSide,
     settings: dom.window.BoringCore.SETTINGS.map((x) => x.name),
     loaded,
     strict,
