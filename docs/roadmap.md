@@ -102,7 +102,7 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 - **Gaps:**
   - `wsj-world` answers, but its newest item is from January 2025. It needs replacing (T3).
   - `war-department-releases` returns 403 Access Denied to our requests. It may behave differently from GitHub, which is unknown.
-  - `congress` needs a free API key, so it's untested.
+  - `congress` needs a free [API key](https://api.congress.gov/sign-up/), so it's untested. Without it the edition has almost no records, which make up 25% of the score. It also unlocks F4 and F6 to F11.
   - Each official source's `max_items` cap is a guess.
 - **Done when:** every source reports healthy or is removed, with the reason in the commit.
 
@@ -262,13 +262,50 @@ Goal: the claim that records sit next to the reporting holds for all three branc
 ### F4. Roll-call votes ⬜ M
 
 - **Exists:** Congress.gov bills that passed a chamber, went to the President, were signed or vetoed.
-- **Gaps:** the README promises votes beside the coverage, but individual roll-call votes aren't read.
-- **Done when:** a story about a vote links to the vote record itself.
+- **Gaps:** the README promises votes beside the coverage, but individual roll-call votes aren't read. The Congress.gov API has `/house-vote`, in beta, covering legislation-linked votes in the 118th and 119th Congresses. It has no Senate equivalent, so Senate votes need another source, and showing only one chamber isn't a neutral default.
+- **Needs a person:** `CONGRESS_API_KEY`.
+- **Done when:** a story about a vote in either chamber links to the vote record itself.
 
 ### F5. Presenting official framing ⬜ M
 
 - **Gaps:** the open question of how to show an agency's own framing of a record. Today a record counts as neutral once it's labeled a record.
 - **Done when:** a written policy exists in `docs/`, applied in the style guide.
+
+### More from the Congress.gov API
+
+We read only `/bill` today. The [API](https://github.com/LibraryOfCongress/api.congress.gov/) has about 20 areas, allows 5,000 requests an hour, and is free. Everything below needs `CONGRESS_API_KEY`, the same key the bills source needs, and none of it has been tested live. Each new source needs the same care as public laws: count real events, not routine record updates.
+
+### F6. Bill summaries from the Congressional Research Service ⬜ S to M
+
+- **Exists:** a bill's only text today is its title and latest action.
+- **Gaps:** `/summaries` holds nonpartisan summaries, filterable by date. Using them gives the writer and the fact check real source material. Not every bill will have one when it moves, so stories need to work without it.
+- **Done when:** bills with a summary carry it into writing and the fact check, and the source is linked.
+
+### F7. Laws from Congress.gov ⬜ S
+
+- **Exists:** GovInfo's feed, with a rule that only higher-numbered laws count as new, because it reposts old ones.
+- **Gaps:** `/law` may give real dates. That isn't confirmed.
+- **Done when:** either it replaces the GovInfo rule with real dates, or we record why it can't.
+
+### F8. Nominations ⬜ S to M
+
+- **Gaps:** `/nomination` covers cabinet and judicial nominations. Needs a rule for which actions count, since most nominations are routine.
+- **Done when:** significant nominations appear as records, with the rule public.
+
+### F9. Treaties ⬜ S
+
+- **Gaps:** `/treaty` covers treaties sent to the Senate. They're rare, and they stay active across Congresses, so only real events should count, such as a treaty being sent or ratified. Its update date alone isn't an event.
+- **Done when:** treaties appear as records on those events only.
+
+### F10. Hearings and committee activity ⬜ M
+
+- **Gaps:** `/hearing`, `/committee-meeting` and `/committee-report` show what's coming up. That could fill the "Next" line with a scheduled date. Needs a rule for matching them to stories.
+- **Done when:** a story can cite a scheduled hearing or report as its next step.
+
+### F11. Research reports ⬜ S to M
+
+- **Gaps:** `/crsreport` has nonpartisan background reports, which suit the Research tab more than the edition.
+- **Done when:** Research can show relevant reports beside coverage.
 
 ---
 
