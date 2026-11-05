@@ -15,10 +15,10 @@ import os
 import re
 import urllib.parse
 import urllib.request
+from calendar import timegm
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from time import mktime
 
 import feedparser
 
@@ -71,7 +71,7 @@ def _published(entry) -> str:
     for key in ("published_parsed", "updated_parsed"):
         t = entry.get(key)
         if t:
-            return _iso(datetime.fromtimestamp(mktime(t), tz=timezone.utc))
+            return _iso(datetime.fromtimestamp(timegm(t), tz=timezone.utc))
     return _iso(datetime.now(timezone.utc))
 
 

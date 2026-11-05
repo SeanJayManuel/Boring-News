@@ -1,3 +1,4 @@
+import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
@@ -337,3 +338,14 @@ def test_only_kept_bills_cost_a_summary_call(monkeypatch):
 
 def test_public_laws_come_from_congress_gov_not_a_second_source():
     assert "public-laws" not in load_sources(config.SOURCES_PATH)
+
+
+def test_feed_times_are_read_as_utc_on_any_machine(monkeypatch):
+    monkeypatch.setenv("TZ", "America/Los_Angeles")
+    time.tzset()
+    try:
+        entry = {"published_parsed": time.struct_time((2026, 11, 5, 3, 47, 0, 3, 309, 0))}
+        assert ingest._published(entry) == "2026-11-05T03:47:00+00:00"
+    finally:
+        monkeypatch.undo()
+        time.tzset()
