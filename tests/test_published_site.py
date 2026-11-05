@@ -329,6 +329,6 @@ def test_function_serves_custom_weights_and_a_named_feed(site, tmp_path):
                                   f"{BASE}/feed.xml?weights=40,25,10,25")
     assert same["body"] == plain["body"]
     root = ET.fromstring(weighted["body"]).find("channel")
-    assert root.findtext("title") == "Boring News: Records"
+    assert root.findtext("title") == "Boring News (reader recipe: Records)"
     assert [i.findtext("title") for i in root.findall("item")] != \
         [i.findtext("title") for i in ET.fromstring(plain["body"]).findall("./channel/item")]

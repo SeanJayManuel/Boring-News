@@ -60,9 +60,11 @@ def run_blockers(mock: bool, fixtures: bool) -> list[str]:
     return blockers
 
 
-def run(inputs, writer, db_path, edition_date: str, archive_dir=None) -> Edition:
+def run(inputs, writer, db_path, edition_date: str, archive_dir=None, require_writer: bool = False) -> Edition:
     """Build, store and (with archive_dir) publish the edition for a date.
-    `inputs` is a LiveInputs or FixtureInputs; `writer` is None for the fallback writer."""
+    `inputs` is a LiveInputs or FixtureInputs; `writer` is None for the fallback writer.
+    With `require_writer`, stops before storing if the writer produced nothing: a bad
+    key, an outage or a model that rejects the request all look like this."""
     sources = inputs.sources
     conn = connect(db_path)
     banned = load_banned(config.BANNED_WORDS_PATH)
@@ -110,6 +112,9 @@ def run(inputs, writer, db_path, edition_date: str, archive_dir=None) -> Edition
         note = f", {dropped} dropped by fact check" if dropped else ""
         print(f"  [{sc.total:.2f}] {draft.headline}  ({len(group)} articles, {draft.written_by}{note})")
 
+    if require_writer and stories and all(s.written_by == "fallback" for s in stories):
+        raise SystemExit("Not storing the edition: every story used the fallback writer.")
+
     # 5. Follow developing stories from the previous edition
     linked = threads.link(conn, edition_date, stories, config.THREAD_SIMILARITY)
     if linked:
@@ -127,7 +132,7 @@ def run(inputs, writer, db_path, edition_date: str, archive_dir=None) -> Edition
     print(f"Edition {edition_date}: {len(stories)} stories stored in {db_path}.")
     if archive_dir:
         path = edition.write_file(archive_dir, articles, clusters, writer.model if writer else "none (fallback writer)",
-                                  getattr(writer, "usage", None))
+                                  writer.usage if writer else None)
         print(f"Edition file written to {path}.")
     return edition
 
@@ -190,7 +195,7 @@ def main(argv=None) -> int:
     inputs = FixtureInputs(sources) if args.fixtures else LiveInputs(sources)
     archive_dir = args.archive or (None if args.fixtures else str(config.ARCHIVE_DIR))
     run(inputs, pick_writer(args.mock_llm), args.db, args.date or datetime.now(timezone.utc).date().isoformat(),
-        None if args.no_archive else archive_dir)
+        None if args.no_archive else archive_dir, args.require_writer)
     return 0
 
 

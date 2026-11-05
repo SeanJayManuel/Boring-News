@@ -63,11 +63,10 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 - **Needs a person:** register the domain, create the accounts, add the secrets. Decision D1.
 - **Done when:** the workflow deploys a page to the domain.
 
-### L2. Safe nightly job 🟡 S
+### L2. Safe nightly job ✅ S
 
-- **Exists:** tests run before the build, so failing tests stop a deploy. `pipeline run --require-writer`, used by the nightly job, stops a run before anything is written when a required key is missing.
-- **Gaps:** the check only sees that keys exist. A bad key or an outage still passes it, every story falls back, and that edition commits and deploys. With no secrets set, the nightly job now fails every day until launch.
-- **Done when:** a run where the writer fails across the board also stops before committing. This likely belongs with L8.
+- **Built:** tests run before the build, so failing tests stop a deploy. `pipeline run --require-writer`, used by the nightly job, stops before writing anything when a required key is missing, and stops before storing when every story fell back, which catches a bad key or an outage.
+- **Limit:** with no secrets set, the nightly job fails every day until launch. A partial outage, where only some stories fall back, still publishes; those stories show their writer in the edition file.
 
 ### L3. Tests on pull requests 🟡 S
 

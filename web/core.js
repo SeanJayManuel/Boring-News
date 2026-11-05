@@ -232,7 +232,7 @@
       var self = baseUrl + "/feed.xml" + (q ? "?" + q : "");
       var out = [
         '<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel>',
-        "<title>Boring News" + (p.recipe ? ": " + esc(p.recipe) : "") + "</title>",
+        "<title>Boring News" + (p.recipe ? " (reader recipe: " + esc(p.recipe) + ")" : "") + "</title>",
         "<link>" + esc(baseUrl) + "/</link>",
         '<atom:link href="' + esc(self) + '" rel="self" type="application/rss+xml"/>',
         "<description>The day's news, once a day, without the noise.</description>",
@@ -305,7 +305,7 @@
     if (!qt.length) return { matches: [], how: "words" };
     // Kept on the index, so a long-lived copy (the MCP function) only tokenizes once.
     var docs = index._docs || (index._docs = index.stories.map(function (s) {
-      var set = {};
+      var set = Object.create(null);  // a plain object already "has" words like constructor
       tokens([s.headline].concat(s.bullets, s.articles.map(function (a) { return a.title; })).join(" "))
         .forEach(function (t) { set[t] = true; });
       return set;
@@ -343,6 +343,7 @@
   function searchRecords(index, f) {
     f = f || {};
     var qt = tokens(f.q || "");
+    if (String(f.q || "").trim() && !qt.length) return [];  // only stop words: nothing to search for
     return (index ? index.records : []).filter(function (r) {
       if (f.source && r.source_id !== f.source) return false;
       if (f.role && r.role !== f.role) return false;

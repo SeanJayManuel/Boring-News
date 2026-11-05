@@ -35,6 +35,7 @@ class BadDay(FixtureInputs):
 class BrokenWriter:
     model = "broken"
     checks_facts = False
+    usage = None
 
     def complete(self, *a, **k):
         raise TimeoutError
@@ -105,8 +106,7 @@ def test_a_run_against_a_local_server_names_the_model_and_totals_its_tokens(tmp_
     monkeypatch.setenv("BN_WRITER_URL", url)
     monkeypatch.setenv("BN_WRITER_MODEL", "stand-in")
     archive = tmp_path / "a"
-    code = main(["run", "--fixtures", "--require-writer", "--date", DATE,
-                 "--db", str(tmp_path / "t.db"), "--archive", str(archive)])
+    code = main(["run", "--fixtures", "--date", DATE, "--db", str(tmp_path / "t.db"), "--archive", str(archive)])
     assert code == 0 and calls and {path for path, _ in calls} == {"/v1/chat/completions"}
     record = editorial(archive)
     assert record["model"] == "stand-in"
@@ -203,3 +203,10 @@ def test_one_failing_source_does_not_stop_the_others(monkeypatch):
     assert h["old"].ok and h["old"].stale
     assert not h["empty"].ok and h["empty"].error == "no items"
     assert h["quiet"].ok  # an official source with nothing new is normal
+
+
+def test_required_writer_stops_when_every_story_falls_back(tmp_path):
+    with pytest.raises(SystemExit, match="fallback writer"):
+        run(FixtureInputs(SOURCES), BrokenWriter(), tmp_path / "t.db", DATE, tmp_path / "archive", require_writer=True)
+    assert editions(connect(tmp_path / "t.db")) == []
+    assert not (tmp_path / "archive").exists()

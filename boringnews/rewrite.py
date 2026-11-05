@@ -204,6 +204,7 @@ class MockWriter:
 
     model = "mock"
     checks_facts = False
+    usage = None
 
     def __init__(self, rewrites_path: Path, articles_path: Path):
         titles = {a["url"]: a["title"] for a in json.loads(Path(articles_path).read_text())["articles"]}

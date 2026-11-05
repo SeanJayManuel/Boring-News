@@ -25,6 +25,8 @@ console.log(JSON.stringify({
   uncovered: R.searchRecords(idx, {uncovered: true}).length,
   statements: R.searchRecords(idx, {role: "statement"}).map(r => r.source_id),
   words: R.searchRecords(idx, {q: "voter"}).map(r => r.source_id),
+  prototype: q("constructors"),
+  stopwords: R.searchRecords(idx, {q: "the"}).length,
 }));
 """
 
@@ -50,3 +52,5 @@ def test_research_tools(tmp_path):
     assert out["uncovered"] == 4
     assert out["statements"] == ["westmark-defense"]
     assert out["words"] == ["westmark-courts"]
+    assert out["prototype"] == []                     # a word every object "has" isn't a match
+    assert out["stopwords"] == 0

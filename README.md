@@ -171,6 +171,7 @@ export ANTHROPIC_API_KEY=...                       # optional; without it, the f
 # export BN_WRITER_URL=http://localhost:11434 BN_WRITER_MODEL=llama3.2
 python -m boringnews.pipeline check-feeds          # which sources work, and which look stale
 python -m boringnews.pipeline run                  # today's edition, UTC
+# Add --require-writer to stop rather than publish fallback stories (the nightly job does)
 uvicorn boringnews.web:app
 ```
 
