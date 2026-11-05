@@ -8,6 +8,7 @@
   ];
   var C = window.BoringCore.create(D);
   var SPECTRUM = window.BoringCore.SPECTRUM;
+  var WEIGHT_PARTS = window.BoringCore.WEIGHT_PARTS;
   var DEFAULTS = C.DEFAULTS;
   var STORE_KEY = "boringnews.prefs.v3";
   var THRESHOLD_LABELS = { broad: "Broad", standard: "Standard", strict: "Strict" };
@@ -76,6 +77,56 @@
 
   var prefs = loadPrefs();
 
+  function partLabel(k) { return PARTS.filter(function (p) { return p[0] === k; })[0][1]; }
+  function weightWords() {
+    var w = C.weightsFor(prefs);
+    return listWords(WEIGHT_PARTS.map(function (k) { return partLabel(k).toLowerCase() + " " + Math.round(w[k] * 100) + "%"; }));
+  }
+  function scoreWords(sc) { return "Score " + sc.total.toFixed(2) + (sc.custom ? " with your weights" : ""); }
+  function sourceLine(articles) {
+    var links = [];
+    articles.forEach(function (a) {
+      if (links.length) links.push(", ");
+      links.push(el("a", { href: a.url, target: "_blank", rel: "noopener", text: D.sources[a.source_id] ? D.sources[a.source_id].name : a.source_id }));
+    });
+    return el("p", { className: "source-line" }, ["Sources: "].concat(links).concat("."));
+  }
+
+  // ---------- earlier days of a developing story
+  // The index is a large file, so it's only fetched when a reader asks.
+  function earlierDays(s) {
+    var label = "Earlier days of this story", done = false;
+    var box = el("div", { className: "earlier", hidden: "", "aria-live": "polite" });
+    var btn = el("button", { type: "button", className: "toggle earlier-toggle", "aria-expanded": "false", text: label });
+    function say(text) { box.innerHTML = ""; box.appendChild(el("p", { className: "hint", text: text })); }
+    function unavailable() { say("Earlier days aren't available right now. Try again later."); }
+    function fill(idx) {
+      var found = RS.earlier(idx, D.edition, s.id);
+      if (!found) { unavailable(); return; }
+      done = true;
+      box.innerHTML = "";
+      found.days.forEach(function (d) {
+        box.appendChild(el("section", { className: "earlier-day" }, [
+          el("p", { className: "topic", text: shortDate(d.date) + ", day " + d.day }),
+          el("h4", { text: d.headline }),
+          el("ul", { className: "bullets" }, d.bullets.map(function (b) { return el("li", { text: b }); })),
+          sourceLine(d.articles)
+        ]));
+      });
+      if (found.missing) box.appendChild(el("p", { className: "hint", text: plural(found.missing, "earlier day is", "earlier days are") + " older than the last 30 days of editions." }));
+    }
+    btn.addEventListener("click", function () {
+      var open = box.hidden;
+      box.hidden = !open;
+      btn.setAttribute("aria-expanded", String(open));
+      btn.textContent = open ? "Hide earlier days" : label;
+      if (!open || done) return;
+      say("Loading…");
+      loadResearch().then(fill, unavailable);
+    });
+    return { button: btn, box: box };
+  }
+
   // ---------- stories
   // A story appears twice (Today and All stories), so only one copy, in
   // All stories, carries the #story-N anchor that feed links open.
@@ -88,7 +139,11 @@
     else if (sc.hasStatement) topicLine.appendChild(el("span", { className: "badge statement", text: "Government statement",
       title: "A government press release or announcement. It doesn't add to the score." }));
     var node = el("article", { className: "story", id: anchored ? "story-" + s.id : null }, [topicLine, el("h3", { className: "headline", text: s.headline })]);
-    if (headlinesOnly) return node;
+    var days = s.day > 1 ? earlierDays(s) : null;
+    if (headlinesOnly) {
+      if (days) { node.appendChild(el("div", { className: "meta" }, [days.button])); node.appendChild(days.box); }
+      return node;
+    }
 
     node.appendChild(el("ul", { className: "bullets" }, s.bullets.map(function (b) { return el("li", { text: b }); })));
     if (s.whats_next) node.appendChild(el("p", { className: "next" }, [el("b", { text: "Next: " }), s.whats_next]));
@@ -110,8 +165,8 @@
       return el("li", {}, [el("span", { className: "who", text: who }),
         el("a", { href: a.url, target: "_blank", rel: "noopener", text: a.title })]);
     }));
-    list.appendChild(el("li", { className: "score", text: "Score " + sc.total.toFixed(2) + ": " +
-      PARTS.map(function (p) { return p[1].toLowerCase() + " " + (R.weights[p[0]] * sc.parts[p[0]]).toFixed(2); }).join(", ") +
+    list.appendChild(el("li", { className: "score", text: scoreWords(sc) + ": " +
+      PARTS.map(function (p) { return p[1].toLowerCase() + " " + sc.points[p[0]].toFixed(2); }).join(", ") +
       ". Your setting needs " + R.thresholds[prefs.threshold].toFixed(2) + "." }));
 
     var ck = s.checks || {};
@@ -137,8 +192,10 @@
       btn.textContent = open ? "Hide sources" : label;
     });
     meta.appendChild(btn);
+    if (days) meta.appendChild(days.button);
     node.appendChild(meta);
     node.appendChild(list);
+    if (days) node.appendChild(days.box);
     return node;
   }
 
@@ -156,10 +213,39 @@
     var bits = [THRESHOLD_LABELS[prefs.threshold] + " agreement"];
     bits.push(prefs.topics.length ? plural(prefs.topics.length, "category", "categories") : "all categories");
     if (prefs.exclude.length) bits.push(plural(prefs.exclude.length, "source", "sources") + " off");
+    if (prefs.weights) bits.push("your own weights");
     var text = "Showing " + listWords(bits) + ". ";
     if (res.hidden) text += plural(res.hidden, "story", "stories") + " left out by your settings. ";
     box.appendChild(document.createTextNode(text));
     box.appendChild(el("a", { href: "#your-feed", text: "Change what you see" }));
+  }
+
+  // What the settings hid, and why. These rows carry no #story-N anchor: a feed
+  // link should open the story's place in All stories, not this list.
+  function leftOut(target, res) {
+    var box = $(target), hl = prefs.length === "headlines";
+    box.innerHTML = "";
+    if (!res.filtered.length) return;
+    var body = el("div", { className: "left-out-body" }, [el("p", { className: "hint",
+      text: "Each story your settings hid, and why. Only stories that were written up can be listed: the published rule drops the rest before any setting applies." })]);
+    window.BoringCore.REASONS.forEach(function (r) {
+      var rows = res.filtered.filter(function (x) { return x.reason === r.id; });
+      if (!rows.length) return;
+      body.appendChild(el("h3", { text: r.label + " (" + rows.length + ")" }));
+      rows.forEach(function (x) {
+        var s = x.story, row = el("article", { className: "left-story" }, [
+          el("p", { className: "topic", text: D.topics[s.topic] || s.topic }),
+          el("h4", { text: s.headline }),
+          el("p", { className: "why", text: x.why })
+        ]);
+        if (!hl) row.appendChild(el("ul", { className: "bullets" }, s.bullets.map(function (b) { return el("li", { text: b }); })));
+        if (s.articles.length) row.appendChild(sourceLine(s.articles));
+        body.appendChild(row);
+      });
+    });
+    box.appendChild(el("details", { className: "left-out sheet" }, [
+      el("summary", { text: "See the " + plural(res.filtered.length, "story", "stories") + " left out, and why" }), body
+    ]));
   }
 
   function renderToday(res) {
@@ -170,7 +256,8 @@
       ? countWord(top.length) + (top.length === 1 ? " story today." : " stories today.")
       : "Nothing matches your settings.";
     $("sublede").textContent = top.length
-      ? "Ranked by how widely left, center and right outlets covered them. Stories backed by a government record, like a new law or a court ruling, rank higher."
+      ? (prefs.weights ? "Ranked by your own weights: " + weightWords() + "."
+        : "Ranked by how widely left, center and right outlets covered them. Stories backed by a government record, like a new law or a court ruling, rank higher.")
       : "Try needing less agreement, or turn on more categories.";
     var box = $("spotlight");
     box.innerHTML = "";
@@ -198,6 +285,7 @@
       unc.lastChild.style.marginTop = "20px";
     }
     showingLine("showing", res);
+    leftOut("left-out", res);
   }
 
   function renderAll(res) {
@@ -232,6 +320,7 @@
       box.appendChild(sheet(D.topics[t] || t, plural(groups[t].length, "story", "stories"), groups[t], hl, "topic-" + t));
     });
     showingLine("showing-all", res);
+    leftOut("left-out-all", res);
   }
 
   // What each outlet covered, measured against stories every side covered.
@@ -290,6 +379,11 @@
         el("span", { className: "pct", text: Math.round(v * 100) + "%" })
       ]));
     });
+    var yours = $("weights-yours");
+    yours.hidden = !prefs.weights;
+    yours.textContent = prefs.weights ? "These bars are the published rule. Your page and feed use your own weights: " + weightWords() + "." : "";
+    $("chart-weights").textContent = prefs.weights
+      ? " Scored with your own weights: " + weightWords() + ". The thresholds stay the same." : "";
     $("cap").textContent = R.coverage_cap + " outlets";
     $("threshold-text").textContent = "A story makes the edition when its score reaches your threshold (broad " +
       R.thresholds.broad.toFixed(2) + ", standard " + R.thresholds.standard.toFixed(2) + ", strict " +
@@ -302,7 +396,7 @@
 
     var thr = R.thresholds[prefs.threshold];
     $("chart-threshold").textContent = THRESHOLD_LABELS[prefs.threshold].toLowerCase() + " (" + thr.toFixed(2) + ")";
-    var rows = D.stories.map(function (s) { return scoreStory(s, C.excluded(prefs)); })
+    var rows = D.stories.map(function (s) { return scoreStory(s, C.excluded(prefs), C.weightsFor(prefs)); })
       .filter(function (x) { return x.articles.length; })
       .sort(function (a, b) { return b.score.total - a.score.total; });
     var chart = $("score-chart");
@@ -310,10 +404,10 @@
     rows.forEach(function (x) {
       var inEdition = !!lane(x.score, prefs);
       var stack = el("div", { className: "stack", role: "img",
-        "aria-label": "Score " + x.score.total.toFixed(2) + ": " + PARTS.map(function (p) {
-          return p[1] + " " + (R.weights[p[0]] * x.score.parts[p[0]]).toFixed(2); }).join(", ") });
+        "aria-label": scoreWords(x.score) + ": " + PARTS.map(function (p) {
+          return p[1] + " " + x.score.points[p[0]].toFixed(2); }).join(", ") });
       PARTS.forEach(function (p) {
-        var v = R.weights[p[0]] * x.score.parts[p[0]];
+        var v = x.score.points[p[0]];
         if (v > 0) stack.appendChild(el("i", { style: "width:" + (v * 100) + "%;background:var(--c-" + p[0] + ")" }));
       });
       stack.appendChild(el("span", { className: "cut", style: "left:calc(" + (thr * 100) + "% - 1px)" }));
@@ -367,6 +461,8 @@
       input.addEventListener("change", function () { prefs.threshold = k; update(); });
       th.appendChild(el("label", { for: "threshold-" + k }, [input, THRESHOLD_LABELS[k]]));
     });
+    renderWeights();
+    $("recipe-name").value = prefs.recipe;
     [["topics", D.topics]].forEach(function (pair) {
       var key = pair[0], map = pair[1], box = $(key);
       box.innerHTML = "";
@@ -412,16 +508,44 @@
     });
   }
 
+  function renderShares() {
+    var w = C.weightsFor(prefs);
+    WEIGHT_PARTS.forEach(function (k) { $("weight-share-" + k).textContent = Math.round(w[k] * 100) + "%"; });
+  }
+  function renderWeights() {
+    var box = $("weight-controls"), v = prefs.weights;
+    box.innerHTML = "";
+    WEIGHT_PARTS.forEach(function (k, i) {
+      var input = el("input", { type: "range", id: "weight-" + k, min: "0", max: "100", step: "1" });
+      input.value = String(v ? v[i] : Math.round(R.weights[k] * 100));
+      input.addEventListener("input", function () {
+        var values = WEIGHT_PARTS.map(function (part) { return Number($("weight-" + part).value); });
+        prefs.weights = C.cleanWeights(values);
+        // All four at zero means nothing to rank by, so go back to the published rule.
+        if (!values.some(function (n) { return n > 0; })) renderWeights();
+        renderShares();
+        update();
+      });
+      box.appendChild(el("div", { className: "weight" }, [
+        el("label", { for: "weight-" + k, text: partLabel(k) }), input,
+        el("span", { className: "pct", id: "weight-share-" + k })
+      ]));
+    });
+    renderShares();
+  }
+
   function renderDocs() {
     var any = Object.keys(D.sources)[0];
     var rows = [
       ["topics=economy,world", "Only these categories: " + Object.keys(D.topics).join(", ") + "."],
       ["exclude=" + any, "Leave out these sources by their id, then score every story again. Ids are listed in sources.yaml."],
       ["threshold=strict", "How much agreement a story needs: broad, standard (default) or strict."],
+      ["weights=60,20,10,10", "Your own weights for " + WEIGHT_PARTS.join(", ") + ": four whole numbers from 0 to 100, in that order. Each counts as its share of their total. This re-ranks stories that were written; it can't bring back one the published rule dropped."],
       ["official=0", "Leave out government records and statements that no outlet has covered yet."],
       ["statements=0", "Leave out government statements, such as White House and agency press releases. Records still count."],
       ["spotlight=1", "Only the top " + R.spotlight + " stories each day."],
-      ["length=headlines", "Headlines without the bullet points."]
+      ["length=headlines", "Headlines without the bullet points."],
+      ["recipe=Morning%20brief", "A name for this setup, up to 60 characters. It labels the page and the feed and changes nothing else."]
     ];
     var tb = $("param-table");
     tb.innerHTML = "";
@@ -436,6 +560,11 @@
     var ul = $("examples");
     ul.innerHTML = "";
     ex.forEach(function (e) { ul.appendChild(el("li", {}, [el("span", { text: e[0] }), el("code", { text: e[1] })])); });
+    var recipes = $("recipe-list");
+    recipes.innerHTML = "";
+    C.recipes().forEach(function (r) {
+      recipes.appendChild(el("li", {}, [el("a", { href: "?" + r.query + "#today", text: r.name }), el("span", { text: r.note })]));
+    });
     $("repo-link").href = D.repo_url;
     Array.prototype.forEach.call(document.querySelectorAll(".spot-n"), function (n) { n.textContent = String(R.spotlight); });
   }
@@ -446,11 +575,21 @@
     if (prefs.exclude.length) bits.push(plural(prefs.exclude.length, "source", "sources") + " off");
     if (!prefs.official) bits.push("no uncovered government items");
     if (!prefs.statements) bits.push("no government statements");
+    if (prefs.weights) bits.push("your own weights");
     if (prefs.length === "headlines") bits.push("headlines only");
     $("settings-summary").textContent = "Now: " + bits.join(", ") + ".";
-    $("threshold-hint").textContent = THRESHOLD_HINTS[prefs.threshold];
-    var q = toQuery(prefs);
-    $("feed-url").value = D.base_url + "/feed.xml" + (q ? "?" + q : "");
+    $("threshold-hint").textContent = THRESHOLD_HINTS[prefs.threshold] +
+      (prefs.weights ? " That describes the published weights; yours can change which stories reach it." : "");
+    $("weights-now").textContent = prefs.weights ? "Yours: " + weightWords() + "." : "These are the published weights.";
+    $("feed-url").value = C.link(prefs, "/feed.xml");
+    $("recipe-link").value = C.link(prefs, "/");
+    var note = $("recipe-note");
+    note.hidden = !prefs.recipe;
+    note.innerHTML = "";
+    if (prefs.recipe) {
+      note.appendChild(document.createTextNode("Using the recipe \u201c" + prefs.recipe + "\u201d. Whoever made the link chose that name, not Boring News. "));
+      note.appendChild(el("a", { href: "#your-feed", text: "See its settings" }));
+    }
   }
 
   // ---------- research tools
@@ -465,7 +604,7 @@
       researchLoading = fetch(D.research_url).then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
-      }).then(function (j) { researchIndex = j; return j; });
+      }).then(function (j) { researchIndex = j; return j; }, function (e) { researchLoading = null; throw e; });
     }
     return researchLoading;
   }
@@ -672,12 +811,20 @@
     renderControls();
     update();
   });
-  $("copy-feed").addEventListener("click", function () {
-    var input = $("feed-url"), status = $("copy-status");
-    function fallback() { input.focus(); input.select(); status.textContent = "Selected. Press Ctrl+C or Cmd+C to copy."; }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(input.value).then(function () { status.textContent = "Copied."; }, fallback);
-    } else fallback();
+  function copyField(buttonId, inputId, statusId) {
+    $(buttonId).addEventListener("click", function () {
+      var input = $(inputId), status = $(statusId);
+      function fallback() { input.focus(); input.select(); status.textContent = "Selected. Press Ctrl+C or Cmd+C to copy."; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(input.value).then(function () { status.textContent = "Copied."; }, fallback);
+      } else fallback();
+    });
+  }
+  copyField("copy-feed", "feed-url", "copy-status");
+  copyField("copy-recipe", "recipe-link", "recipe-status");
+  $("recipe-name").addEventListener("input", function () {
+    prefs.recipe = C.cleanName(this.value);
+    update();
   });
   window.addEventListener("hashchange", route);
   $("lookup-form").addEventListener("submit", function (e) { e.preventDefault(); runLookup(); });

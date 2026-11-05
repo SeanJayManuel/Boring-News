@@ -8,6 +8,8 @@
 
 **Reader settings**: the query parameters that shape a page or feed. Declared once in `SETTINGS` in `web/core.js`.
 
+**Recipe**: a settings link with a name (the `recipe` setting). Links only: no accounts, nothing stored by us.
+
 **Score** and **lane**: how widely a story was covered, from its sources, and whether that puts it in the main list, the official list or neither. The only rules kept in both Python (`rubric.py`, for the pipeline) and JS (`core.js`, for readers who change settings); `tests/test_parity.py` keeps them equal.
 
 **Writer**: turns a prompt into text (`ClaudeWriter`, `MockWriter`). It knows nothing about stories; parsing, retries and linting apply to every writer.
