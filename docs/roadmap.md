@@ -9,14 +9,35 @@ Status as of 2026-11-05.
 
 ## Where things stand
 
-The product is built but has never run on real news.
+The product is built but has never been published.
 
 - `archive/` holds no editions, and the nightly workflow has never run.
-- The feed URLs in `sources.yaml` are unverified, and Claude writing has only been tested with stand-ins.
+- Claude writing has only been tested with stand-ins. Feeds and grouping have had one local check on real news (see below).
 - The domain isn't registered, the site isn't deployed, and no repo secrets are set.
-- Grouping and ranking were tuned on invented sample data.
+- Grouping and ranking are still set from invented sample data.
 
 So everything below is ordered around one question: **does this work on real news?** Phase 0 answers that. Until it does, later features would be built on untested assumptions.
+
+## First check on real news (2026-11-05)
+
+One local run on the live feeds, with no model and nothing published. It's a single day, two days after the midterms, and without a Congress key, so government records are undercounted.
+
+| Measure | Result |
+| --- | --- |
+| Articles in the 36-hour window | 234 |
+| Groups, at similarity 0.15 | 192 |
+| Groups with 2 or more outlets | 15 |
+| Stories that would be written | 14 before fixing reposted laws, 10 after |
+| Stories in the main list at the standard threshold | 9 |
+| Stories covered by left, center and right | **1** |
+
+What this showed:
+
+- **Three-sided coverage is rare, partly because of the list.** The WSJ feed is dead, leaving The Hill and the BBC as the only working center outlets (L4, T3). The strict setting would show almost nothing.
+- **Grouping misses far more than it wrongly merges.** Most articles stayed alone, and raising the similarity setting makes that worse, while 0.10 chains 54 articles together. 0.15 is about right, so word matching itself looks like the limit (D4). It also merged two different stories: Mike Johnson stepping aside and Hakeem Jeffries's bid for speaker.
+- **One-sided stories are being lost (T1).** Five of the six one-sided stories were dropped, on the left, center and right.
+- **Sports reached the edition.** A Lions injury and a Valkyries story made the list (D8).
+- **Reposted laws looked new.** GovInfo reposts old laws with fresh dates, so 2021 laws appeared as today's records. Fixed: only laws numbered above those already posted now count.
 
 ## Order of work
 
@@ -49,6 +70,7 @@ These block or shape work, and only the maintainer can make them.
 | D5 | **What does Boring News do on a day the pipeline fails?** Show yesterday's edition with a notice, or nothing? | L8 |
 | D6 | **Monthly spending limit** for the Claude API, and who pays | L5, B1 |
 | D7 | **How much AI writing is disclosed** on each story, beyond the "written by" field in edition files | T5 |
+| D8 | **Do sports and entertainment belong in the edition?** There's no category for them, and they can pass the rubric | L6 |
 
 ---
 
@@ -74,10 +96,14 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 - **Gaps:** it hasn't run yet, so the code still hasn't been tested on Node 20.
 - **Done when:** it has passed on a real pull request.
 
-### L4. Verify every live source ⬜ S
+### L4. Verify every live source 🟡 S
 
-- **Exists:** `python -m boringnews.pipeline check-feeds`, and tests for the failure paths.
-- **Gaps:** no feed has been confirmed against the live internet. Each official source's `max_items` cap is a guess.
+- **Exists:** `python -m boringnews.pipeline check-feeds`, and tests for the failure paths. Checked live on 2026-11-05: 14 of 17 sources work.
+- **Gaps:**
+  - `wsj-world` answers, but its newest item is from January 2025. It needs replacing (T3).
+  - `war-department-releases` returns 403 Access Denied to our requests. It may behave differently from GitHub, which is unknown.
+  - `congress` needs a free [API key](https://api.congress.gov/sign-up/), so it's untested. Without it the edition has almost no records, which make up 25% of the score. It also unlocks F4 and F6 to F11.
+  - Each official source's `max_items` cap is a guess.
 - **Done when:** every source reports healthy or is removed, with the reason in the commit.
 
 ### L5. First real edition, read by a person ⬜ M
@@ -87,10 +113,10 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 - **Needs a person:** read a full edition against its sources, and judge it. Decision D6.
 - **Done when:** five editions in a row are good enough to publish unedited, and cost per edition is in the ledger.
 
-### L6. Tune grouping and ranking on real news ⬜ M
+### L6. Tune grouping and ranking on real news 🟡 M
 
 - **Exists:** word-based grouping, with a similarity setting of 0.15 tuned on sample data. Edition files record every grouping.
-- **Gaps:** real headlines vary far more than the samples. Merged and split stories are likely. Rubric thresholds are also uncalibrated: we don't know how many stories a real day produces.
+- **Gaps:** one day has been measured (see above), and it needs a normal news week. Rubric thresholds are uncalibrated: on that day only about 10 stories would be written, and only 1 reached all three sides. This doesn't need a model, so it can run locally.
 - **Done when:** a week of real editions is hand-checked for wrongly merged or split stories, the settings are updated, and `docs/clustering.md` and `docs/ranking.md` record the result.
 
 ### L7. Market ticker permissions ⬜ S
@@ -156,7 +182,7 @@ So today a three-outlet story on the left is dropped and the same story on the r
 ### T3. A more balanced source list ⬜ M
 
 - **Exists:** 11 outlets: 4 left, 3 center, 3 right, 1 unrated.
-- **Gaps:** left and right outlets are all national. The BBC is the only international outlet with a lean, and no outlet is typed regional or wire, partly because Reuters and AP don't offer public feeds. So the diversity part of the score can't reach its maximum on any story that only left and right outlets cover.
+- **Gaps:** the WSJ feed is dead, which leaves two working center outlets (see the check above). Left and right outlets are all national. The BBC is the only international outlet with a lean, and no outlet is typed regional or wire, partly because Reuters and AP don't offer public feeds. So the diversity part of the score can't reach its maximum on any story that only left and right outlets cover.
 - **Done when:** each side has a mix of outlet types, and each addition follows the process in `docs/labeling.md`.
 
 ### T4. A public way to challenge decisions 🟡 S
@@ -236,13 +262,50 @@ Goal: the claim that records sit next to the reporting holds for all three branc
 ### F4. Roll-call votes ⬜ M
 
 - **Exists:** Congress.gov bills that passed a chamber, went to the President, were signed or vetoed.
-- **Gaps:** the README promises votes beside the coverage, but individual roll-call votes aren't read.
-- **Done when:** a story about a vote links to the vote record itself.
+- **Gaps:** the README promises votes beside the coverage, but individual roll-call votes aren't read. The Congress.gov API has `/house-vote`, in beta, covering legislation-linked votes in the 118th and 119th Congresses. It has no Senate equivalent, so Senate votes need another source, and showing only one chamber isn't a neutral default.
+- **Needs a person:** `CONGRESS_API_KEY`.
+- **Done when:** a story about a vote in either chamber links to the vote record itself.
 
 ### F5. Presenting official framing ⬜ M
 
 - **Gaps:** the open question of how to show an agency's own framing of a record. Today a record counts as neutral once it's labeled a record.
 - **Done when:** a written policy exists in `docs/`, applied in the style guide.
+
+### More from the Congress.gov API
+
+We read only `/bill` today. The [API](https://github.com/LibraryOfCongress/api.congress.gov/) has about 20 areas, allows 5,000 requests an hour, and is free. Everything below needs `CONGRESS_API_KEY`, the same key the bills source needs, and none of it has been tested live. Each new source needs the same care as public laws: count real events, not routine record updates.
+
+### F6. Bill summaries from the Congressional Research Service ⬜ S to M
+
+- **Exists:** a bill's only text today is its title and latest action.
+- **Gaps:** `/summaries` holds nonpartisan summaries, filterable by date. Using them gives the writer and the fact check real source material. Not every bill will have one when it moves, so stories need to work without it.
+- **Done when:** bills with a summary carry it into writing and the fact check, and the source is linked.
+
+### F7. Laws from Congress.gov ⬜ S
+
+- **Exists:** GovInfo's feed, with a rule that only higher-numbered laws count as new, because it reposts old ones.
+- **Gaps:** `/law` may give real dates. That isn't confirmed.
+- **Done when:** either it replaces the GovInfo rule with real dates, or we record why it can't.
+
+### F8. Nominations ⬜ S to M
+
+- **Gaps:** `/nomination` covers cabinet and judicial nominations. Needs a rule for which actions count, since most nominations are routine.
+- **Done when:** significant nominations appear as records, with the rule public.
+
+### F9. Treaties ⬜ S
+
+- **Gaps:** `/treaty` covers treaties sent to the Senate. They're rare, and they stay active across Congresses, so only real events should count, such as a treaty being sent or ratified. Its update date alone isn't an event.
+- **Done when:** treaties appear as records on those events only.
+
+### F10. Hearings and committee activity ⬜ M
+
+- **Gaps:** `/hearing`, `/committee-meeting` and `/committee-report` show what's coming up. That could fill the "Next" line with a scheduled date. Needs a rule for matching them to stories.
+- **Done when:** a story can cite a scheduled hearing or report as its next step.
+
+### F11. Research reports ⬜ S to M
+
+- **Gaps:** `/crsreport` has nonpartisan background reports, which suit the Research tab more than the edition.
+- **Done when:** Research can show relevant reports beside coverage.
 
 ---
 
@@ -313,7 +376,7 @@ Goal: journalists and researchers can use the data without asking.
 ### D4. Better grouping ⬜ M
 
 - **Exists:** word-based grouping.
-- **Gaps:** `docs/clustering.md` plans sentence embeddings, which match on meaning. Only worth doing if L6 shows word matching isn't good enough.
+- **Gaps:** `docs/clustering.md` plans sentence embeddings, which match on meaning. The first real check suggests word matching isn't good enough, so this may need to move up to Phase 0 once L6 confirms it over a normal week.
 - **Done when:** real editions measurably improve, on the week of checks from L6.
 
 ---

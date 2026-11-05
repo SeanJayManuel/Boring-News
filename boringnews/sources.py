@@ -9,7 +9,7 @@ import yaml
 
 LEANS = ("left", "center", "right", "unrated")
 TYPES = ("wire", "national", "regional", "international", "primary")
-FETCHERS = ("rss", "federal_register", "congress", "fixture")
+FETCHERS = ("rss", "public_laws", "federal_register", "congress", "fixture")
 # For official sources only. A record has legal or statistical standing (a law,
 # a rule, a court ruling, a vote, official statistics) and adds to a story's
 # score. A statement is an institution describing its own work (a press
@@ -39,7 +39,7 @@ class Source:
     url: str
     lean: str
     type: str
-    fetcher: str = "rss"          # how to read it: rss, federal_register, congress
+    fetcher: str = "rss"          # how to read it: rss, public_laws, federal_register, congress
     topic: str | None = None      # default topic for items from this source
     max_items: int | None = None  # cap per edition (official sources can be very busy)
     role: str | None = None       # official sources only: record or statement
