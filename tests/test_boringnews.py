@@ -1,12 +1,13 @@
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 
 import pytest
 
 from boringnews import config, rubric
 from boringnews.cluster import cluster
-from boringnews.db import connect, load_edition, editions
+from boringnews.db import Article, connect, load_edition, editions
 from boringnews.edition import Edition
-from boringnews.ingest import load_fixtures
+from boringnews.ingest import load_fixtures, public_law_items
 from boringnews.pipeline import main as pipeline_main
 from boringnews.reader import feeds
 from boringnews.rewrite import fallback, lint, load_banned
@@ -270,3 +271,33 @@ def test_official_sources_default_to_statement(tmp_path):
     p = tmp_path / "s.yaml"
     p.write_text("sources:\n  - {id: agency, name: Agency, url: x, type: primary}\n")
     assert load_sources(p)["agency"].role == "statement"
+
+
+# ---------------------------------------------------------------- public laws
+
+def law(number, title, posted, summary="Content Files PDF TEXT"):
+    return Article("public-laws", f"https://x/{number}", f"Public Law {number} - {title}", summary, posted)
+
+
+def test_only_laws_newer_than_those_already_posted_count():
+    since = datetime(2026, 11, 4, tzinfo=timezone.utc)
+    items = [
+        law("119 - 108", "Earlier law", "2026-10-30T12:00:00+00:00"),
+        law("119 - 111", "Latest law before the window", "2026-10-30T12:00:00+00:00"),
+        law("117 - 9", "Old law reposted", "2026-11-04T16:00:00+00:00"),
+        law("119 - 49", "Older law from this Congress reposted", "2026-11-04T16:00:00+00:00"),
+        law("119 - 112", "Really new", "2026-11-04T16:00:00+00:00"),
+        law("120 - 1", "First law of a new Congress", "2026-11-04T16:00:00+00:00"),
+    ]
+    assert [a.title for a in public_law_items(items, since)] == [
+        "Public Law 119 - 112 - Really new", "Public Law 120 - 1 - First law of a new Congress"]
+
+
+def test_public_law_summaries_are_dropped_because_the_feed_only_lists_files():
+    since = datetime(2026, 11, 4, tzinfo=timezone.utc)
+    assert public_law_items([law("119 - 1", "New", "2026-11-04T16:00:00+00:00")], since)[0].summary == ""
+
+
+def test_real_source_list_treats_public_laws_this_way():
+    live = load_sources(config.SOURCES_PATH)
+    assert live["public-laws"].fetcher == "public_laws"

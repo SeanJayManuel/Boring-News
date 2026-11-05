@@ -95,6 +95,7 @@ sources:
   - id: public-laws
     name: GovInfo (new public laws)
     url: https://www.govinfo.gov/rss/plaw.xml
+    fetcher: public_laws     # the feed reposts old laws, so only higher-numbered ones count as new
     lean: unrated
     type: primary
     role: record

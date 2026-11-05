@@ -15,7 +15,7 @@ import os
 import re
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from time import mktime
@@ -177,9 +177,35 @@ def fetch_congress(src: Source, since: datetime) -> list[Article]:
     return congress_items(_get_json(CONGRESS_API, params), src.id, since)
 
 
+# ---------------------------------------------------------------- public laws
+#
+# GovInfo's feed dates a law by when a file was posted, and it reposts old ones,
+# so a 2021 law can look like today's. The feed gives no enactment date, but laws
+# are numbered in order: a law is new only if it's numbered above every law posted
+# before the edition's window. Its summary is just a list of files, so it's dropped.
+
+LAW_RE = re.compile(r"Public Law (\d+)\s*-\s*(\d+)")
+
+
+def _law_number(a: Article) -> tuple[int, int] | None:
+    m = LAW_RE.search(a.title)
+    return (int(m[1]), int(m[2])) if m else None
+
+
+def public_law_items(articles: list[Article], since: datetime) -> list[Article]:
+    latest = max((_law_number(a) for a in articles if a.published < since and _law_number(a)), default=(0, 0))
+    return [replace(a, summary="") for a in articles
+            if a.published >= since and _law_number(a) and _law_number(a) > latest]
+
+
+def fetch_public_laws(src: Source, since: datetime) -> list[Article]:
+    return public_law_items(fetch_rss(src, since), since)
+
+
 # ---------------------------------------------------------------- dispatch
 
-FETCHERS = {"rss": fetch_rss, "federal_register": fetch_federal_register, "congress": fetch_congress}
+FETCHERS = {"rss": fetch_rss, "public_laws": fetch_public_laws, "federal_register": fetch_federal_register,
+            "congress": fetch_congress}
 
 
 def fetch_source(src: Source, since: datetime) -> tuple[list[Article], FeedHealth]:
