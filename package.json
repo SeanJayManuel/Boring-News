@@ -1,0 +1,8 @@
+{
+  "name": "boring-news-tests",
+  "private": true,
+  "description": "Test-only: jsdom runs web/app.js in tests/page_smoke.cjs. The site itself has no npm dependencies.",
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
+}

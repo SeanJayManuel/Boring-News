@@ -5,12 +5,14 @@ import pytest
 from boringnews import config, rubric
 from boringnews.cluster import cluster
 from boringnews.db import connect, load_edition, editions
-from boringnews.feeds import render_rss
+from boringnews.edition import Edition
 from boringnews.ingest import load_fixtures
 from boringnews.pipeline import main as pipeline_main
-from boringnews.prefs import Prefs, apply
+from boringnews.reader import feeds
 from boringnews.rewrite import fallback, lint, load_banned
 from boringnews.sources import load_sources
+
+from .core import select
 
 SOURCES = load_sources(config.FIXTURE_SOURCES_PATH)
 BANNED = load_banned(config.BANNED_WORDS_PATH)
@@ -98,37 +100,52 @@ def test_pipeline_is_idempotent(tmp_path):
     assert len(load_edition(conn, "2026-11-04")) == 17
 
 
-def test_prefs_filter_and_rescore(edition_db):
-    stories = load_edition(edition_db, "2026-11-04")
-    default = apply(stories, SOURCES, Prefs())
-    assert [s.lane for s in default].count("main") == 11
-    assert [s.lane for s in default].count("official") == 4
+def page_data(conn) -> dict:
+    return Edition.load(conn, SOURCES).page_data("https://example.org", sample=True)
 
-    broad = apply(stories, SOURCES, Prefs(threshold="broad"))
-    assert len(broad) == 17
+
+def test_prefs_filter_and_rescore(edition_db):
+    data = page_data(edition_db)
+    default = select(data)["items"]
+    assert [s["lane"] for s in default].count("main") == 11
+    assert [s["lane"] for s in default].count("official") == 4
+
+    assert len(select(data, "threshold=broad")["items"]) == 17
 
     # Dropping every right-leaning outlet re-scores the water story but keeps it.
-    no_right = Prefs(exclude=["heartland-post", "liberty-daily", "prairie-gazette"])
-    water = [s for s in apply(stories, SOURCES, no_right) if "water" in s.story.headline.lower()][0]
-    assert "right" not in water.score.leans
+    no_right = select(data, "exclude=heartland-post,liberty-daily,prairie-gazette")["items"]
+    water = [s for s in no_right if "water" in s["headline"].lower()][0]
+    assert "right" not in water["leans"]
 
-    only_states = apply(stories, SOURCES, Prefs(topics=["states"]))
-    assert {s.story.topic for s in only_states} == {"states"} and len(only_states) == 7
+    only_states = select(data, "topics=states")["items"]
+    assert {s["topic"] for s in only_states} == {"states"} and len(only_states) == 7
 
 
-def test_prefs_query_round_trip():
-    p = Prefs(topics=["economy", "government"], exclude=["npr"], threshold="strict", official=False, spotlight=True)
-    assert Prefs.from_query(dict(x.split("=") for x in p.to_query().split("&"))) == p
-    assert Prefs().to_query() == ""
+def test_prefs_query_round_trip(edition_db):
+    data = page_data(edition_db)
+    q = "topics=economy,government&exclude=npr&threshold=strict&official=0&spotlight=1"
+    assert select(data, q)["query"] == q
+    assert select(data)["query"] == ""
+
+
+def test_bad_settings_fall_back_to_defaults(edition_db):
+    data = page_data(edition_db)
+    for q in ("threshold=constructor", "threshold=nonsense", "topics=constructor", "length=tiny"):
+        assert select(data, q)["query"] == "", q
+        assert len(select(data, q)["items"]) == 15, q
 
 
 def test_rss_is_valid_xml(edition_db):
-    stories = load_edition(edition_db, "2026-11-04")
-    sel = apply(stories, SOURCES, Prefs())
-    root = ET.fromstring(render_rss("2026-11-04", sel, SOURCES, Prefs(), "https://example.org"))
+    root = ET.fromstring(feeds(page_data(edition_db), [""])[0])
     items = root.findall("./channel/item")
     assert len(items) == 15
     assert items[-1].find("title").text.startswith("Government ")
+
+
+def test_feeds_fail_loudly_without_node(monkeypatch):
+    monkeypatch.setattr("boringnews.reader.shutil.which", lambda name: None)
+    with pytest.raises(RuntimeError, match="needs node"):
+        feeds({}, [""])
 
 
 def test_web_routes(tmp_path, monkeypatch):
@@ -212,12 +229,11 @@ def test_official_record_raises_score():
 
 
 def test_spotlight_is_top_five_covered_stories(edition_db):
-    stories = load_edition(edition_db, "2026-11-04")
-    top = apply(stories, SOURCES, Prefs(spotlight=True))
-    assert len(top) == rubric.SPOTLIGHT and all(x.lane == "main" for x in top)
-    assert [x.score.total for x in top] == sorted((x.score.total for x in top), reverse=True)
+    top = select(page_data(edition_db), "spotlight=1")["items"]
+    assert len(top) == rubric.SPOTLIGHT and all(x["lane"] == "main" for x in top)
+    assert [x["total"] for x in top] == sorted((x["total"] for x in top), reverse=True)
     # The two stories backed by an official record lead the day.
-    assert {x.story.topic for x in top[:2]} == {"economy", "states"}
+    assert {x["topic"] for x in top[:2]} == {"economy", "states"}
 
 
 def test_official_documents_from_one_source_stay_separate():
@@ -240,13 +256,12 @@ def test_records_add_to_score():
 
 
 def test_statements_can_be_turned_off(edition_db):
-    stories = load_edition(edition_db, "2026-11-04")
-    on = apply(stories, SOURCES, Prefs())
-    off = apply(stories, SOURCES, Prefs(statements=False))
-    assert any(x.score.has_statement for x in on)
-    assert not any(x.score.has_statement for x in off)
-    assert len(on) - len(off) == 1  # the armory contract press release
-    assert Prefs.from_query({"statements": "0"}).to_query() == "statements=0"
+    data = page_data(edition_db)
+    on, off = select(data)["items"], select(data, "statements=0")
+    assert any(x["hasStatement"] for x in on)
+    assert not any(x["hasStatement"] for x in off["items"])
+    assert len(on) - len(off["items"]) == 1  # the armory contract press release
+    assert off["query"] == "statements=0"
 
 
 def test_official_sources_default_to_statement(tmp_path):

@@ -5,7 +5,8 @@ import json
 import pytest
 
 from boringnews import archive, config, rubric, threads
-from boringnews.db import Article, Story, connect, editions, load_edition
+from boringnews.db import Article, Story, connect, editions, load_edition, load_extra
+from boringnews.edition import FORMAT
 from boringnews.pipeline import main as pipeline_main
 from boringnews.rewrite import Draft, check_facts, numbers
 from boringnews.sources import lean_from_ratings, load_sources
@@ -78,15 +79,17 @@ def test_bullet_with_unsourced_number_is_dropped():
 
 def test_model_check_can_drop_bullets():
     class FakeWriter:
-        def verify(self, bullets, articles, sources):
-            return {1: {"supported": True}, 2: {"supported": False, "reason": "not in any article"}}
+        checks_facts = True
+        def complete(self, system, messages, max_tokens=800):
+            return '[{"n": 1, "supported": true}, {"n": 2, "supported": false, "reason": "not in any article"}]'
     d = check_facts(draft(["Unemployment held at 4.1%.", "Economists expected more."]), ARTS, SOURCES, FakeWriter())
     assert d.bullets == ["Unemployment held at 4.1%."] and d.checks["method"] == "numbers+model"
 
 
 def test_failed_model_check_is_logged_not_fatal():
     class Broken:
-        def verify(self, *a):
+        checks_facts = True
+        def complete(self, *a, **k):
             raise TimeoutError
     d = check_facts(draft(["Unemployment held at 4.1%."]), ARTS, SOURCES, Broken())
     assert d.bullets and "model check failed" in d.checks["method"]
@@ -114,8 +117,48 @@ def test_edition_file_round_trip(tmp_path):
     assert archive.restore(arch, restored) == 1
     a = load_edition(connect(db), "2026-11-04")
     b = load_edition(connect(restored), "2026-11-04")
-    assert [(s.headline, s.bullets, sorted(x.url for x in s.articles), s.checks) for s in a] == \
-           [(s.headline, s.bullets, sorted(x.url for x in s.articles), s.checks) for s in b]
+    def fields(s):
+        return (s.id, s.headline, s.bullets, s.whats_next, s.topic, s.region, s.written_by, s.checks,
+                s.thread_id, s.day, sorted(x.url for x in s.articles))
+    assert [fields(s) for s in a] == [fields(s) for s in b]
+    assert load_extra(connect(restored), "2026-11-04", "markets") == data["markets"]
+
+
+def test_restore_keeps_ids_after_an_earlier_edition_shrinks(tmp_path):
+    """Feed guids and #story-N links must not move when the nightly job
+    rebuilds the database."""
+    db, arch = tmp_path / "a.db", tmp_path / "archive"
+    for day in ("2026-11-03", "2026-11-04"):
+        pipeline_main(["run", "--fixtures", "--mock-llm", "--date", day, "--db", str(db), "--archive", str(arch)])
+    first = arch / "2026-11-03.json"
+    data = json.loads(first.read_text())
+    data["stories"] = data["stories"][:1]
+    first.write_text(json.dumps(data))
+    archive.restore(arch, tmp_path / "restored.db")
+    a = load_edition(connect(db), "2026-11-04")
+    b = load_edition(connect(tmp_path / "restored.db"), "2026-11-04")
+    assert a and [s.id for s in a] == [s.id for s in b]
+
+
+def test_edition_files_from_a_newer_format_are_refused(tmp_path):
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    (arch / "2026-11-04.json").write_text(json.dumps({"format": FORMAT + 1, "edition": "2026-11-04"}))
+    with pytest.raises(ValueError, match="format"):
+        archive.restore(arch, tmp_path / "r.db")
+
+
+def test_old_edition_files_without_ids_still_restore(tmp_path):
+    db, arch = tmp_path / "a.db", tmp_path / "archive"
+    pipeline_main(["run", "--fixtures", "--mock-llm", "--date", "2026-11-04", "--db", str(db), "--archive", str(arch)])
+    f = arch / "2026-11-04.json"
+    data = json.loads(f.read_text())
+    data["format"] = 1
+    for s in data["stories"]:
+        del s["id"]
+    f.write_text(json.dumps(data))
+    archive.restore(arch, tmp_path / "r.db")
+    assert len(load_edition(connect(tmp_path / "r.db"), "2026-11-04")) == 17
 
 
 # ---------------------------------------------------------------- threads
@@ -165,7 +208,6 @@ def test_ticker_without_key_is_skipped_not_fatal(monkeypatch):
 
 
 def test_demo_edition_has_ticker(tmp_path):
-    from boringnews.db import load_extra
     db = tmp_path / "t.db"
     pipeline_main(["run", "--fixtures", "--mock-llm", "--date", "2026-11-04", "--db", str(db)])
     ticker = load_extra(connect(db), "2026-11-04", "markets")

@@ -1,14 +1,29 @@
 // Boring News core: the selection rubric, reader settings and RSS output.
 // One copy, used by the reader page (inlined before app.js) and by the
 // Cloudflare Pages function that serves custom feeds (functions/feed.xml.js).
-// It mirrors boringnews/rubric.py, prefs.py and feeds.py; tests/test_parity.py
-// checks that both give the same scores and the same stories.
+// Python uses it too, for ready-made feeds (boringnews/reader.py). The only rules
+// that also exist in Python are the score and lane (boringnews/rubric.py), because
+// the pipeline needs them; tests/test_parity.py checks that both agree.
 (function (root) {
   "use strict";
   var SPECTRUM = ["left", "center", "right"];
   var OUTLET_TYPES = ["wire", "national", "regional", "international"];
   var FALSE = ["0", "false", "no"];
-  var DEFAULTS = { topics: [], exclude: [], threshold: "standard", official: true, statements: true, spotlight: false, length: "full" };
+
+  // Every reader setting, once. Reading and writing the address, the defaults
+  // and the page's check for settings in its address all come from this list.
+  var SETTINGS = [
+    { name: "topics", kind: "list", value: [], allowed: function (D) { return Object.keys(D.topics); },
+      aliases: function (D) { return D.topic_aliases; } },
+    { name: "exclude", kind: "list", value: [] },
+    { name: "threshold", kind: "choice", value: "standard", allowed: function (D) { return Object.keys(D.rubric.thresholds); } },
+    { name: "official", kind: "flag", value: true },
+    { name: "statements", kind: "flag", value: true },
+    { name: "spotlight", kind: "flag", value: false },
+    { name: "length", kind: "choice", value: "full", allowed: function () { return ["full", "headlines"]; } }
+  ];
+  var DEFAULTS = {};
+  SETTINGS.forEach(function (x) { DEFAULTS[x.name] = x.value; });
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
@@ -17,7 +32,7 @@
 
     function isStatement(s) { return s.type === "primary" && s.role !== "record"; }
 
-    // ---------- rubric (mirror of rubric.py)
+    // ---------- rubric (score matches rubric.py)
     function score(sourceIds) {
       var seen = {}, outlets = [], hasRecord = false, hasStatement = false;
       sourceIds.forEach(function (id) {
@@ -84,37 +99,39 @@
       return shown.filter(function (x) { return x.lane === "main"; }).slice(0, R.spotlight);
     }
 
-    // ---------- preferences (mirror of prefs.py)
-    function csv(v, allowed) {
-      return (v || "").split(",").map(function (x) { return x.trim(); })
-        .filter(function (x) { return x && (!allowed || allowed[x]); })
-        .filter(function (x, i, arr) { return arr.indexOf(x) === i; }).sort();
+    // ---------- preferences
+    function list(x, v) {
+      var allowed = x.allowed && x.allowed(D), aliases = (x.aliases && x.aliases(D)) || {};
+      return v.split(",").map(function (i) {
+        i = i.trim();
+        return Object.prototype.hasOwnProperty.call(aliases, i) ? aliases[i] : i;
+      }).filter(function (i, n, arr) {
+        return i && (!allowed || allowed.indexOf(i) >= 0) && arr.indexOf(i) === n;
+      }).sort();
     }
     function fromQuery(search) {
       var q = new URLSearchParams(search);
       var p = clone(DEFAULTS);
-      if (q.has("topics")) p.topics = csv(q.get("topics"), D.topics);
-      if (q.has("exclude")) p.exclude = csv(q.get("exclude"));
-      if (R.thresholds[q.get("threshold")] !== undefined) p.threshold = q.get("threshold");
-      if (q.has("official")) p.official = FALSE.indexOf(q.get("official")) < 0;
-      if (q.has("statements")) p.statements = FALSE.indexOf(q.get("statements")) < 0;
-      if (q.has("spotlight")) p.spotlight = FALSE.indexOf(q.get("spotlight")) < 0;
-      if (q.get("length") === "headlines") p.length = "headlines";
+      SETTINGS.forEach(function (x) {
+        if (!q.has(x.name)) return;
+        var v = q.get(x.name);
+        if (x.kind === "list") p[x.name] = list(x, v);
+        else if (x.kind === "flag") p[x.name] = FALSE.indexOf(v) < 0;
+        else if (x.allowed(D).indexOf(v) >= 0) p[x.name] = v;
+      });
       return p;
     }
     function toQuery(p) {
       var parts = [];
-      if (p.topics.length) parts.push("topics=" + p.topics.join(","));
-      if (p.exclude.length) parts.push("exclude=" + p.exclude.join(","));
-      if (p.threshold !== "standard") parts.push("threshold=" + p.threshold);
-      if (!p.official) parts.push("official=0");
-      if (!p.statements) parts.push("statements=0");
-      if (p.spotlight) parts.push("spotlight=1");
-      if (p.length !== "full") parts.push("length=" + p.length);
+      SETTINGS.forEach(function (x) {
+        var v = p[x.name];
+        if (x.kind === "list") { if (v.length) parts.push(x.name + "=" + v.map(encodeURIComponent).join(",")); }
+        else if (v !== x.value) parts.push(x.name + "=" + (x.kind === "flag" ? (v ? "1" : "0") : v));
+      });
       return parts.join("&");
     }
 
-    // ---------- RSS (mirror of feeds.py)
+    // ---------- RSS
     function esc(s) {
       return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     }
@@ -238,7 +255,7 @@
   }
 
   root.BoringCore = {
-    create: create, DEFAULTS: DEFAULTS, SPECTRUM: SPECTRUM,
+    create: create, DEFAULTS: DEFAULTS, SETTINGS: SETTINGS, SPECTRUM: SPECTRUM,
     research: { tokens: tokens, lookup: lookup, searchRecords: searchRecords }
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

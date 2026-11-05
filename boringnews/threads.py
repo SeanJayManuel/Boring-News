@@ -12,12 +12,7 @@ from __future__ import annotations
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from .db import Story, load_edition
-
-
-def previous_edition(conn, edition_date: str) -> str | None:
-    row = conn.execute("SELECT MAX(edition_date) FROM stories WHERE edition_date < ?", (edition_date,)).fetchone()
-    return row[0] if row else None
+from .db import Story, load_edition, previous_edition
 
 
 def _text(s: Story) -> str:

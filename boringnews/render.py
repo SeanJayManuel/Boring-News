@@ -1,6 +1,6 @@
-"""Render the reader page. The page is one self-contained HTML file: the
-edition's stories, the source list and the rubric are embedded as JSON, and
-static/app.js filters them by the reader's preferences in the browser."""
+"""Render the reader page. The page is one self-contained HTML file: the page
+data is embedded as JSON, and web/core.js and web/app.js filter it by the
+reader's settings in the browser."""
 
 from __future__ import annotations
 
@@ -8,10 +8,7 @@ import json
 
 import yaml
 
-from . import config, rubric
-from .db import Story
-from .sources import Source
-from .topics import TOPIC_DESCRIPTIONS, TOPICS
+from . import config
 
 WEB = config.ROOT / "web"
 
@@ -21,58 +18,6 @@ def load_corrections() -> list[dict]:
         return []
     data = yaml.safe_load(config.CORRECTIONS_PATH.read_text()) or {}
     return [{k: str(v) for k, v in c.items()} for c in (data.get("corrections") or [])]
-
-
-def page_data(edition_date: str, editions: list[str], stories: list[Story],
-              sources: dict[str, Source], base_url: str, sample: bool = False,
-              data_url: str | None = None, markets: list[dict] | None = None,
-              research_url: str | None = None, research: dict | None = None) -> dict:
-    return {
-        "edition": edition_date,
-        "editions": editions,
-        "sample": sample,
-        "base_url": base_url,
-        "repo_url": config.REPO_URL,
-        "data_url": data_url,
-        "corrections": load_corrections(),
-        "markets": markets or [],
-        "research_url": research_url,
-        "research": research,
-        "rubric": {
-            "version": rubric.VERSION,
-            "weights": rubric.WEIGHTS,
-            "thresholds": rubric.THRESHOLDS,
-            "coverage_cap": rubric.COVERAGE_CAP,
-            "min_outlets": rubric.MIN_OUTLETS,
-            "spotlight": rubric.SPOTLIGHT,
-        },
-        "topics": TOPICS,
-        "topic_descriptions": TOPIC_DESCRIPTIONS,
-        "sources": {
-            sid: {"name": s.name, "lean": s.lean, "type": s.type, "role": s.role,
-                  "weight": s.weight, "ratings": s.ratings}
-            for sid, s in sources.items()
-        },
-        "stories": [
-            {
-                "id": s.id,
-                "headline": s.headline,
-                "bullets": s.bullets,
-                "whats_next": s.whats_next,
-                "topic": s.topic,
-                "region": s.region,
-                "written_by": s.written_by,
-                "checks": s.checks,
-                "thread_id": s.thread_id,
-                "day": s.day,
-                "articles": [
-                    {"source_id": a.source_id, "title": a.title, "url": a.url, "published_at": a.published_at}
-                    for a in s.articles
-                ],
-            }
-            for s in stories
-        ],
-    }
 
 
 def render_page(data: dict) -> str:

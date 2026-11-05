@@ -125,6 +125,11 @@ def upsert_articles(conn: sqlite3.Connection, articles: list[Article]) -> int:
     return conn.total_changes - before
 
 
+def article_ids(conn: sqlite3.Connection, urls: list[str]) -> dict[str, int]:
+    rows = (conn.execute("SELECT id, url FROM articles WHERE url = ?", (u,)).fetchone() for u in urls)
+    return {r["url"]: r["id"] for r in rows if r}
+
+
 def articles_between(conn: sqlite3.Connection, start: str, end: str) -> list[Article]:
     rows = conn.execute(
         "SELECT * FROM articles WHERE published_at >= ? AND published_at <= ? ORDER BY published_at",
@@ -134,14 +139,15 @@ def articles_between(conn: sqlite3.Connection, start: str, end: str) -> list[Art
 
 
 def replace_edition(conn: sqlite3.Connection, edition_date: str, stories: list[Story]) -> None:
-    """Write an edition, replacing any earlier run for the same date (re-runs are safe)."""
+    """Write an edition, replacing any earlier run for the same date (re-runs are safe).
+    Stories without an id get a new one; restored stories keep theirs."""
     with conn:
         conn.execute("DELETE FROM stories WHERE edition_date = ?", (edition_date,))
         for s in stories:
             cur = conn.execute(
-                "INSERT INTO stories (edition_date, headline, bullets, whats_next, topic, region, written_by, "
-                "created_at, checks, thread_id, day) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (s.edition_date, s.headline, json.dumps(s.bullets), s.whats_next, s.topic, s.region,
+                "INSERT INTO stories (id, edition_date, headline, bullets, whats_next, topic, region, written_by, "
+                "created_at, checks, thread_id, day) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (s.id, s.edition_date, s.headline, json.dumps(s.bullets), s.whats_next, s.topic, s.region,
                  s.written_by, now_iso(), json.dumps(s.checks), s.thread_id, s.day),
             )
             s.id = cur.lastrowid
@@ -165,6 +171,11 @@ def load_extra(conn: sqlite3.Connection, edition_date: str, key: str, default=No
 def editions(conn: sqlite3.Connection) -> list[str]:
     rows = conn.execute("SELECT DISTINCT edition_date FROM stories ORDER BY edition_date DESC").fetchall()
     return [r[0] for r in rows]
+
+
+def previous_edition(conn: sqlite3.Connection, edition_date: str) -> str | None:
+    row = conn.execute("SELECT MAX(edition_date) FROM stories WHERE edition_date < ?", (edition_date,)).fetchone()
+    return row[0] if row else None
 
 
 def load_edition(conn: sqlite3.Connection, edition_date: str) -> list[Story]:

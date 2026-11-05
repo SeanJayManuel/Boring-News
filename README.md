@@ -143,8 +143,10 @@ Docs, source lists and editorial rules: [CC BY-SA 4.0](https://creativecommons.o
 
 ## Quick start (demo data, no API key)
 
+Needs Python 3.10 or newer, and Node.js for the RSS feeds and the tests.
+
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 # Build a demo edition from invented sample articles
@@ -229,7 +231,7 @@ edition.
 ```
 sources.yaml ──► ingest (RSS) ──► SQLite ──► cluster (TF-IDF) ──► score (rubric)
                                                                      │
-          web page + /feed.xml ◄── prefs (URL query) ◄── store ◄── rewrite (Claude + linter)
+          web page + /feed.xml ◄── web/core.js (URL query) ◄── edition ◄── rewrite (Claude + linter)
 ```
 
 | File | What it does |
@@ -239,12 +241,15 @@ sources.yaml ──► ingest (RSS) ──► SQLite ──► cluster (TF-IDF) 
 | `editorial/banned_words.txt` | Loaded words the linter rejects outside quotes |
 | `boringnews/rubric.py` | Selection rule: breadth, coverage, diversity, thresholds |
 | `boringnews/cluster.py` | Groups articles about the same event |
-| `boringnews/rewrite.py` | Claude writer, linter, retry, and no-model fallback |
-| `boringnews/prefs.py` | Reader settings from the query string; filtering and re-scoring |
-| `boringnews/feeds.py` | RSS 2.0 output |
-| `boringnews/web.py` | FastAPI app: `/`, `/feed.xml`, `/api/edition.json` |
-| `boringnews/export_static.py` | Static site export (page, default feed, one feed per topic) |
-| `web/` | The reader page; `app.js` mirrors the rubric so settings apply instantly |
+| `boringnews/rewrite.py` | Writers, the parsing, retry and lint rules for their text, fact check, no-model fallback |
+| `boringnews/inputs.py` | Where articles and market closes come from: live or the sample data |
+| `boringnews/edition.py` | One edition and all its forms: database, edition file, page data |
+| `boringnews/reader.py` | Asks `web/core.js` for RSS feeds, through node |
+| `boringnews/research.py` | The 30-day index behind the Research tab |
+| `boringnews/web.py` | Local preview, FastAPI: `/`, `/feed.xml`, `/api/edition.json` |
+| `boringnews/export_static.py` | Static site export (page, data, one feed per topic) |
+| `web/core.js` | What readers' settings do: selection, scores, the settings list, RSS, plus the research tools. Used by the page, the feed function and Python |
+| `web/app.js` | The reader page |
 
 ## Reader settings (work on the page and the feed)
 
@@ -258,14 +263,15 @@ sources.yaml ──► ingest (RSS) ──► SQLite ──► cluster (TF-IDF) 
 | `spotlight` | 1: only the top 5 stories | 0 |
 | `length` | full or headlines | full |
 
-Example: `/feed.xml?topics=economy,courts&threshold=strict&exclude=ny-post`
+Example: `/feed.xml?topics=economy,government&threshold=strict&exclude=ny-post`
 
 ## Settings
 
 Environment variables: `BN_DB`, `BN_SOURCES`, `BN_BASE_URL` (used in feed
 links), `BN_MODEL` (default `claude-haiku-5-5`), `BN_LOOKBACK_HOURS`,
 `BN_CLUSTER_SIMILARITY` (default 0.15, tuned on the sample data; re-tune on
-real feeds), `BN_SAMPLE=1` (serve the sample source list).
+real feeds), `BN_CLUSTER_WINDOW_HOURS`, `BN_THREAD_SIMILARITY`, `BN_ARCHIVE`,
+`BN_REPO_URL`, `BN_SAMPLE=1` (serve the sample source list).
 
 ## Market ticker
 
@@ -322,8 +328,11 @@ which the export writes next to the page.
 ## Tests
 
 ```bash
+npm install     # test-only: jsdom runs the reader page
 pytest -q
 ```
+
+The site itself has no npm dependencies.
 
 ## Notes
 

@@ -14,10 +14,11 @@ import os
 import sys
 from datetime import date, datetime, time, timedelta, timezone
 
-from . import archive, config, markets, rubric, threads
+from . import config, rubric, threads
 from .cluster import cluster
-from .db import Story, articles_between, connect, replace_edition, save_extra, upsert_articles
-from .ingest import fetch_all, load_fixtures
+from .db import Story, articles_between, connect, upsert_articles
+from .edition import Edition
+from .inputs import FixtureInputs, LiveInputs
 from .rewrite import ClaudeWriter, MockWriter, load_banned, write_story
 from .sources import load_sources
 
@@ -29,33 +30,31 @@ def edition_window(edition_date: str, lookback_hours: int) -> tuple[str, str]:
     return start.isoformat(), end.isoformat()
 
 
-def pick_writer(args):
-    banned = load_banned(config.BANNED_WORDS_PATH)
-    if args.mock_llm:
-        return MockWriter(config.FIXTURE_REWRITES_PATH), banned
+def pick_writer(mock: bool):
+    if mock:
+        return MockWriter(config.FIXTURE_REWRITES_PATH, config.FIXTURE_ARTICLES_PATH)
     if os.environ.get("ANTHROPIC_API_KEY"):
-        return ClaudeWriter(config.MODEL, config.STYLE_GUIDE_PATH.read_text(), banned), banned
+        return ClaudeWriter(config.MODEL)
     print("No ANTHROPIC_API_KEY set: using the no-model fallback writer.")
-    return None, banned
+    return None
 
 
-def run(args) -> int:
-    sources_path = config.FIXTURE_SOURCES_PATH if args.fixtures else config.SOURCES_PATH
-    sources = load_sources(sources_path)
-    conn = connect(args.db)
+def run(inputs, writer, db_path, edition_date: str, archive_dir=None) -> Edition:
+    """Build, store and (with archive_dir) publish the edition for a date.
+    `inputs` is a LiveInputs or FixtureInputs; `writer` is None for the fallback writer."""
+    sources = inputs.sources
+    conn = connect(db_path)
+    banned = load_banned(config.BANNED_WORDS_PATH)
+    style_guide = config.STYLE_GUIDE_PATH.read_text() if writer else ""
 
     # 1. Ingest
-    edition_date = args.date or datetime.now(timezone.utc).date().isoformat()
     start, end = edition_window(edition_date, config.LOOKBACK_HOURS)
-    if args.fixtures:
-        fetched = load_fixtures(config.FIXTURE_ARTICLES_PATH)
-    else:
-        fetched, health = fetch_all(sources, since=datetime.fromisoformat(start))
-        for h in health:
-            if not h.ok:
-                print(f"  source problem: {h.source_id}: {h.error}")
-            elif h.stale:
-                print(f"  source looks stale: {h.source_id}: newest item {h.newest}")
+    fetched, health = inputs.articles(datetime.fromisoformat(start))
+    for h in health:
+        if not h.ok:
+            print(f"  source problem: {h.source_id}: {h.error}")
+        elif h.stale:
+            print(f"  source looks stale: {h.source_id}: newest item {h.newest}")
     added = upsert_articles(conn, fetched)
     print(f"Ingested {len(fetched)} articles ({added} new).")
 
@@ -66,14 +65,13 @@ def run(args) -> int:
     print(f"{len(articles)} articles in window -> {len(clusters)} clusters.")
 
     # 3. Score; only write up clusters that pass the loosest reader setting
-    writer, banned = pick_writer(args)
     stories = []
     for group in cap_official(clusters, sources):
         sc = rubric.score(sources[a.source_id] for a in group)
         if not rubric.is_candidate(sc):
             continue
         # 4. Rewrite
-        draft = write_story(group, sources, banned, writer)
+        draft = write_story(group, sources, banned, writer, style_guide)
         stories.append(
             Story(
                 edition_date=edition_date,
@@ -96,25 +94,20 @@ def run(args) -> int:
     if linked:
         print(f"{linked} stories continue from the previous edition.")
 
-    # 6. Store, and write the public edition file
-    replace_edition(conn, edition_date, stories)
-    print(f"Edition {edition_date}: {len(stories)} stories stored in {args.db}.")
-
-    # 7. Yesterday's market closes for the ticker (never blocks the edition)
-    if args.fixtures:
-        ticker = markets.load_fixture(config.FIXTURE_MARKETS_PATH)
-    else:
-        ticker, problems = markets.fetch(markets.load_series())
-        for p in problems:
-            print(f"  ticker: {p}")
-    save_extra(conn, edition_date, "markets", ticker)
+    # 6. Yesterday's market closes for the ticker (never blocks the edition)
+    ticker, problems = inputs.markets()
+    for p in problems:
+        print(f"  ticker: {p}")
     print(f"Ticker: {len(ticker)} market closes.")
-    archive_dir = args.archive or (None if args.fixtures else str(config.ARCHIVE_DIR))
-    if archive_dir and not args.no_archive:
-        model = getattr(writer, "model", None) or ("mock" if args.mock_llm else "none (fallback writer)")
-        path = archive.write(archive_dir, archive.build(edition_date, sources, articles, clusters, stories, model, ticker))
+
+    # 7. Store, and write the public edition file
+    edition = Edition(edition_date, stories, sources, ticker)
+    edition.save(conn)
+    print(f"Edition {edition_date}: {len(stories)} stories stored in {db_path}.")
+    if archive_dir:
+        path = edition.write_file(archive_dir, articles, clusters, writer.model if writer else "none (fallback writer)")
         print(f"Edition file written to {path}.")
-    return 0
+    return edition
 
 
 def cap_official(clusters, sources):
@@ -136,9 +129,8 @@ def cap_official(clusters, sources):
     return sorted(kept, key=lambda g: order[id(g)])
 
 
-def check_feeds(args) -> int:
-    sources = load_sources(config.SOURCES_PATH)
-    _, health = fetch_all(sources)
+def check_feeds(inputs) -> int:
+    _, health = inputs.articles()
     width = max(len(h.source_id) for h in health)
     for h in health:
         if not h.ok:
@@ -163,7 +155,14 @@ def main(argv=None) -> int:
     r.add_argument("--no-archive", action="store_true", help="don't write the edition file")
     sub.add_parser("check-feeds", help="test every feed in sources.yaml")
     args = p.parse_args(argv)
-    return run(args) if args.cmd == "run" else check_feeds(args)
+    if args.cmd == "check-feeds":
+        return check_feeds(LiveInputs(load_sources(config.SOURCES_PATH)))
+    sources = load_sources(config.sources_path(args.fixtures))
+    inputs = FixtureInputs(sources) if args.fixtures else LiveInputs(sources)
+    archive_dir = args.archive or (None if args.fixtures else str(config.ARCHIVE_DIR))
+    run(inputs, pick_writer(args.mock_llm), args.db, args.date or datetime.now(timezone.utc).date().isoformat(),
+        None if args.no_archive else archive_dir)
+    return 0
 
 
 if __name__ == "__main__":

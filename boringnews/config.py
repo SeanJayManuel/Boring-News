@@ -17,6 +17,11 @@ FIXTURE_REWRITES_PATH = ROOT / "fixtures" / "rewrites.json"
 STYLE_GUIDE_PATH = ROOT / "editorial" / "style_guide.md"
 BANNED_WORDS_PATH = ROOT / "editorial" / "banned_words.txt"
 
+
+def sources_path(sample: bool) -> Path:
+    return FIXTURE_SOURCES_PATH if sample else SOURCES_PATH
+
+
 # Public base URL, used for links inside RSS feeds.
 BASE_URL = os.environ.get("BN_BASE_URL", "http://localhost:8000").rstrip("/")
 
