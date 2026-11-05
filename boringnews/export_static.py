@@ -3,12 +3,14 @@
     python -m boringnews.export_static --out site
 
 Writes index.html (settings work in the browser), edition.json (the data),
-and one ready-made feed per topic under feeds/.
+one ready-made feed per topic under feeds/, and the public data under api/v1/
+(boringnews/public_api.py).
 
 Custom feed addresses (/feed.xml?topics=...) are built on request by the
 Cloudflare Pages function in functions/feed.xml.js, which reads edition.json.
 Pass --static-feed to also write a fixed feed.xml for hosts without functions
 (GitHub Pages, any plain file host); that file ignores feed settings.
+functions/mcp.js serves /mcp from the files under api/v1/.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ import json
 import shutil
 from pathlib import Path
 
-from . import config, research
+from . import config, public_api, research
 from .db import connect
 from .edition import Edition, NoEdition
 from .reader import feeds
@@ -47,7 +49,10 @@ def export(edition: Edition, research_index: dict, out: Path, base_url: str, sam
     (out / "research.json").write_text(json.dumps(research_index, ensure_ascii=False))
     written.append(out / "research.json")
 
-    data = edition.page_data(base_url, sample=sample, data_url=data_url, corrections=load_corrections(),
+    corrections = load_corrections()
+    written += public_api.write(out, edition, research_index, base_url, sample, corrections)
+
+    data = edition.page_data(base_url, sample=sample, data_url=data_url, corrections=corrections,
                              research_url="research.json", research=research_index if inline_research else None)
     (out / "index.html").write_text(render_page(data))
     (out / "edition.json").write_text(json.dumps(data, ensure_ascii=False))
