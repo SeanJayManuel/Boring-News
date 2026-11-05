@@ -15,3 +15,5 @@
 **Inputs**: where a run gets articles and market closes (`LiveInputs`, `FixtureInputs`).
 
 **Record / statement**: a government item with legal or statistical standing, which adds to the score, versus an institution describing its own work, which doesn't.
+
+**Public API**: the versioned files under `api/v1/` on the site (`boringnews/public_api.py`) and the read-only MCP server at `/mcp` that reads them (`functions/mcp.js`). Documented in `docs/api.md`.

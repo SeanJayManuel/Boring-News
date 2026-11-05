@@ -108,6 +108,10 @@ class Edition:
             ],
         }
 
+    def public_sources(self) -> dict:
+        """The outlets and the rubric, as edition files hold them."""
+        return {"rubric": _rubric(), "sources": _sources(self.sources)}
+
     def file_data(self, articles: list[Article], clusters: list[list[Article]], model: str,
                   usage: dict | None = None) -> dict:
         """The public record of the run. Needs saved stories, for their ids."""
