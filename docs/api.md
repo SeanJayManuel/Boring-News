@@ -1,6 +1,6 @@
 # Using the data
 
-Boring News publishes its data for anyone to use, including students, researchers and journalists. There are no accounts, keys or tracking.
+Standard Edition publishes its data for anyone to use, including students, researchers and journalists. There are no accounts, keys or tracking.
 
 There are two ways in:
 
@@ -79,7 +79,7 @@ MCP is how AI assistants connect to outside tools. The server is at `https://exa
 With Claude Code:
 
 ```sh
-claude mcp add --transport http boring-news https://example.org/mcp
+claude mcp add --transport http standard-edition https://example.org/mcp
 ```
 
 Or in a config file such as `.mcp.json`:
@@ -87,7 +87,7 @@ Or in a config file such as `.mcp.json`:
 ```json
 {
   "mcpServers": {
-    "boring-news": { "type": "http", "url": "https://example.org/mcp" }
+    "standard-edition": { "type": "http", "url": "https://example.org/mcp" }
   }
 }
 ```
@@ -182,4 +182,4 @@ There are no accounts or cookies. Our code doesn't store or log what you search 
 
 Use the data for anything. A link back is appreciated.
 
-To cite a story, give its headline, "Boring News", the date, and the sources listed with it.
+To cite a story, give its headline, "Standard Edition", the date, and the sources listed with it.

@@ -93,7 +93,7 @@ def build_prompt(articles: list[Article], sources: dict[str, Source]) -> str:
         name = src.name if src else a.source_id
         parts.append(f"[{i}] {name}\nTitle: {a.title}\nSummary: {a.summary}\n")
     parts.append(
-        "Write one Boring News story from these articles, following the style guide exactly. "
+        "Write one Standard Edition story from these articles, following the style guide exactly. "
         "Use only facts found in the articles. Do not copy the outlets' wording."
     )
     return "\n".join(parts)

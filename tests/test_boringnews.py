@@ -160,7 +160,7 @@ def test_web_routes(tmp_path, monkeypatch):
     client = TestClient(web.app)
 
     page = client.get("/")
-    assert page.status_code == 200 and "Boring News" in page.text and "__DATA__" not in page.text
+    assert page.status_code == 200 and "Standard Edition" in page.text and "__DATA__" not in page.text
     feed = client.get("/feed.xml?topics=states&threshold=strict")
     assert feed.status_code == 200
     assert len(ET.fromstring(feed.content).findall("./channel/item")) == 7

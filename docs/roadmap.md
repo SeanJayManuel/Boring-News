@@ -58,7 +58,7 @@ Phase numbers match the README. Phase 0 and Trust are new here, and the README's
 
 ## Name
 
-The planned name is **The Standard Edition**, at standardedition.org. The code and site still say Boring News until the rename, which happens with L1.
+**Standard Edition**, planned at standardedition.org, which isn't registered yet. The site, feeds, docs and MCP server use the name. The GitHub repo, the Python package (`boringnews`) and `BN_` settings keep the old name for now.
 
 ## Open decisions
 
@@ -66,13 +66,12 @@ These block or shape work, and only the maintainer can make them.
 
 | # | Decision | Affects |
 | --- | --- | --- |
-| D1 | **Nightly job:** add the secrets, or disable the workflow until launch? Without secrets it writes a fallback edition and commits it to `main`, then fails at the deploy | L1, L2 |
+| D1 | **When to turn the nightly job back on.** It's disabled on GitHub until launch | L1, L2 |
 | D3 | **Should a story covered only by one side be written up?** Today many aren't (see T1). This is an editorial change, not a bug fix | T1, R1 |
 | D4 | **Which rating services can we cite,** and do their terms allow it? | T2 |
 | D5 | **What does Boring News do on a day the pipeline fails?** Show yesterday's edition with a notice, or nothing? | L8 |
 | D6 | **Monthly spending limit** for the Claude API, and who pays | L5, B1 |
 | D7 | **How much AI writing is disclosed** on each story, beyond the "written by" field in edition files | T5 |
-| D8 | **Do sports and entertainment belong in the edition?** There's no category for them, and they can pass the rubric | L6 |
 
 ---
 

@@ -1,10 +1,8 @@
-# Boring News
-
-*Working name. A permanent name is being chosen.*
+# Standard Edition
 
 **All the news, from every side, with nothing hidden. Free forever.**
 
-Boring News is a free, open-source daily news edition. It reads reporting from outlets across the political spectrum, alongside official records from government, and shows you exactly how it decides what to put in front of you. You can read the rules, change the rules, or throw them out and write your own.
+Standard Edition is a free, open-source daily news edition. It reads reporting from outlets across the political spectrum, alongside official records from government, and shows you exactly how it decides what to put in front of you. You can read the rules, change the rules, or throw them out and write your own.
 
 ---
 
@@ -16,7 +14,7 @@ Every feed you read, whether it's a newspaper front page, a cable lineup, or an 
 
 News aggregators were supposed to fix this. Instead most of them became another layer of hidden choices, funded by ads, subscriptions or investors, and tuned for attention.
 
-Boring News takes the opposite position. A news feed is a set of decisions, and anyone reading it has a right to see those decisions, question them, and change them.
+Standard Edition takes the opposite position. A news feed is a set of decisions, and anyone reading it has a right to see those decisions, question them, and change them.
 
 ## What we believe
 
@@ -38,7 +36,7 @@ Boring News takes the opposite position. A news feed is a set of decisions, and 
 
 9. **No tracking.** No third-party analytics, no ad pixels, no profiles. Your settings live in your browser and your feed address.
 
-## What Boring News is not
+## What Standard Edition is not
 
 - **Not a newsroom.** We don't do original reporting. Each story is a short, plain summary of what the outlets reported, held to a [published style guide](editorial/style_guide.md) and checked against its sources, with a link to every source. Full articles are never republished; traffic goes to the people who did the reporting.
 - **Not a fact-checker.** We show where coverage comes from and how it's spread. Judging what's true is the reader's job, and we try to give them what they need to do it.
@@ -61,7 +59,7 @@ Every edition is also saved in full to [`archive/`](archive/): every article rea
 
 ## For journalists, students and researchers
 
-Boring News is meant to be useful to anyone covering a beat, including student papers, community newsletters and freelancers without a wire subscription.
+Standard Edition is meant to be useful to anyone covering a beat, including student papers, community newsletters and freelancers without a wire subscription.
 
 - **Now:** a Research tab to look up which outlets covered a claim and search 30 days of government records; RSS for any combination of settings; full edition files in `archive/`; and a free [public API and MCP server](docs/api.md), with no accounts or keys (ready, but not deployed yet).
 - **Planned:** per-state and per-city feeds including council and board agendas.
@@ -134,7 +132,7 @@ Anyone can propose a new source, challenge a label, or suggest a rubric change b
 
 ## License
 
-Code: [AGPL-3.0](LICENSE). Anyone can use, copy or change Boring News, but anyone who runs a modified version publicly has to publish their changes too. That keeps it open.
+Code: [AGPL-3.0](LICENSE). Anyone can use, copy or change Standard Edition, but anyone who runs a modified version publicly has to publish their changes too. That keeps it open.
 
 Docs, source lists and editorial rules: [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 
@@ -203,7 +201,7 @@ edition. GovInfo publishes about 250 more official feeds (Congressional
 Record, GAO reports, federal court opinions); any of them can be added as a
 `type: primary` source. The Supreme Court does not publish an RSS feed.
 
-## Hosting (boringnews.org)
+## Hosting (standardedition.org)
 
 The site is static files plus one Cloudflare Pages function,
 `functions/feed.xml.js`, which builds each custom feed on request from
@@ -213,9 +211,9 @@ return the default feed there.
 
 One-time setup:
 
-1. Create a free Cloudflare account and a Pages project named `boring-news`
+1. Create a free Cloudflare account and a Pages project named `standard-edition`
    (Workers & Pages → Create → Pages → Direct upload; the workflow uploads to it).
-2. Add `boringnews.org` as a custom domain on that project. If the domain is
+2. Add `standardedition.org` as a custom domain on that project. If the domain is
    registered elsewhere, point its nameservers to Cloudflare first.
 3. In the GitHub repo, add these secrets: `ANTHROPIC_API_KEY`, `CONGRESS_API_KEY`,
    `CLOUDFLARE_API_TOKEN` (a token with "Cloudflare Pages: Edit") and

@@ -77,7 +77,7 @@ def main(argv=None):
     ap.add_argument("--db", default=str(config.DB_PATH))
     ap.add_argument("--sample", action="store_true", help="label the page as sample data")
     ap.add_argument("--base-url", default=config.BASE_URL)
-    ap.add_argument("--cname", help="custom domain for GitHub Pages, e.g. boringnews.org")
+    ap.add_argument("--cname", help="custom domain for GitHub Pages, e.g. standardedition.org")
     ap.add_argument("--archive", default=str(config.ARCHIVE_DIR), help="folder of edition files to publish")
     ap.add_argument("--inline-research", action="store_true",
                     help="embed the research index in the page (for a single-file preview)")

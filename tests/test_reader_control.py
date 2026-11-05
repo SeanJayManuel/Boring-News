@@ -130,8 +130,8 @@ def test_feed_carries_weights_in_its_own_address():
 def test_recipe_name_round_trips_and_titles_the_feed():
     res = select(DATA, "topics=economy&recipe=Morning%20%26%20night")
     assert res["query"] == "topics=economy&recipe=Morning%20%26%20night"
-    assert "<title>Boring News (reader recipe: Morning &amp; night)</title>" in res["rss"]
-    assert "<title>Boring News</title>" in select(DATA)["rss"]
+    assert "<title>Standard Edition (reader recipe: Morning &amp; night)</title>" in res["rss"]
+    assert "<title>Standard Edition</title>" in select(DATA)["rss"]
 
 
 def test_a_recipe_name_is_cleaned_and_cut():

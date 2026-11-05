@@ -25,7 +25,7 @@ import feedparser
 from .db import Article
 from .sources import Source
 
-USER_AGENT = "BoringNewsBot/0.1 (daily digest; links to every source)"
+USER_AGENT = "StandardEditionBot/0.1 (daily digest; links to every source)"
 TAG_RE = re.compile(r"<[^>]+>")
 WS_RE = re.compile(r"\s+")
 STALE_AFTER_DAYS = 14

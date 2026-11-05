@@ -21,7 +21,7 @@ const ASSUMED = "2025-03-26"; // what the spec says to assume when a client name
 const VERSION_KEY = "io.modelcontextprotocol/protocolVersion";
 const CAPABILITIES_KEY = "io.modelcontextprotocol/clientCapabilities";
 const SERVER_KEY = "io.modelcontextprotocol/serverInfo";
-const SERVER = { name: "boring-news", title: "Boring News", version: "1.0.0" };
+const SERVER = { name: "standard-edition", title: "Standard Edition", version: "1.0.0" };
 
 const PARSE_ERROR = -32700;
 const INVALID_REQUEST = -32600;

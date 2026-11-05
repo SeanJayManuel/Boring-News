@@ -25,7 +25,7 @@ from .render import load_corrections, render_page
 from .sources import load_sources
 
 SAMPLE = os.environ.get("BN_SAMPLE") == "1"
-app = FastAPI(title="Boring News", docs_url=None, redoc_url=None)
+app = FastAPI(title="Standard Edition", docs_url=None, redoc_url=None)
 
 
 def _edition(date: str | None) -> Edition:

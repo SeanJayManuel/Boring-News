@@ -1,4 +1,4 @@
-// Boring News core: the selection rubric, reader settings and RSS output.
+// Standard Edition core: the selection rubric, reader settings and RSS output.
 // One copy, used by the reader page (inlined before app.js) and by the
 // Cloudflare Pages function that serves custom feeds (functions/feed.xml.js).
 // Python uses it too, for ready-made feeds (boringnews/reader.py). The only rules
@@ -232,7 +232,7 @@
       var self = baseUrl + "/feed.xml" + (q ? "?" + q : "");
       var out = [
         '<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel>',
-        "<title>Boring News" + (p.recipe ? " (reader recipe: " + esc(p.recipe) + ")" : "") + "</title>",
+        "<title>Standard Edition" + (p.recipe ? " (reader recipe: " + esc(p.recipe) + ")" : "") + "</title>",
         "<link>" + esc(baseUrl) + "/</link>",
         '<atom:link href="' + esc(self) + '" rel="self" type="application/rss+xml"/>',
         "<description>The day's news, once a day, without the noise.</description>",
@@ -253,7 +253,7 @@
           : (x.score.hasRecord ? "Government record: " : "Government statement: ") + s.headline;
         out.push("<item><title>" + esc(title) + "</title>" +
           "<link>" + esc(baseUrl + "/#story-" + s.id) + "</link>" +
-          '<guid isPermaLink="false">boringnews-' + D.edition + "-" + s.id + "</guid>" +
+          '<guid isPermaLink="false">standardedition-' + D.edition + "-" + s.id + "</guid>" +
           "<category>" + esc(D.topics[s.topic] || s.topic) + "</category>" +
           "<pubDate>" + pub + "</pubDate>" +
           "<description>" + esc(html) + "</description></item>");

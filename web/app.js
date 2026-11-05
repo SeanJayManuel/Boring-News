@@ -1,4 +1,4 @@
-// Boring News reader page. The rubric and settings it applies are in core.js.
+// Standard Edition reader page. The rubric and settings it applies are in core.js.
 (function () {
   "use strict";
   var D = window.BORING_NEWS;
@@ -587,7 +587,7 @@
     note.hidden = !prefs.recipe;
     note.innerHTML = "";
     if (prefs.recipe) {
-      note.appendChild(document.createTextNode("Using the recipe \u201c" + prefs.recipe + "\u201d. Whoever made the link chose that name, not Boring News. "));
+      note.appendChild(document.createTextNode("Using the recipe \u201c" + prefs.recipe + "\u201d. Whoever made the link chose that name, not Standard Edition. "));
       note.appendChild(el("a", { href: "#your-feed", text: "See its settings" }));
     }
   }
@@ -619,7 +619,7 @@
       var src = D.sources[a.source_id];
       return (src ? src.name : a.source_id) + ', "' + a.title + '," ' + a.url;
     });
-    return '"' + st.headline + '." Boring News, ' + shortDate(st.date) + ". Sources: " + parts.join("; ") + ".";
+    return '"' + st.headline + '." Standard Edition, ' + shortDate(st.date) + ". Sources: " + parts.join("; ") + ".";
   }
 
   function copyText(text, button, fallbackBox) {

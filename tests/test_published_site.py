@@ -266,7 +266,7 @@ def test_a_recipe_is_a_named_link(site):
     named = page["named"]
     assert named["recipeLink"] == f"{BASE}/?threshold=strict&weights=40,25,10,100&recipe=My%20mix"
     assert named["feedUrl"].endswith("&recipe=My%20mix")
-    assert "My mix" in named["recipeNote"] and "not Boring News" in named["recipeNote"]
+    assert "My mix" in named["recipeNote"] and "not Standard Edition" in named["recipeNote"]
     assert page["savedQuery"].endswith("recipe=My%20mix")                     # kept in this browser
     assert page["copyStatus"]                                                 # jsdom has no clipboard, so it selects
     assert page["reset"]["recipeName"] == "" and page["reset"]["recipeNote"] is None
@@ -329,6 +329,6 @@ def test_function_serves_custom_weights_and_a_named_feed(site, tmp_path):
                                   f"{BASE}/feed.xml?weights=40,25,10,25")
     assert same["body"] == plain["body"]
     root = ET.fromstring(weighted["body"]).find("channel")
-    assert root.findtext("title") == "Boring News (reader recipe: Records)"
+    assert root.findtext("title") == "Standard Edition (reader recipe: Records)"
     assert [i.findtext("title") for i in root.findall("item")] != \
         [i.findtext("title") for i in ET.fromstring(plain["body"]).findall("./channel/item")]

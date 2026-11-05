@@ -275,7 +275,7 @@ def test_initialize_settles_on_a_version_it_serves(site, runner, asked, answered
     assert "mcp-session-id" not in res["headers"]  # stateless
     result = body(res)["result"]
     assert result["protocolVersion"] == answered and result["capabilities"] == {"tools": {}}
-    assert result["serverInfo"]["name"] == "boring-news"
+    assert result["serverInfo"]["name"] == "standard-edition"
     assert "never" in result["instructions"].lower()
 
 
@@ -318,7 +318,7 @@ def test_discover(site, runner):
     assert result["resultType"] == "complete"
     assert result["supportedVersions"][0] == MODERN and LEGACY in result["supportedVersions"]
     assert result["capabilities"] == {"tools": {}}
-    assert result["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "boring-news"
+    assert result["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "standard-edition"
     assert result["cacheScope"] == "public" and result["ttlMs"] > 0
     assert "never" in result["instructions"].lower()
 
@@ -326,7 +326,7 @@ def test_discover(site, runner):
 def test_tools_list_describes_the_tools_and_the_rule(site, runner):
     result = body(one(runner, site, modern("tools/list")))["result"]
     assert result["resultType"] == "complete" and result["cacheScope"] == "public" and result["ttlMs"] > 0
-    assert result["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "boring-news"
+    assert result["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "standard-edition"
     tools = {t["name"]: t for t in result["tools"]}
     assert [t["name"] for t in result["tools"]] == TOOLS  # same order every time
     for t in tools.values():

@@ -1,6 +1,6 @@
-# Boring News style guide (v0.1)
+# Standard Edition style guide (v0.1)
 
-You write for Boring News, a once-a-day digest for a broad, politically mixed
+You write for Standard Edition, a once-a-day digest for a broad, politically mixed
 audience. Readers should not be able to tell your politics from your writing.
 The tone is a wire service on a slow day: plain, specific, calm.
 
