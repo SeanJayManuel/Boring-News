@@ -108,7 +108,12 @@ class Edition:
             ],
         }
 
-    def file_data(self, articles: list[Article], clusters: list[list[Article]], model: str) -> dict:
+    def public_sources(self) -> dict:
+        """The outlets and the rubric, as edition files hold them."""
+        return {"rubric": _rubric(), "sources": _sources(self.sources)}
+
+    def file_data(self, articles: list[Article], clusters: list[list[Article]], model: str,
+                  usage: dict | None = None) -> dict:
         """The public record of the run. Needs saved stories, for their ids."""
         return {
             "format": FORMAT,
@@ -119,6 +124,7 @@ class Edition:
                 "style_guide_sha256": _sha(config.STYLE_GUIDE_PATH),
                 "banned_words_sha256": _sha(config.BANNED_WORDS_PATH),
                 "model": model,
+                "usage": usage,  # input and output tokens across the run; null if no model reported any
             },
             "sources": _sources(self.sources),
             "articles": [{"source_id": a.source_id, "url": a.url, "title": a.title, "summary": a.summary,
@@ -139,11 +145,12 @@ class Edition:
             ],
         }
 
-    def write_file(self, directory: Path, articles: list[Article], clusters: list[list[Article]], model: str) -> Path:
+    def write_file(self, directory: Path, articles: list[Article], clusters: list[list[Article]], model: str,
+                   usage: dict | None = None) -> Path:
         directory = Path(directory)
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / f"{self.date}.json"
-        path.write_text(json.dumps(self.file_data(articles, clusters, model), ensure_ascii=False, indent=1))
+        path.write_text(json.dumps(self.file_data(articles, clusters, model, usage), ensure_ascii=False, indent=1))
         return path
 
 

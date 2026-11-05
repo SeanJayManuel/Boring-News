@@ -7,9 +7,10 @@ import subprocess
 from boringnews import config
 
 
-def run_core(data: dict, queries=(), scores=()) -> dict:
+def run_core(data: dict, queries=(), scores=(), index=None, threads=()) -> dict:
     out = subprocess.run([shutil.which("node"), str(config.ROOT / "tests" / "core_runner.cjs")],
-                         input=json.dumps({"data": data, "queries": list(queries), "scores": list(scores)}),
+                         input=json.dumps({"data": data, "queries": list(queries), "scores": list(scores),
+                                           "index": index, "threads": list(threads)}),
                          capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
 

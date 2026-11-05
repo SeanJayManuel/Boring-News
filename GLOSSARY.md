@@ -8,6 +8,8 @@
 
 **Reader settings**: the query parameters that shape a page or feed. Declared once in `SETTINGS` in `web/core.js`.
 
+**Recipe**: a settings link with a name (the `recipe` setting). Links only: no accounts, nothing stored by us.
+
 **Score** and **lane**: how widely a story was covered, from its sources, and whether that puts it in the main list, the official list or neither. The only rules kept in both Python (`rubric.py`, for the pipeline) and JS (`core.js`, for readers who change settings); `tests/test_parity.py` keeps them equal.
 
 **Writer**: turns a prompt into text (`ClaudeWriter`, `MockWriter`). It knows nothing about stories; parsing, retries and linting apply to every writer.
@@ -15,3 +17,5 @@
 **Inputs**: where a run gets articles and market closes (`LiveInputs`, `FixtureInputs`).
 
 **Record / statement**: a government item with legal or statistical standing, which adds to the score, versus an institution describing its own work, which doesn't.
+
+**Public API**: the versioned files under `api/v1/` on the site (`boringnews/public_api.py`) and the read-only MCP server at `/mcp` that reads them (`functions/mcp.js`). Documented in `docs/api.md`.

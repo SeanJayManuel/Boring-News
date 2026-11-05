@@ -1,0 +1,8 @@
+blank_issues_enabled: true  # code bugs and anything else that doesn't fit a form
+contact_links:
+  - name: How sources are chosen and labeled
+    url: https://github.com/SeanJayManuel/Boring-News/blob/main/docs/labeling.md
+    about: The written rules for sources and lean labels.
+  - name: How stories are chosen
+    url: https://github.com/SeanJayManuel/Boring-News/blob/main/docs/ranking.md
+    about: The written rubric for scoring stories.

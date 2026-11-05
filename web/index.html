@@ -53,10 +53,12 @@
       <p class="date" id="dateline"></p>
       <h1 class="lede" id="lede"></h1>
       <p class="sublede" id="sublede"></p>
+      <p class="recipe-note" id="recipe-note" hidden></p>
     </div>
     <div id="spotlight"></div>
     <div id="uncovered"></div>
     <p class="showing" id="showing"></p>
+    <div id="left-out"></div>
   </section>
 
   <!-- All stories, grouped by topic -->
@@ -68,6 +70,7 @@
     </div>
     <div id="all"></div>
     <p class="showing" id="showing-all"></p>
+    <div id="left-out-all"></div>
   </section>
 
   <!-- Outlets: what each one covered -->
@@ -120,7 +123,7 @@
 
     <div class="sheet prose">
       <h2>Use the data</h2>
-      <p>Both tools run on files anyone can download: <a id="research-file" href="research.json">the last 30 days</a> in one file, and a file for each edition with every article, score and fact check. Use them for anything. A link back is appreciated.</p>
+      <p>Both tools run on files anyone can download: <a id="research-file" href="research.json">the last 30 days</a> in one file, and a file for each edition with every article, score and fact check. Use them for anything. A link back is appreciated. For code and AI assistants, see the <a href="api/docs.md">API docs</a>.</p>
     </div>
   </section>
 
@@ -138,13 +141,14 @@
         <li><b>Group.</b> Articles about the same event are grouped into one story by comparing their words. Two documents from the same agency are never merged.</li>
         <li><b>Score.</b> Each story gets a score from 0 to 1 using the formula below. Nothing about clicks, shares or engagement goes into it.</li>
         <li><b>Write.</b> A model writes a plain summary from the outlets' own reporting, following our style guide. A banned-word check rejects loaded language, and a fact is stated plainly only when two outlets agree on it.</li>
-        <li><b>Your settings.</b> Your settings decide which stories you see. If you turn off an outlet, every story is scored again without it.</li>
+        <li><b>Your settings.</b> Your settings decide which stories you see. If you turn off an outlet, every story is scored again without it. You can also set your own weights for the score below. They only re-rank stories that were written: a story the published rule dropped has no summary to bring back.</li>
       </ol>
     </div>
 
     <div class="sheet prose">
       <h2>The score</h2>
       <div class="weights" id="weights"></div>
+      <p class="hint" id="weights-yours" hidden></p>
       <dl class="defs">
         <div><dt>Breadth</dt><dd>Share of left, center and right that covered it. This carries the most weight, so a story only one side covered can't rank near the top.</dd></div>
         <div><dt>Government record</dt><dd>Whether a government record backs it up: a bill's status on Congress.gov, a new law, a rule in the Federal Register, a court ruling or official statistics. Stories with a record rank higher. Government statements, like White House or agency press releases, are listed but never add to the score, because they are an administration describing its own work.</dd></div>
@@ -156,7 +160,7 @@
 
     <div class="sheet prose">
       <h2>Today's scores</h2>
-      <p>Every story from today's edition, broken into the four parts of its score. The line marks the <span id="chart-threshold"></span> threshold.</p>
+      <p>Every story from today's edition, broken into the four parts of its score. The line marks the <span id="chart-threshold"></span> threshold.<span id="chart-weights"></span></p>
       <div class="legend" id="legend"></div>
       <div class="chart" id="score-chart"></div>
     </div>
@@ -201,6 +205,12 @@
           <p class="hint" id="threshold-hint"></p>
         </fieldset>
         <fieldset>
+          <legend>What counts most</legend>
+          <p class="hint">Set how much each part of the score counts. Each slider counts as its share of the four, shown on the right. <span id="weights-now"></span></p>
+          <div class="weights" id="weight-controls"></div>
+          <p class="hint">Weights only re-rank stories that were written. Each day the published rule decides which stories get written, before your settings apply. A story it dropped has no summary, so no weight can bring it back.</p>
+        </fieldset>
+        <fieldset>
           <legend>Categories</legend>
           <p class="hint">Every story has one category. Leave all unchecked to see everything.</p>
           <div class="options cats" id="topics"></div>
@@ -223,6 +233,22 @@
           <span class="hint" id="settings-summary"></span>
         </div>
       </div>
+    </div>
+
+    <div class="sheet prose" id="recipes">
+      <h2>Recipes</h2>
+      <p>A recipe is a link: the settings above, with a name. There's no account and we keep nothing. Bookmark the link to save it, or send it to someone. Opening one replaces your settings in that browser.</p>
+      <div class="recipe-name">
+        <label for="recipe-name">Name</label>
+        <input id="recipe-name" type="text" maxlength="60" autocomplete="off" placeholder="For example: Morning brief">
+      </div>
+      <div class="feed">
+        <input id="recipe-link" type="text" readonly aria-label="Recipe link">
+        <button type="button" id="copy-recipe">Copy</button>
+      </div>
+      <p class="hint" id="recipe-status" role="status"></p>
+      <h3>Try one</h3>
+      <ul class="recipe-list" id="recipe-list"></ul>
     </div>
 
     <div class="sheet prose" id="subscribe">
@@ -258,6 +284,7 @@
         <li><code>editorial/style_guide.md</code> holds the writing rules the summaries follow, and <code>editorial/banned_words.txt</code> lists the words the checker rejects.</li>
       </ul>
       <p>The code is on <a id="repo-link" href="#">GitHub</a>. Changes to the rules are made in public commits, so you can see when and why anything changed.</p>
+      <p>Think we got something wrong? <a href="__REPO_URL__/issues/new/choose">Challenge a label, report a wrong story, or propose a source or rubric change.</a></p>
     </div>
   </section>
 </div>

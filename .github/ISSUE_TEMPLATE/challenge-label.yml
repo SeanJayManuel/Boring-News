@@ -1,0 +1,46 @@
+name: Challenge a label
+description: Say why an outlet's lean, type or role is wrong.
+title: "Label: "
+labels: [label]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        We don't invent lean labels: they come from published rating services, averaged by a [written rule](https://github.com/SeanJayManuel/Boring-News/blob/main/docs/labeling.md).
+        A challenge is strongest when it cites a rating, not a view of the outlet.
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: Its name as shown on the site.
+    validations:
+      required: true
+  - type: dropdown
+    id: field
+    attributes:
+      label: What is wrong
+      options:
+        - Lean (left, center, right, unrated)
+        - Type (wire, national, regional, international, primary)
+        - Role of an official source (record or statement)
+    validations:
+      required: true
+  - type: input
+    id: current
+    attributes:
+      label: Current label
+    validations:
+      required: true
+  - type: input
+    id: proposed
+    attributes:
+      label: Label you propose
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: For a lean, link the published ratings and say what each one says. For a type or role, link what shows it.
+    validations:
+      required: true

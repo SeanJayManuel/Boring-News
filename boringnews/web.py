@@ -6,6 +6,7 @@ Routes
     /                       today's edition (or ?date=YYYY-MM-DD); settings read from the query string
     /feed.xml               RSS, filtered by the same query parameters (needs node)
     /api/edition.json       the edition as JSON (same data the page embeds)
+    /api/docs.md            the public API docs
     /healthz                liveness check
 """
 
@@ -14,7 +15,7 @@ from __future__ import annotations
 import os
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 
 from . import config, research
 from .db import connect
@@ -66,6 +67,11 @@ def research_json():
         return JSONResponse(research.build(conn, load_sources(config.sources_path(SAMPLE))))
     finally:
         conn.close()
+
+
+@app.get("/api/docs.md", response_class=PlainTextResponse)
+def api_docs():
+    return (config.ROOT / "docs" / "api.md").read_text()
 
 
 @app.get("/healthz")

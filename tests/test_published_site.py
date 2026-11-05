@@ -38,6 +38,17 @@ console.log(JSON.stringify(out));
 
 
 @pytest.fixture(scope="module")
+def two_days(tmp_path_factory):
+    """Two editions, so some of the second day's stories are on Day 2."""
+    tmp = tmp_path_factory.mktemp("published")
+    db, arch, out = tmp / "t.db", tmp / "archive", tmp / "site"
+    for date in ("2026-11-03", DATE):
+        pipeline_main(["run", "--fixtures", "--mock-llm", "--date", date, "--db", str(db), "--archive", str(arch)])
+    export_main(["--out", str(out), "--db", str(db), "--sample", "--archive", str(arch), "--base-url", BASE])
+    return out
+
+
+@pytest.fixture(scope="module")
 def site(tmp_path_factory):
     tmp = tmp_path_factory.mktemp("published")
     db, arch, out = tmp / "t.db", tmp / "archive", tmp / "site"
@@ -64,8 +75,8 @@ def serve(site: Path, tmp_path: Path, *urls: str) -> list[dict]:
     return json.loads(out.stdout)
 
 
-def open_page(site: Path, url: str) -> dict:
-    out = subprocess.run([NODE, str(config.ROOT / "tests" / "page_smoke.cjs"), str(site / "index.html"), url],
+def open_page(site: Path, url: str, research: str = "ok") -> dict:
+    out = subprocess.run([NODE, str(config.ROOT / "tests" / "page_smoke.cjs"), str(site / "index.html"), url, research],
                          capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
 
@@ -168,9 +179,156 @@ def test_page_keeps_an_old_topic_filter(site):
     assert page["errors"] == [] and "topics=government" in page["feedUrl"]
 
 
+def test_how_it_works_links_the_challenge_forms(site):
+    page = (site / "index.html").read_text()
+    assert f'href="{config.REPO_URL}/issues/new/choose"' in page and "__REPO_URL__" not in page
+
+
 @jsdom
 def test_every_setting_is_documented(site):
     page = open_page(site, f"{BASE}/")
     assert page["docs"] == page["settings"]
     readme = (config.ROOT / "README.md").read_text()
     assert all(f"| `{name}` |" in readme for name in page["settings"])
+
+
+@jsdom
+def test_a_reader_can_see_each_story_left_out_and_why(site):
+    page = open_page(site, f"{BASE}/?topics=economy")
+    assert page["errors"] == []
+    seen = page["loaded"]
+    total = len(edition(site)["stories"])
+    assert 0 < len(seen["leftOut"]) < total
+    assert seen["leftOutSummary"] == f"See the {len(seen['leftOut'])} stories left out, and why"
+    assert seen["leftOutAllSummary"] == seen["leftOutSummary"]
+    assert f"{len(seen['leftOut'])} stories left out by your settings" in seen["showing"]
+    assert seen["leftOutGroups"][0].startswith("Outside your categories (")
+    assert all(row["headline"] and row["why"] and row["bullets"] and row["sources"] for row in seen["leftOut"])
+    assert all("isn't one you chose" in row["why"] for row in seen["leftOut"])
+    assert page["anchoredLeftOut"] == 0 and page["duplicates"] == []
+
+
+@jsdom
+def test_left_out_stories_follow_headlines_only(site):
+    seen = open_page(site, f"{BASE}/?topics=economy&length=headlines")["loaded"]
+    assert seen["leftOut"] and not any(row["bullets"] for row in seen["leftOut"])
+
+
+@jsdom
+def test_nothing_is_listed_when_nothing_is_left_out(site):
+    assert open_page(site, f"{BASE}/?threshold=broad")["loaded"]["leftOutSummary"] is None
+
+
+@jsdom
+def test_custom_weights_change_what_the_page_says(site):
+    seen = open_page(site, f"{BASE}/?weights=0,0,0,100")["loaded"]
+    assert seen["sublede"].startswith("Ranked by your own weights: ") and "record 100%" in seen["sublede"]
+    assert "your own weights" in seen["showing"]
+    assert seen["scoreLine"].startswith("Score 1.00 with your weights: ")
+    assert "government record 1.00" in seen["scoreLine"] and seen["scoreLine"].endswith("Your setting needs 0.40.")
+    assert seen["chartLabel"].startswith("Score 1.00 with your weights: ") and seen["chartWidths"] == [100]
+    assert "your own weights" in seen["chartNote"] and "published rule" in seen["weightsYours"]
+    assert "published weights" in seen["thresholdHint"]
+    assert seen["sliders"] == [0, 0, 0, 100] and seen["shares"] == ["0%", "0%", "0%", "100%"]
+    assert seen["feedUrl"] == f"{BASE}/feed.xml?weights=0,0,0,100"
+
+
+@jsdom
+def test_default_weights_say_nothing_new(site):
+    seen = open_page(site, f"{BASE}/")["loaded"]
+    assert seen["sublede"].startswith("Ranked by how widely") and "weights" not in seen["showing"]
+    assert seen["scoreLine"].startswith("Score ") and "with your weights" not in seen["scoreLine"]
+    assert "weights" not in seen["chartLabel"] and seen["chartNote"] == "" and seen["weightsYours"] is None
+    assert "weights" not in seen["thresholdHint"] and seen["sliders"] == [40, 25, 10, 25]
+    assert seen["feedUrl"] == f"{BASE}/feed.xml" and seen["recipeLink"] == f"{BASE}/" and seen["recipeNote"] is None
+
+
+@jsdom
+def test_sliders_change_the_address_and_reset_clears_them(site):
+    page = open_page(site, f"{BASE}/")
+    assert page["errors"] == []
+    assert page["slid"]["feedUrl"] == f"{BASE}/feed.xml?threshold=strict&weights=40,25,10,100"
+    assert page["slid"]["shares"] == ["23%", "14%", "6%", "57%"]
+    assert page["reset"]["feedUrl"] == f"{BASE}/feed.xml" and page["reset"]["sliders"] == [40, 25, 10, 25]
+    assert page["allZero"]["feedUrl"] == f"{BASE}/feed.xml"
+    assert page["allZero"]["sliders"] == [40, 25, 10, 25]  # nothing to rank by, so the published rule stands
+
+
+@jsdom
+def test_the_page_says_what_weights_cannot_do(site):
+    html = (site / "index.html").read_text()
+    assert "Weights only re-rank stories that were written" in html and "no weight can bring it back" in html
+
+
+@jsdom
+def test_a_recipe_is_a_named_link(site):
+    page = open_page(site, f"{BASE}/")
+    named = page["named"]
+    assert named["recipeLink"] == f"{BASE}/?threshold=strict&weights=40,25,10,100&recipe=My%20mix"
+    assert named["feedUrl"].endswith("&recipe=My%20mix")
+    assert "My mix" in named["recipeNote"] and "not Boring News" in named["recipeNote"]
+    assert page["savedQuery"].endswith("recipe=My%20mix")                     # kept in this browser
+    assert page["copyStatus"]                                                 # jsdom has no clipboard, so it selects
+    assert page["reset"]["recipeName"] == "" and page["reset"]["recipeNote"] is None
+    assert page["fetchedOnLoad"] == 0
+
+
+@jsdom
+def test_opening_a_recipe_link_restores_it(site):
+    seen = open_page(site, f"{BASE}/?weights=20,20,10,50&recipe=Paper%20trail")["loaded"]
+    assert seen["recipeName"] == "Paper trail" and "Paper trail" in seen["recipeNote"]
+    assert seen["sliders"] == [20, 20, 10, 50]
+
+
+@jsdom
+def test_a_recipe_name_is_text_not_markup(site):
+    page = open_page(site, f"{BASE}/?recipe=%3Cimg%20src%3Dx%3E")
+    assert page["errors"] == [] and "<img src=x>" in page["loaded"]["recipeNote"]
+
+
+@jsdom
+def test_built_in_recipes_are_listed_and_open(site):
+    links = open_page(site, f"{BASE}/")["recipes"]
+    assert len(links) >= 3 and all(a.startswith("?") and "recipe=" in a and a.endswith("#today") for a in links)
+    page = open_page(site, f"{BASE}/{links[1]}")
+    assert page["errors"] == [] and page["loaded"]["recipeNote"]
+
+
+@jsdom
+def test_a_developing_story_opens_its_earlier_days(two_days):
+    page = open_page(two_days, f"{BASE}/?threshold=broad")
+    assert page["errors"] == []
+    assert page["earlierButtons"] and page["fetchedOnLoad"] == 0 and page["earlier"]["fetched"] == 1
+    days = page["earlier"]["days"]
+    assert len(days) == 1 and days[0]["when"] == "Nov 3, 2026, day 1"
+    assert days[0]["headline"] and days[0]["bullets"] and days[0]["sources"]
+    assert page["earlier"]["message"] is None and page["earlier"]["open"]
+
+
+@jsdom
+def test_a_first_day_story_has_no_earlier_days(site):
+    assert open_page(site, f"{BASE}/?threshold=broad")["earlierButtons"] == 0
+
+
+@jsdom
+def test_headlines_only_keeps_the_earlier_days_link(two_days):
+    page = open_page(two_days, f"{BASE}/?length=headlines&threshold=broad")
+    assert page["earlierButtons"] and len(page["earlier"]["days"]) == 1
+
+
+@jsdom
+@pytest.mark.parametrize("research", ["missing", "down"])
+def test_earlier_days_say_so_when_the_index_is_unavailable(two_days, research):
+    page = open_page(two_days, f"{BASE}/?threshold=broad", research)
+    assert page["errors"] == []
+    assert page["earlier"]["days"] == [] and "aren't available" in page["earlier"]["message"]
+
+
+def test_function_serves_custom_weights_and_a_named_feed(site, tmp_path):
+    plain, weighted, same = serve(site, tmp_path, f"{BASE}/feed.xml", f"{BASE}/feed.xml?weights=0,0,0,100&recipe=Records",
+                                  f"{BASE}/feed.xml?weights=40,25,10,25")
+    assert same["body"] == plain["body"]
+    root = ET.fromstring(weighted["body"]).find("channel")
+    assert root.findtext("title") == "Boring News (reader recipe: Records)"
+    assert [i.findtext("title") for i in root.findall("item")] != \
+        [i.findtext("title") for i in ET.fromstring(plain["body"]).findall("./channel/item")]

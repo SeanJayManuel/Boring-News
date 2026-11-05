@@ -164,6 +164,7 @@ def test_web_routes(tmp_path, monkeypatch):
     assert feed.status_code == 200
     assert len(ET.fromstring(feed.content).findall("./channel/item")) == 7
     assert client.get("/feed.xml?date=1999-01-01").status_code == 404
+    assert "/mcp" in client.get("/api/docs.md").text
 
 
 # ---------------------------------------------------------------- official sources

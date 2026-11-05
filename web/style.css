@@ -287,7 +287,35 @@ button:hover { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 30%, transpar
   background: var(--well); border: 0; border-radius: 9px; padding: 11px 13px;
   box-shadow: 0 0 0 1px var(--line), var(--inset);
 }
-#copy-status { margin-top: 8px; }
+#copy-status, #recipe-status { margin-top: 8px; }
+input[type="range"] { accent-color: var(--accent); width: 100%; margin: 0; }
+.recipe-name { display: flex; align-items: center; gap: 12px; margin: 14px 0 8px; font-size: 15px; font-weight: 500; }
+.recipe-name input {
+  flex: 1; min-width: 0; font: 400 15px/1.2 var(--font); color: var(--ink);
+  background: var(--well); border: 0; border-radius: 9px; padding: 10px 13px;
+  box-shadow: 0 0 0 1px var(--line), var(--inset);
+}
+.recipe-list { list-style: none; padding: 0 !important; gap: 10px !important; }
+.recipe-list li { display: grid; gap: 2px; }
+.recipe-list a { font-weight: 600; text-decoration: none; }
+.recipe-list a:hover { text-decoration: underline; }
+.recipe-list span { font-size: 14px; color: var(--muted); }
+.recipe-note { font-size: 15px; color: var(--muted); margin: 12px 0 0; max-width: 40em; }
+.left-out { margin-top: 14px; }
+.left-out summary { cursor: pointer; font-size: 15px; font-weight: 500; padding: 16px 28px; }
+.left-out-body { padding: 0 28px 24px; display: grid; gap: 14px; }
+.left-out h3 { font-size: 15px; font-weight: 600; margin: 10px 0 0; }
+.left-story { display: grid; gap: 4px; }
+.left-story + .left-story { border-top: 1px solid var(--line); padding-top: 14px; }
+.left-story .topic { margin: 0; }
+.left-story h4 { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+.left-story .why { font-size: 14.5px; color: var(--muted); margin: 0; }
+.left-story .bullets { margin-top: 6px; }
+.source-line { font-size: 14px; color: var(--muted); margin: 6px 0 0; }
+.earlier { margin-top: 14px; display: grid; gap: 14px; }
+.earlier-day { border-left: 2px solid var(--line); padding-left: 14px; }
+.earlier-day .topic { margin: 0 0 2px; }
+.earlier-day h4 { font-size: 16px; font-weight: 600; margin: 0 0 6px; }
 .examples { list-style: none; padding: 0 !important; gap: 12px !important; }
 .examples li { display: grid; gap: 4px; }
 .examples code { display: block; padding: 8px 10px; overflow-x: auto; white-space: nowrap; line-height: 1.5; }

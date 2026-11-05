@@ -1,7 +1,8 @@
 """Build an edition: ingest -> cluster -> score -> rewrite -> store.
 
 Usage:
-    python -m boringnews.pipeline run                 # live feeds, Claude if ANTHROPIC_API_KEY is set
+    python -m boringnews.pipeline run                 # live feeds, a model if one is set up
+    python -m boringnews.pipeline run --require-writer  # stop, writing nothing, unless the live keys are set
     python -m boringnews.pipeline run --fixtures      # demo edition from invented sample data
     python -m boringnews.pipeline run --fixtures --mock-llm
     python -m boringnews.pipeline check-feeds         # report which feeds work
@@ -19,7 +20,7 @@ from .cluster import cluster
 from .db import Story, articles_between, connect, upsert_articles
 from .edition import Edition
 from .inputs import FixtureInputs, LiveInputs
-from .rewrite import ClaudeWriter, MockWriter, load_banned, write_story
+from .rewrite import ClaudeWriter, LocalWriter, MockWriter, load_banned, write_story
 from .sources import load_sources
 
 
@@ -33,15 +34,37 @@ def edition_window(edition_date: str, lookback_hours: int) -> tuple[str, str]:
 def pick_writer(mock: bool):
     if mock:
         return MockWriter(config.FIXTURE_REWRITES_PATH, config.FIXTURE_ARTICLES_PATH)
+    if os.environ.get("BN_WRITER_URL"):
+        if not os.environ.get("BN_WRITER_MODEL"):  # the name is published with every story
+            raise SystemExit("BN_WRITER_URL is set, so BN_WRITER_MODEL must name the model.")
+        return LocalWriter(os.environ["BN_WRITER_URL"], os.environ["BN_WRITER_MODEL"])
     if os.environ.get("ANTHROPIC_API_KEY"):
         return ClaudeWriter(config.MODEL)
-    print("No ANTHROPIC_API_KEY set: using the no-model fallback writer.")
+    print("No BN_WRITER_URL or ANTHROPIC_API_KEY set: using the no-model fallback writer.")
     return None
 
 
-def run(inputs, writer, db_path, edition_date: str, archive_dir=None) -> Edition:
+def run_blockers(mock: bool, fixtures: bool) -> list[str]:
+    """Why a run that must use a real writer can't go ahead. Empty if it can.
+    Sample data needs no Congress key. FRED_API_KEY is optional: the ticker never blocks an edition."""
+    blockers = []
+    if mock:
+        blockers.append("--mock-llm is not a real writer")
+    if os.environ.get("BN_WRITER_URL"):
+        if not os.environ.get("BN_WRITER_MODEL"):
+            blockers.append("BN_WRITER_URL is set but BN_WRITER_MODEL is not")
+    elif not os.environ.get("ANTHROPIC_API_KEY"):
+        blockers.append("set ANTHROPIC_API_KEY or BN_WRITER_URL")
+    if not fixtures and not os.environ.get("CONGRESS_API_KEY"):
+        blockers.append("CONGRESS_API_KEY is not set")
+    return blockers
+
+
+def run(inputs, writer, db_path, edition_date: str, archive_dir=None, require_writer: bool = False) -> Edition:
     """Build, store and (with archive_dir) publish the edition for a date.
-    `inputs` is a LiveInputs or FixtureInputs; `writer` is None for the fallback writer."""
+    `inputs` is a LiveInputs or FixtureInputs; `writer` is None for the fallback writer.
+    With `require_writer`, stops before storing if the writer produced nothing: a bad
+    key, an outage or a model that rejects the request all look like this."""
     sources = inputs.sources
     conn = connect(db_path)
     banned = load_banned(config.BANNED_WORDS_PATH)
@@ -89,6 +112,9 @@ def run(inputs, writer, db_path, edition_date: str, archive_dir=None) -> Edition
         note = f", {dropped} dropped by fact check" if dropped else ""
         print(f"  [{sc.total:.2f}] {draft.headline}  ({len(group)} articles, {draft.written_by}{note})")
 
+    if require_writer and stories and all(s.written_by == "fallback" for s in stories):
+        raise SystemExit("Not storing the edition: every story used the fallback writer.")
+
     # 5. Follow developing stories from the previous edition
     linked = threads.link(conn, edition_date, stories, config.THREAD_SIMILARITY)
     if linked:
@@ -105,7 +131,8 @@ def run(inputs, writer, db_path, edition_date: str, archive_dir=None) -> Edition
     edition.save(conn)
     print(f"Edition {edition_date}: {len(stories)} stories stored in {db_path}.")
     if archive_dir:
-        path = edition.write_file(archive_dir, articles, clusters, writer.model if writer else "none (fallback writer)")
+        path = edition.write_file(archive_dir, articles, clusters, writer.model if writer else "none (fallback writer)",
+                                  writer.usage if writer else None)
         print(f"Edition file written to {path}.")
     return edition
 
@@ -149,6 +176,8 @@ def main(argv=None) -> int:
     r = sub.add_parser("run", help="build an edition")
     r.add_argument("--fixtures", action="store_true", help="use invented sample data instead of live feeds")
     r.add_argument("--mock-llm", action="store_true", help="use canned example rewrites (demo)")
+    r.add_argument("--require-writer", action="store_true",
+                   help="exit with an error, writing nothing, if a real writer or a live key is missing")
     r.add_argument("--date", help="edition date, YYYY-MM-DD (default: today, UTC)")
     r.add_argument("--db", default=str(config.DB_PATH))
     r.add_argument("--archive", help="folder for the edition file (default: archive/; none with --fixtures)")
@@ -157,11 +186,16 @@ def main(argv=None) -> int:
     args = p.parse_args(argv)
     if args.cmd == "check-feeds":
         return check_feeds(LiveInputs(load_sources(config.SOURCES_PATH)))
+    if args.require_writer:
+        blockers = run_blockers(args.mock_llm, args.fixtures)
+        if blockers:
+            print("Not building the edition: " + "; ".join(blockers) + ".", file=sys.stderr)
+            return 1
     sources = load_sources(config.sources_path(args.fixtures))
     inputs = FixtureInputs(sources) if args.fixtures else LiveInputs(sources)
     archive_dir = args.archive or (None if args.fixtures else str(config.ARCHIVE_DIR))
     run(inputs, pick_writer(args.mock_llm), args.db, args.date or datetime.now(timezone.utc).date().isoformat(),
-        None if args.no_archive else archive_dir)
+        None if args.no_archive else archive_dir, args.require_writer)
     return 0
 
 

@@ -63,12 +63,12 @@ Every edition is also saved in full to [`archive/`](archive/): every article rea
 
 Boring News is meant to be useful to anyone covering a beat, including student papers, community newsletters and freelancers without a wire subscription.
 
-- **Now:** a Research tab to look up which outlets covered a claim and search 30 days of government records; RSS for any combination of settings; full edition files in `archive/`.
-- **Planned:** per-state and per-city feeds including council and board agendas, a free open API, and downloadable coverage data.
+- **Now:** a Research tab to look up which outlets covered a claim and search 30 days of government records; RSS for any combination of settings; full edition files in `archive/`; and a free [public API and MCP server](docs/api.md), with no accounts or keys (ready, but not deployed yet).
+- **Planned:** per-state and per-city feeds including council and board agendas.
 
 ## Roadmap
 
-United States first. International coverage starts only once US coverage is solid.
+United States first. International coverage starts only once US coverage is solid. The feature-by-feature plan, with what's missing for each, is in [`docs/roadmap.md`](docs/roadmap.md).
 
 **Phase 1: National edition** (built)
 - [x] Read outlet RSS feeds across left, center and right
@@ -78,10 +78,11 @@ United States first. International coverage starts only once US coverage is soli
 - [x] Website and RSS output, nightly build
 - [x] Full daily edition files and corrections log
 
-**Phase 2: Reader control** (partly built)
+**Phase 2: Reader control** (mostly built)
 - [x] Choose topics, exclude sources, set the threshold, on the page and in the feed
-- [ ] Adjust the rubric weights themselves, not just the threshold
-- [ ] Save and share settings as a "feed recipe"
+- [x] Adjust the rubric weights themselves, not just the threshold
+- [x] Save and share settings as a "feed recipe"
+- [x] See every story your settings hide, and why
 - [ ] Blind-spot view: stories covered heavily by one side and barely by the other
 
 **Phase 3: Federal records** (partly built)
@@ -98,7 +99,7 @@ United States first. International coverage starts only once US coverage is soli
 - [ ] Expand state by state until US coverage is solid
 
 **Phase 5: Open data**
-- [ ] Public API and data downloads for journalists and researchers
+- [x] Public API, MCP server and data downloads for journalists and researchers (built, not deployed)
 
 **Phase 6: Open books**
 - [x] Public ledger from day one
@@ -129,7 +130,7 @@ These are real, unsolved, and we'd like help:
 
 ## Contributing
 
-Anyone can propose a new source, challenge a label, or suggest a rubric change by opening an issue or pull request. Changes to sources, labels, ranking or writing rules need a written reason in the pull request, and the matching document in `docs/` or `editorial/` updated in the same change, so anyone can see why the edition works the way it does.
+Anyone can propose a new source, challenge a label, or suggest a rubric change by [opening an issue](https://github.com/SeanJayManuel/Boring-News/issues/new/choose) or pull request. Changes to sources, labels, ranking or writing rules need a written reason in the pull request, and the matching document in `docs/` or `editorial/` updated in the same change, so anyone can see why the edition works the way it does.
 
 ## License
 
@@ -166,8 +167,11 @@ can see the target style. Leave it off to see the no-model fallback writer.
 export CONGRESS_API_KEY=...                        # free: https://api.congress.gov/sign-up/
 export FRED_API_KEY=...                            # free: https://fred.stlouisfed.org/docs/api/api_key.html
 export ANTHROPIC_API_KEY=...                       # optional; without it, the fallback writer is used
+# Or use any OpenAI-compatible server (Ollama, llama.cpp) instead of a paid key:
+# export BN_WRITER_URL=http://localhost:11434 BN_WRITER_MODEL=llama3.2
 python -m boringnews.pipeline check-feeds          # which sources work, and which look stale
 python -m boringnews.pipeline run                  # today's edition, UTC
+# Add --require-writer to stop rather than publish fallback stories (the nightly job does)
 uvicorn boringnews.web:app
 ```
 
@@ -258,17 +262,22 @@ sources.yaml ──► ingest (RSS) ──► SQLite ──► cluster (TF-IDF) 
 | `topics` | comma list of categories: government, states, economy, world, health-science, tech | all |
 | `exclude` | comma list of source ids | none |
 | `threshold` | broad (0.30), standard (0.40), strict (0.55) | standard |
+| `weights` | four whole numbers, 0 to 100, for breadth, coverage, diversity and record, each counted as its share. Re-ranks written stories only | the published rule |
 | `official` | 1 or 0: include official items no outlet has covered yet | 1 |
 | `statements` | 1 or 0: include official statements (press releases) | 1 |
 | `spotlight` | 1: only the top 5 stories | 0 |
 | `length` | full or headlines | full |
+| `recipe` | a name for this setup, up to 60 characters | none |
 
 Example: `/feed.xml?topics=economy,government&threshold=strict&exclude=ny-post`
 
 ## Settings
 
 Environment variables: `BN_DB`, `BN_SOURCES`, `BN_BASE_URL` (used in feed
-links), `BN_MODEL` (default `claude-haiku-5-5`), `BN_LOOKBACK_HOURS`,
+links), `BN_MODEL` (default `claude-haiku-5-5`), `BN_WRITER_URL` and
+`BN_WRITER_MODEL` (write with any OpenAI-compatible server, such as Ollama or
+llama.cpp, instead of Claude; the URL is the server's base address and the model
+name is published with each story), `BN_LOOKBACK_HOURS`,
 `BN_CLUSTER_SIMILARITY` (default 0.15, tuned on the sample data; re-tune on
 real feeds), `BN_CLUSTER_WINDOW_HOURS`, `BN_THREAD_SIMILARITY`, `BN_ARCHIVE`,
 `BN_REPO_URL`, `BN_SAMPLE=1` (serve the sample source list).
