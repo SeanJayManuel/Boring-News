@@ -2,7 +2,7 @@
 
 The detailed plan behind the summary in the [README](../README.md). Each feature has a stable ID so it can be worked through one at a time: what it is, what already exists, what's missing, what it needs from a person, and how we'll know it's done.
 
-Status as of 2026-11-04.
+Status as of 2026-11-05.
 
 **Status:** ✅ built · 🟡 partly built · ⬜ not started
 **Size:** S (under a day) · M (a few days) · L (a week or more)
@@ -63,17 +63,17 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 - **Needs a person:** register the domain, create the accounts, add the secrets. Decision D1.
 - **Done when:** the workflow deploys a page to the domain.
 
-### L2. Safe nightly job ⬜ S
+### L2. Safe nightly job 🟡 S
 
-- **Exists:** tests run before the build, so failing tests stop a deploy.
-- **Gaps:** a run with missing secrets still commits an edition to `main`. Nothing stops a real edition being written by the fallback writer without anyone noticing.
-- **Done when:** a missing key fails the run before anything is committed.
+- **Exists:** tests run before the build, so failing tests stop a deploy. `pipeline run --require-writer`, used by the nightly job, stops a run before anything is written when a required key is missing.
+- **Gaps:** the check only sees that keys exist. A bad key or an outage still passes it, every story falls back, and that edition commits and deploys. With no secrets set, the nightly job now fails every day until launch.
+- **Done when:** a run where the writer fails across the board also stops before committing. This likely belongs with L8.
 
-### L3. Tests on pull requests ⬜ S
+### L3. Tests on pull requests 🟡 S
 
-- **Exists:** the full test suite, run only inside the nightly job.
-- **Gaps:** pull requests aren't tested. Node 20, which the nightly job uses, has never been run against the current code.
-- **Done when:** every pull request runs the tests on Python 3.12 and Node 20, with no way to publish from that workflow.
+- **Exists:** `.github/workflows/tests.yml`, on Python 3.12 and Node 20, with read-only permissions and no secrets.
+- **Gaps:** it hasn't run yet, so the code still hasn't been tested on Node 20.
+- **Done when:** it has passed on a real pull request.
 
 ### L4. Verify every live source ⬜ S
 
@@ -84,7 +84,7 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 ### L5. First real edition, read by a person ⬜ M
 
 - **Exists:** the writer, retries, linter and fact check, tested with stand-ins only.
-- **Gaps:** the real Claude call has never run. The model's fact-check call hasn't either. Unknown: real cost per edition, how often the fallback writer is used, and how many bullets the fact check wrongly removes.
+- **Gaps:** the real Claude call has never run. The model's fact-check call hasn't either. Unknown: real cost per edition (each edition file now records its token totals in `editorial.usage`), whether 2,000 tokens is always enough, how often the fallback writer is used, and how many bullets the fact check wrongly removes.
 - **Needs a person:** read a full edition against its sources, and judge it. Decision D6.
 - **Done when:** five editions in a row are good enough to publish unedited, and cost per edition is in the ledger.
 
@@ -160,11 +160,11 @@ So today a three-outlet story on the left is dropped and the same story on the r
 - **Gaps:** left and right outlets are all national. The BBC is the only international outlet with a lean, and no outlet is typed regional or wire, partly because Reuters and AP don't offer public feeds. So the diversity part of the score can't reach its maximum on any story that only left and right outlets cover.
 - **Done when:** each side has a mix of outlet types, and each addition follows the process in `docs/labeling.md`.
 
-### T4. A public way to challenge decisions ⬜ S
+### T4. A public way to challenge decisions 🟡 S
 
-- **Exists:** the contributing rules in the README.
-- **Gaps:** no issue templates for proposing a source, challenging a label or reporting a wrong story. No written review schedule beyond "quarterly".
-- **Done when:** the templates exist and are linked from the site. This is the first practical step on the open question about becoming a gatekeeper.
+- **Exists:** issue forms for proposing a source, challenging a label, reporting a wrong story and suggesting a rubric change, linked from How it works.
+- **Gaps:** the `source`, `label`, `correction` and `rubric` labels need creating on GitHub. Filing an issue needs a GitHub account. No written review schedule beyond "quarterly".
+- **Done when:** the labels exist and there's a written review schedule, and readers without a GitHub account have a way in. This is the first practical step on the open question about becoming a gatekeeper.
 
 ### T5. Checkable summaries ⬜ M
 
@@ -192,29 +192,25 @@ Stories covered heavily by one side and barely by the other.
 - **Gaps:** depends on T1, because many of these stories are never written. There's no definition yet of "heavily" and "barely". There's also no history view, though Research holds 30 days.
 - **Done when:** the rule is published, the view is on the site, and it has its own feed.
 
-### R2. Adjustable rubric weights ⬜ M
+### R2. Adjustable rubric weights ✅ M
 
-- **Exists:** `web/core.js` already re-scores in the browser and feed function, and `SETTINGS` makes a new setting cheap.
-- **Gaps:** readers can only re-rank stories that were written, so a reader's weights can't bring back a story the default rule dropped. The address needs a compact form for four numbers. The chart and "your setting needs" text assume the default weights.
-- **Done when:** four weights work on the page and in the feed, with the limit explained plainly.
+- **Built:** `weights=60,20,10,10` (breadth, coverage, diversity, record), counted as shares of their total, with sliders on Your feed. It works on the page and in feeds.
+- **Limit:** weights only re-rank stories that were written, so they can't bring back a story the default rule dropped. The page says so. T1 would widen what readers can reach.
 
-### R3. Feed recipes ⬜ S to M
+### R3. Feed recipes ✅ S to M
 
-- **Exists:** every setting already lives in the address, so any setup is a shareable link.
-- **Gaps:** no name, description or share button. Decide whether recipes are just links, or files in the repo that people can propose.
-- **Done when:** a reader can save and share a named setup, with no accounts.
+- **Built:** a recipe is a named settings link (`recipe=`), with a copy control and four built-in examples. No accounts, and nothing leaves the browser. Whoever made a link chose its name, and the page says so.
+- **Limit:** there's no saved list; saving means bookmarking the link. Opening a recipe replaces the reader's saved settings in that browser, as any settings link does.
 
-### R4. Show what's filtered out ⬜ S
+### R4. Show what's filtered out ✅ S
 
-- **Exists:** a count of stories left out by a reader's settings.
-- **Gaps:** the belief says "we'll show you what you're filtering out", but readers only get a number, with no way to see the stories.
-- **Done when:** each hidden story can be seen, with the reason it was hidden.
+- **Built:** Today and All stories list every story a reader's settings hide, grouped by reason.
+- **Limit:** this only covers stories that were written. Seeing everything that was read is T6.
 
-### R5. Developing stories ⬜ S to M
+### R5. Developing stories ✅ S to M
 
-- **Exists:** threads and "Day 2" labels. The thread id is in the research index.
-- **Gaps:** no way to read a story's earlier days.
-- **Done when:** a developing story links to its earlier days.
+- **Built:** Day 2+ stories have an "Earlier days of this story" button, which loads the research index on click.
+- **Limit:** it reaches back 30 days, older editions have no page of their own, and RSS items don't link to earlier days.
 
 ---
 
@@ -298,22 +294,21 @@ This is the phase with the most unknowns. It should start with a small research 
 
 Goal: journalists and researchers can use the data without asking.
 
-### D1. Downloads ⬜ S
+### D1. Downloads ✅ S
 
-- **Exists:** edition files, published at `/archive/`. A 30-day `research.json`.
-- **Gaps:** no index of editions, a documented format, or bulk or CSV download.
-- **Done when:** the format is documented and the whole archive can be downloaded.
+- **Built:** `api/v1/` has an index of editions, one file per edition, and monthly zip downloads. See [`api.md`](api.md).
+- **Limit:** no CSV. Not yet deployed.
 
-### D2. Public API ⬜ M
+### D2. Public API and MCP server 🟡 M
 
-- **Exists:** static JSON files, which may already be enough.
-- **Gaps:** decide what a free, stable API needs beyond static files, and what format promises we're willing to keep.
-- **Done when:** a versioned, documented interface exists. This must stay cheap on the free hosting tier.
+- **Built:** a versioned static JSON API, and a read-only remote MCP server (`functions/mcp.js`) with `get_edition`, `search_coverage`, `search_records` and `list_sources`. No accounts or keys. Documented in [`api.md`](api.md).
+- **Gaps:** no real MCP client has connected, and nothing has run on Cloudflare. There's no rate limit, which the MCP spec requires and which needs a Cloudflare rule on the live domain. The free plan's 100,000 daily requests are shared with `/feed.xml`, so heavy MCP use could stop custom feeds.
+- **Done when:** a real client works against a deployed preview, and a rate limit is in place.
 
 ### D3. Research beyond 30 days ⬜ M
 
 - **Exists:** coverage lookup and records search over the last 30 days, in the browser.
-- **Gaps:** the index grows with every day, and all of it is downloaded to the page. Longer history needs a different approach. Word matching also misses paraphrased claims.
+- **Gaps:** the index grows with every day, and all of it is downloaded to the page. Longer history needs a different approach. Word matching also misses paraphrased claims. The MCP function's first search on a fresh copy costs far more than the free plan's 10 ms CPU limit, because it parses and tokenizes the whole index, so it needs a smaller or pre-tokenized index.
 - **Done when:** a reader can search the whole archive at a sensible download size.
 
 ### D4. Better grouping ⬜ M

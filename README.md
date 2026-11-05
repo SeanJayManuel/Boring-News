@@ -63,8 +63,8 @@ Every edition is also saved in full to [`archive/`](archive/): every article rea
 
 Boring News is meant to be useful to anyone covering a beat, including student papers, community newsletters and freelancers without a wire subscription.
 
-- **Now:** a Research tab to look up which outlets covered a claim and search 30 days of government records; RSS for any combination of settings; full edition files in `archive/`.
-- **Planned:** per-state and per-city feeds including council and board agendas, a free open API, and downloadable coverage data.
+- **Now:** a Research tab to look up which outlets covered a claim and search 30 days of government records; RSS for any combination of settings; full edition files in `archive/`; and a free [public API and MCP server](docs/api.md), with no accounts or keys (ready, but not deployed yet).
+- **Planned:** per-state and per-city feeds including council and board agendas.
 
 ## Roadmap
 
@@ -78,10 +78,11 @@ United States first. International coverage starts only once US coverage is soli
 - [x] Website and RSS output, nightly build
 - [x] Full daily edition files and corrections log
 
-**Phase 2: Reader control** (partly built)
+**Phase 2: Reader control** (mostly built)
 - [x] Choose topics, exclude sources, set the threshold, on the page and in the feed
-- [ ] Adjust the rubric weights themselves, not just the threshold
-- [ ] Save and share settings as a "feed recipe"
+- [x] Adjust the rubric weights themselves, not just the threshold
+- [x] Save and share settings as a "feed recipe"
+- [x] See every story your settings hide, and why
 - [ ] Blind-spot view: stories covered heavily by one side and barely by the other
 
 **Phase 3: Federal records** (partly built)
@@ -98,7 +99,7 @@ United States first. International coverage starts only once US coverage is soli
 - [ ] Expand state by state until US coverage is solid
 
 **Phase 5: Open data**
-- [ ] Public API and data downloads for journalists and researchers
+- [x] Public API, MCP server and data downloads for journalists and researchers (built, not deployed)
 
 **Phase 6: Open books**
 - [x] Public ledger from day one
@@ -129,7 +130,7 @@ These are real, unsolved, and we'd like help:
 
 ## Contributing
 
-Anyone can propose a new source, challenge a label, or suggest a rubric change by opening an issue or pull request. Changes to sources, labels, ranking or writing rules need a written reason in the pull request, and the matching document in `docs/` or `editorial/` updated in the same change, so anyone can see why the edition works the way it does.
+Anyone can propose a new source, challenge a label, or suggest a rubric change by [opening an issue](https://github.com/SeanJayManuel/Boring-News/issues/new/choose) or pull request. Changes to sources, labels, ranking or writing rules need a written reason in the pull request, and the matching document in `docs/` or `editorial/` updated in the same change, so anyone can see why the edition works the way it does.
 
 ## License
 
@@ -166,6 +167,8 @@ can see the target style. Leave it off to see the no-model fallback writer.
 export CONGRESS_API_KEY=...                        # free: https://api.congress.gov/sign-up/
 export FRED_API_KEY=...                            # free: https://fred.stlouisfed.org/docs/api/api_key.html
 export ANTHROPIC_API_KEY=...                       # optional; without it, the fallback writer is used
+# Or use any OpenAI-compatible server (Ollama, llama.cpp) instead of a paid key:
+# export BN_WRITER_URL=http://localhost:11434 BN_WRITER_MODEL=llama3.2
 python -m boringnews.pipeline check-feeds          # which sources work, and which look stale
 python -m boringnews.pipeline run                  # today's edition, UTC
 uvicorn boringnews.web:app

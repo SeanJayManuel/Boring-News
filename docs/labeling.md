@@ -42,7 +42,7 @@ Example: with 4 left, 3 center and 3 right outlets, each left outlet counts 0.83
 
 ## Adding or removing a source
 
-Open a pull request that edits `sources.yaml` and explains in the description:
+Use the [source form](https://github.com/SeanJayManuel/Boring-News/issues/new/choose) to propose a change, or open a pull request that edits `sources.yaml` and explains in the description:
 
 1. Why the source should be included (or removed)
 2. Where its lean label comes from, with links to the ratings
