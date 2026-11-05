@@ -68,7 +68,7 @@ Boring News is meant to be useful to anyone covering a beat, including student p
 
 ## Roadmap
 
-United States first. International coverage starts only once US coverage is solid.
+United States first. International coverage starts only once US coverage is solid. The feature-by-feature plan, with what's missing for each, is in [`docs/roadmap.md`](docs/roadmap.md).
 
 **Phase 1: National edition** (built)
 - [x] Read outlet RSS feeds across left, center and right
