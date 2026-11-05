@@ -303,12 +303,13 @@
     }
     var qt = tokens(q).filter(function (t, i, a) { return a.indexOf(t) === i; });
     if (!qt.length) return { matches: [], how: "words" };
-    var docs = index.stories.map(function (s) {
+    // Kept on the index, so a long-lived copy (the MCP function) only tokenizes once.
+    var docs = index._docs || (index._docs = index.stories.map(function (s) {
       var set = {};
       tokens([s.headline].concat(s.bullets, s.articles.map(function (a) { return a.title; })).join(" "))
         .forEach(function (t) { set[t] = true; });
       return set;
-    });
+    }));
     var n = docs.length;
     var idf = {};
     qt.forEach(function (t) {
