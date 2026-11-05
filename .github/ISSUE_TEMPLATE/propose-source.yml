@@ -1,0 +1,61 @@
+name: Propose a source
+description: Add an outlet or official source to the list, or remove one.
+title: "Source: "
+labels: [source]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Sources are chosen in public. See [how sources are chosen and labeled](https://github.com/SeanJayManuel/Boring-News/blob/main/docs/labeling.md).
+        This issue starts the discussion; the change itself is a pull request that edits `sources.yaml` and gives the same reasons.
+  - type: dropdown
+    id: change
+    attributes:
+      label: Change
+      options:
+        - Add this source
+        - Remove this source
+    validations:
+      required: true
+  - type: input
+    id: name
+    attributes:
+      label: Source name
+    validations:
+      required: true
+  - type: input
+    id: feed
+    attributes:
+      label: Feed address
+      description: The RSS feed or API address. Leave blank if you're asking to remove a source.
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options:
+        - wire
+        - national
+        - regional
+        - international
+        - primary (an official government source)
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it should be added or removed
+    validations:
+      required: true
+  - type: textarea
+    id: ratings
+    attributes:
+      label: Published ratings of its lean
+      description: We don't invent lean labels. Link at least one published media-rating service and say what it rates this source. If no service rates it, say so; it would be listed as unrated.
+    validations:
+      required: true
+  - type: textarea
+    id: feed-check
+    attributes:
+      label: Feed check
+      description: Paste this source's line from `python -m boringnews.pipeline check-feeds`, or say you couldn't run it.
+      render: text

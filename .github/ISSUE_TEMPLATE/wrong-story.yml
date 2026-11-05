@@ -1,0 +1,44 @@
+name: Report a wrong story
+description: A published story has a fact wrong, or doesn't match its sources.
+title: "Wrong story: "
+labels: [correction]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Each story is written only from the sources linked under it. Tell us what doesn't match.
+        Corrections are published on the site under How it works.
+  - type: input
+    id: edition
+    attributes:
+      label: Edition date
+      placeholder: YYYY-MM-DD
+    validations:
+      required: true
+  - type: input
+    id: story
+    attributes:
+      label: Link to the story
+      description: The story's link, ending in `#story-` and a number, or its headline as published.
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What the story says
+      description: Quote the headline or bullet.
+    validations:
+      required: true
+  - type: textarea
+    id: right
+    attributes:
+      label: What is right
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Link the source that shows it. Say if it's one of the story's own sources.
+    validations:
+      required: true

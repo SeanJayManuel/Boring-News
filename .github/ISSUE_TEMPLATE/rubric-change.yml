@@ -1,0 +1,47 @@
+name: Suggest a rubric change
+description: Change how stories are scored, or the writing rules they follow.
+title: "Rubric: "
+labels: [rubric]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        The rubric is [published](https://github.com/SeanJayManuel/Boring-News/blob/main/docs/ranking.md) so anyone can check it.
+        A change needs a written reason, and the matching document updated in the same pull request.
+  - type: dropdown
+    id: area
+    attributes:
+      label: What would change
+      options:
+        - Scoring weights
+        - Thresholds
+        - Records and statements
+        - Balance weighting
+        - Writing rules or banned words
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: What the rule is now
+    validations:
+      required: true
+  - type: textarea
+    id: proposed
+    attributes:
+      label: What it should be
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: What goes wrong today? Examples from a real edition help; every edition is published under `archive/`.
+    validations:
+      required: true
+  - type: textarea
+    id: effect
+    attributes:
+      label: What else it would change
+      description: Which stories would rise or fall, and which side, if any, this helps.

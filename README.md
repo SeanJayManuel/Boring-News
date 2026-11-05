@@ -268,7 +268,10 @@ Example: `/feed.xml?topics=economy,government&threshold=strict&exclude=ny-post`
 ## Settings
 
 Environment variables: `BN_DB`, `BN_SOURCES`, `BN_BASE_URL` (used in feed
-links), `BN_MODEL` (default `claude-haiku-5-5`), `BN_LOOKBACK_HOURS`,
+links), `BN_MODEL` (default `claude-haiku-5-5`), `BN_WRITER_URL` and
+`BN_WRITER_MODEL` (write with any OpenAI-compatible server, such as Ollama or
+llama.cpp, instead of Claude; the URL is the server's base address and the model
+name is published with each story), `BN_LOOKBACK_HOURS`,
 `BN_CLUSTER_SIMILARITY` (default 0.15, tuned on the sample data; re-tune on
 real feeds), `BN_CLUSTER_WINDOW_HOURS`, `BN_THREAD_SIMILARITY`, `BN_ARCHIVE`,
 `BN_REPO_URL`, `BN_SAMPLE=1` (serve the sample source list).

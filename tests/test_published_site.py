@@ -168,6 +168,11 @@ def test_page_keeps_an_old_topic_filter(site):
     assert page["errors"] == [] and "topics=government" in page["feedUrl"]
 
 
+def test_how_it_works_links_the_challenge_forms(site):
+    page = (site / "index.html").read_text()
+    assert f'href="{config.REPO_URL}/issues/new/choose"' in page and "__REPO_URL__" not in page
+
+
 @jsdom
 def test_every_setting_is_documented(site):
     page = open_page(site, f"{BASE}/")

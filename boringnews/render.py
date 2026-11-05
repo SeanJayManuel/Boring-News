@@ -4,6 +4,7 @@ reader's settings in the browser."""
 
 from __future__ import annotations
 
+import html
 import json
 
 import yaml
@@ -24,7 +25,8 @@ def render_page(data: dict) -> str:
     template = (WEB / "index.html").read_text()
     payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     return (
-        template.replace("/*__CSS__*/", (WEB / "style.css").read_text())
+        template.replace("__REPO_URL__", html.escape(data["repo_url"]))
+        .replace("/*__CSS__*/", (WEB / "style.css").read_text())
         .replace("/*__CORE__*/", (WEB / "core.js").read_text())
         .replace("/*__APP__*/", (WEB / "app.js").read_text())
         .replace('"__DATA__"', payload)

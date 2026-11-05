@@ -1,17 +1,21 @@
 """Turn a cluster of articles into one calm story.
 
-Three writers, tried in order:
-  1. Claude (needs ANTHROPIC_API_KEY): follows editorial/style_guide.md
-  2. mock: canned example output from fixtures/rewrites.json (demo only)
-  3. fallback: no model. Picks the most neutral source headline and the
+The writers, chosen in pipeline.pick_writer:
+  1. local (needs BN_WRITER_URL and BN_WRITER_MODEL): any OpenAI-compatible
+     server, such as Ollama or llama.cpp, so a fork needs no paid key
+  2. Claude (needs ANTHROPIC_API_KEY)
+  3. mock: canned example output from fixtures/rewrites.json (demo only)
+  4. fallback: no model. Picks the most neutral source headline and the
      first sentences of source summaries that pass the banned-word linter.
+
+Local and Claude both follow editorial/style_guide.md.
 
 Every result goes through the linter. A model draft that fails is retried once
 with the violations named; if it still fails, the fallback is used.
 
 Then every draft is fact-checked against its sources (`check_facts`):
   - numbers: every number in a bullet must appear in the sources
-  - model (when a key is set): a second call confirms each bullet is supported
+  - model (with a writer that `checks_facts`): a second call confirms each bullet is supported
 Unsupported bullets are dropped and logged in `Draft.checks`, which is
 published with the edition.
 """
@@ -20,6 +24,7 @@ from __future__ import annotations
 
 import json
 import re
+import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -117,9 +122,32 @@ def _parse(text: str) -> dict:
 # it `checks_facts` (a second read of each bullet), and has `complete`. The
 # rules for using that text, like parsing, retries and linting, are in
 # draft_from_writer and apply to every writer.
+#
+# `complete` raises FailedReply when the model stopped early, so partial text
+# is never parsed. Writers that make real calls keep token totals in `usage`,
+# which stays None until a call reports them. Every call counts, failed ones too.
+
+MAX_TOKENS = 2000  # Room for the reply on top of any thinking; running out means a failed reply.
+LOCAL_TIMEOUT = 300  # Seconds. Local models can be slow.
+
+
+class FailedReply(RuntimeError):
+    """The model stopped before finishing. `retry` says if asking again could help."""
+
+    def __init__(self, reason: str, retry: bool = True):
+        super().__init__(reason)
+        self.retry = retry
+
+
+def _tally(usage: dict | None, input_tokens: int, output_tokens: int) -> dict:
+    usage = usage or {"input_tokens": 0, "output_tokens": 0}
+    return {"input_tokens": usage["input_tokens"] + input_tokens,
+            "output_tokens": usage["output_tokens"] + output_tokens}
+
 
 class ClaudeWriter:
     checks_facts = True
+    usage = None
 
     def __init__(self, model: str, client=None):
         if client is None:
@@ -129,11 +157,46 @@ class ClaudeWriter:
         self.client = client
         self.model = model
 
-    def complete(self, system: str, messages: list[dict], max_tokens: int = 800) -> str:
+    def complete(self, system: str, messages: list[dict], max_tokens: int = MAX_TOKENS) -> str:
         resp = self.client.messages.create(
-            model=self.model, max_tokens=max_tokens, system=system, messages=messages
+            model=self.model, max_tokens=max_tokens, system=system, messages=messages,
+            output_config={"effort": "low"},
         )
+        self.usage = _tally(self.usage, resp.usage.input_tokens, resp.usage.output_tokens)
+        if resp.stop_reason == "refusal":
+            raise FailedReply("refusal", retry=False)
+        if resp.stop_reason == "max_tokens":
+            raise FailedReply("max_tokens")
         return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+
+
+class LocalWriter:
+    """Any server with an OpenAI-compatible chat endpoint, such as Ollama or llama.cpp."""
+
+    checks_facts = True
+    usage = None
+
+    def __init__(self, url: str, model: str, opener=urllib.request.urlopen):
+        self.url = url.rstrip("/") + "/v1/chat/completions"
+        self.model = model
+        self.opener = opener
+
+    def complete(self, system: str, messages: list[dict], max_tokens: int = MAX_TOKENS) -> str:
+        body = {"model": self.model, "max_tokens": max_tokens,
+                "messages": [{"role": "system", "content": system}, *messages]}
+        request = urllib.request.Request(self.url, data=json.dumps(body).encode(),
+                                         headers={"Content-Type": "application/json"})
+        with self.opener(request, timeout=LOCAL_TIMEOUT) as resp:
+            data = json.load(resp)
+        if data.get("usage"):  # not every server reports it, and a missing count isn't zero
+            self.usage = _tally(self.usage, data["usage"].get("prompt_tokens", 0),
+                                data["usage"].get("completion_tokens", 0))
+        choice = data["choices"][0]
+        if choice.get("finish_reason") == "content_filter":
+            raise FailedReply("content_filter", retry=False)
+        if choice.get("finish_reason") == "length":
+            raise FailedReply("length")
+        return choice["message"]["content"] or ""
 
 
 class MockWriter:
@@ -147,7 +210,7 @@ class MockWriter:
         rewrites = json.loads(Path(rewrites_path).read_text())["rewrites"]
         self.by_title = {titles[r["match_url"]]: r for r in rewrites}
 
-    def complete(self, system: str, messages: list[dict], max_tokens: int = 800) -> str:
+    def complete(self, system: str, messages: list[dict], max_tokens: int = MAX_TOKENS) -> str:
         titles = TITLE_RE.findall(messages[0]["content"])
         return next((json.dumps(self.by_title[t]) for t in titles if t in self.by_title), "")
 
@@ -161,7 +224,13 @@ def draft_from_writer(writer, style_guide: str, articles: list[Article], sources
     system = style_guide + "\n\n" + OUTPUT_CONTRACT
     messages = [{"role": "user", "content": build_prompt(articles, sources)}]
     for _attempt in range(2):
-        text = writer.complete(system, messages)
+        try:
+            text = writer.complete(system, messages)
+        except FailedReply as exc:
+            print(f"  failed reply from {writer.model}: {exc}")
+            if not exc.retry:
+                return None
+            continue
         try:
             data = _parse(text)
         except (ValueError, json.JSONDecodeError):
@@ -184,7 +253,7 @@ def draft_from_writer(writer, style_guide: str, articles: list[Article], sources
 def _verify_with_model(writer, bullets, articles, sources) -> dict[int, dict]:
     listing = "\n".join(f"{i}. {b}" for i, b in enumerate(bullets, 1))
     content = build_prompt(articles, sources).rsplit("\n", 1)[0] + "\n\nStatements:\n" + listing
-    text = writer.complete(VERIFY_PROMPT, [{"role": "user", "content": content}], max_tokens=600)
+    text = writer.complete(VERIFY_PROMPT, [{"role": "user", "content": content}])
     start, end = text.find("["), text.rfind("]")
     items = json.loads(text[start : end + 1])
     return {int(x["n"]): x for x in items}
