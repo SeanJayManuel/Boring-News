@@ -19,6 +19,9 @@ because they matter whether or not anyone wrote about them.
 
 The top SPOTLIGHT stories by score are the day's spotlight.
 
+Sports are left out, whatever their score: see `is_sports`. That rule decides
+what is written and not how anything scores, so it doesn't change VERSION.
+
 v0.4 (2026-11-04): coverage counts weighted outlets (each side counts equally).
 v0.3 (2026-11-04): only official records earn `record`; statements are listed
 but add nothing, so an administration's press releases can't lift a story.
@@ -30,8 +33,10 @@ v0.1 (2026-11-04): breadth 0.50, coverage 0.35, diversity 0.15.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, asdict
 from typing import Iterable
+from urllib.parse import urlsplit
 
 from .sources import Source
 
@@ -103,3 +108,37 @@ def lane(sc: Score, threshold: str = "standard", official: bool = True) -> str |
 def is_candidate(sc: Score) -> bool:
     """Worth writing up at all: passes the loosest setting a reader could pick."""
     return lane(sc, threshold="broad", official=True) is not None
+
+
+# No sports in the edition, for now (roadmap D8). An article counts as sports when a
+# whole part of its URL path is one of these sections: outlets file sports there, and
+# guessing from words would catch real news (a sanctions story that mentions the NBA).
+SPORTS_SECTIONS = ("sport", "sports", "football")  # football: The Guardian's soccer section
+# A headline with one of these is news that happens to involve sports: a vote, a law, a
+# court, a crime. They can only keep a story, never drop one. Some are phrases because
+# sports pages use the bare word for something else ("ruled out", "Aaron Judge", "Barry Bonds").
+HARD_NEWS_WORDS = (
+    "antitrust", "appeals court", "arrested", "ballot", "bond measure", "bond vote", "charged", "charges",
+    "city council", "congress", "convicted", "federal court", "federal judge", "governor", "guilty", "indicted",
+    "law", "laws", "lawmakers", "lawsuit", "lawsuits", "legislation", "legislature", "mayor", "police",
+    "prosecutors", "referendum", "ruling", "senate", "sentenced", "sue", "sued", "sues", "supreme court",
+    "taxpayers", "voters",
+)
+_HARD_NEWS = re.compile(r"\b(?:" + "|".join(HARD_NEWS_WORDS) + r")\b", re.I)
+
+
+def in_sports_section(url: str) -> bool:
+    return any(part.lower() in SPORTS_SECTIONS for part in urlsplit(url).path.split("/"))
+
+
+def is_sports(group: list, sources: dict[str, Source]) -> bool:
+    """Leave this group of articles out? Only if more than half of its outlets filed it
+    only in sports sections, no official source is in it, and no headline is hard news.
+    A false drop silently loses real news, so every doubt keeps the group."""
+    if any(sources[a.source_id].type == "primary" for a in group):
+        return False
+    if any(_HARD_NEWS.search(a.title) for a in group):
+        return False
+    outlets = {a.source_id for a in group}
+    sports = {o for o in outlets if all(in_sports_section(a.url) for a in group if a.source_id == o)}
+    return len(sports) * 2 > len(outlets)

@@ -1,6 +1,6 @@
 # How stories are chosen
 
-This is the plain-language version of [`boringnews/rubric.py`](../boringnews/rubric.py). If the two ever disagree, the code is what ran, and the mismatch is a bug to report. Any change to the rubric must update this file in the same commit and bump `VERSION` in the code.
+This is the plain-language version of [`boringnews/rubric.py`](../boringnews/rubric.py). If the two ever disagree, the code is what ran, and the mismatch is a bug to report. Any change to the rubric must update this file in the same commit, and any change to the score must bump `VERSION` in the code.
 
 Current rubric: **v0.4**
 
@@ -43,6 +43,27 @@ Official records and statements that no outlet has covered yet are listed separa
 
 The five highest-scoring stories are the day's spotlight.
 
+## No sports, for now
+
+Sports are left out of the edition, whatever their score. The score doesn't change: the rule runs after it, before a story is written, so nothing is spent on a story that's left out.
+
+A group of articles is left out only when all three of these are true:
+
+1. **More than half of its outlets filed it in a sports section.** A section is a whole part of the link's path: `sport`, `sports`, or `football` (The Guardian's soccer section). Words in the rest of the link don't count, so `/us-news/sports-betting-rises` isn't in a sports section. An outlet counts only if all its articles in the group are in one, and one outlet with many articles still counts once.
+2. **No official source is in the group.** A law, rule or court record is never left out by this rule, and neither is an official item on its own.
+3. **No headline in the group uses a hard-news word.** The words are `HARD_NEWS_WORDS` in [`rubric.py`](../boringnews/rubric.py): law, lawsuit, antitrust, ruling, charged, arrested, senate, governor, voters, bond vote and the like. They can only keep a story, never remove one.
+
+We read links and not the words in a story because words catch real news. On the first real day checked, a story on US sanctions against Rwanda's army named the NBA, and a story on an Arizona House race named the NFL. Neither is a sports story, and neither is filed as one.
+
+**Borderline cases stay in.** A tie stays in: one outlet's sports section and one outlet's news section is not "most". So does a stadium bond vote, a sports betting law, an athlete charged with a crime, or an antitrust ruling against a league, when a headline says so.
+
+What this rule still gets wrong:
+
+- **Some sports stays in.** A story filed outside a sports section doesn't count as sports, so a story two outlets cover, one of them on a general page, stays in. The New York Times filed a Golden State Valkyries parade under `/us/`, and CBS files Lions video under `/video/`. A headline with a hard-news word also keeps a story, even if it's only "Hall of Fame voters".
+- **Some real news can be left out.** If most outlets file it in sports sections, no official source is in the group, and no headline uses one of the words, it's left out. There's no official source for court rulings yet.
+
+Nothing is hidden. Each edition file in [`archive/`](../archive/) lists every group this rule left out under `left_out`, with its titles, links and score, and the rule in force that day. So a wrong call can be found and reported. The articles also stay in the file's `articles` and `clusters`.
+
 ## What readers can change
 
 Readers can choose the threshold, choose topics, drop any source, hide official items, and set their own weights for the four parts. Dropping a source re-scores every story without it. The page and the RSS feed apply exactly the same rules (`web/core.js`, with the score and lane also in `boringnews/rubric.py` for the pipeline, and tests check they match).
@@ -57,6 +78,7 @@ Each story on the site carries a one-line reason, for example: "6 outlets across
 
 ## History
 
+- **2026-11-04**: no sports, for now. This decides what is written and not how anything scores, so the rubric stays at v0.4.
 - **v0.4** (2026-11-04): coverage counts weighted outlets, so each side counts equally.
 - **v0.3** (2026-11-04): only official records earn the record part; statements are listed but add nothing.
 - **v0.2** (2026-11-04): added the record part; thresholds recalibrated.

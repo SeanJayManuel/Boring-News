@@ -88,10 +88,14 @@ def run(inputs, writer, db_path, edition_date: str, archive_dir=None, require_wr
     print(f"{len(articles)} articles in window -> {len(clusters)} clusters.")
 
     # 3. Score; only write up clusters that pass the loosest reader setting
-    stories = []
+    stories, sports = [], []
     for group in cap_official(clusters, sources):
         sc = rubric.score(sources[a.source_id] for a in group)
         if not rubric.is_candidate(sc):
+            continue
+        if rubric.is_sports(group, sources):  # before the writer, so it costs nothing
+            sports.append(group)
+            print(f"  [{sc.total:.2f}] left out as sports: {group[0].title}  ({len(group)} articles)")
             continue
         # 4. Rewrite
         draft = write_story(group, sources, banned, writer, style_guide)
@@ -132,7 +136,7 @@ def run(inputs, writer, db_path, edition_date: str, archive_dir=None, require_wr
     print(f"Edition {edition_date}: {len(stories)} stories stored in {db_path}.")
     if archive_dir:
         path = edition.write_file(archive_dir, articles, clusters, writer.model if writer else "none (fallback writer)",
-                                  writer.usage if writer else None)
+                                  writer.usage if writer else None, sports)
         print(f"Edition file written to {path}.")
     return edition
 
