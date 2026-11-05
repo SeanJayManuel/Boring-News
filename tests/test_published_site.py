@@ -72,7 +72,7 @@ def open_page(site: Path, url: str) -> dict:
 
 def test_export_writes_the_whole_site(site):
     names = {p.relative_to(site).as_posix() for p in site.rglob("*") if p.is_file()}
-    assert {"index.html", "edition.json", f"archive/{DATE}.json"} <= names
+    assert {"index.html", "edition.json", "research.json", f"archive/{DATE}.json"} <= names
     assert {f"feeds/{t}.xml" for t in TOPICS} <= names
     assert "feed.xml" not in names  # only with --static-feed
 
@@ -81,6 +81,7 @@ def test_edition_json_carries_what_the_page_needs(site):
     data = edition(site)
     assert data["edition"] == DATE and data["sample"] is True and data["base_url"] == BASE
     assert data["data_url"] == f"{BASE}/archive/{DATE}.json"
+    assert data["research_url"] == "research.json" and data["research"] is None
     assert len(data["markets"]) == 7 and len(data["stories"]) == 17
     assert all(s["id"] for s in data["stories"])
     assert json.loads((site / "archive" / f"{DATE}.json").read_text())["stories"][0]["id"] == data["stories"][0]["id"]
@@ -92,6 +93,13 @@ def test_static_feed_is_opt_in(site, tmp_path):
     pipeline_main(["run", "--fixtures", "--mock-llm", "--date", DATE, "--db", str(db)])
     export_main(["--out", str(tmp_path / "s"), "--db", str(db), "--sample", "--static-feed", "--archive", str(tmp_path / "none")])
     ET.parse(tmp_path / "s" / "feed.xml")
+
+
+def test_inline_research_embeds_the_index(site, tmp_path):
+    db = tmp_path / "t.db"
+    pipeline_main(["run", "--fixtures", "--mock-llm", "--date", DATE, "--db", str(db)])
+    export_main(["--out", str(tmp_path / "s"), "--db", str(db), "--sample", "--inline-research", "--archive", str(tmp_path / "none")])
+    assert len(edition(tmp_path / "s")["research"]["stories"]) == 17
 
 
 def test_export_needs_an_edition(tmp_path):

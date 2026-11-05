@@ -75,7 +75,8 @@ class Edition:
         db.save_extra(conn, self.date, "markets", self.markets)
 
     def page_data(self, base_url: str, sample: bool = False, data_url: str | None = None,
-                  corrections: list[dict] | None = None) -> dict:
+                  corrections: list[dict] | None = None, research_url: str | None = None,
+                  research: dict | None = None) -> dict:
         """What the reader page and the feed function work from."""
         return {
             "edition": self.date,
@@ -85,6 +86,8 @@ class Edition:
             "data_url": data_url,
             "corrections": corrections or [],
             "markets": self.markets,
+            "research_url": research_url,
+            "research": research,
             "rubric": _rubric(),
             "topics": TOPICS,
             "topic_descriptions": TOPIC_DESCRIPTIONS,

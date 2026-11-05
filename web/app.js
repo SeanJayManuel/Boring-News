@@ -16,7 +16,7 @@
     standard: "Usually needs coverage from at least two of left, center and right.",
     strict: "Usually needs left, center and right, or two sides plus a government record."
   };
-  var VIEWS = ["today", "all-stories", "outlets", "how-it-works", "your-feed"];
+  var VIEWS = ["today", "all-stories", "outlets", "research", "how-it-works", "your-feed"];
 
   // Rubric and settings live in core.js, shared with the feed function.
   var lane = C.lane, scoreStory = C.scoreStory, select = C.select, spotlight = C.spotlight;
@@ -453,6 +453,146 @@
     $("feed-url").value = D.base_url + "/feed.xml" + (q ? "?" + q : "");
   }
 
+  // ---------- research tools
+  var RS = window.BoringCore.research;
+  var researchIndex = D.research || null;
+  var researchLoading = null;
+
+  function loadResearch() {
+    if (researchIndex) return Promise.resolve(researchIndex);
+    if (!D.research_url) return Promise.resolve(null);
+    if (!researchLoading) {
+      researchLoading = fetch(D.research_url).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      }).then(function (j) { researchIndex = j; return j; });
+    }
+    return researchLoading;
+  }
+
+  function shortDate(iso) {
+    return new Date(iso.slice(0, 10) + "T12:00:00Z").toLocaleDateString("en-US",
+      { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+  }
+
+  function citation(st) {
+    var parts = st.articles.map(function (a) {
+      var src = D.sources[a.source_id];
+      return (src ? src.name : a.source_id) + ', "' + a.title + '," ' + a.url;
+    });
+    return '"' + st.headline + '." Boring News, ' + shortDate(st.date) + ". Sources: " + parts.join("; ") + ".";
+  }
+
+  function copyText(text, button, fallbackBox) {
+    function fallback() {
+      fallbackBox.hidden = false;
+      fallbackBox.textContent = text;
+      button.textContent = "Select the text below to copy";
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { button.textContent = "Copied"; }, fallback);
+    } else fallback();
+  }
+
+  function matchNode(m) {
+    var st = m.story;
+    var sc = C.score(st.articles.map(function (a) { return a.source_id; }));
+    var box = el("article", { className: "match" });
+    box.appendChild(el("div", { className: "match-head" }, [
+      el("span", { text: shortDate(st.date) + (st.day > 1 ? ", day " + st.day + " of this story" : "") }),
+      el("span", { text: m.strength >= 0.75 ? "Close match" : "Possible match" })
+    ]));
+    box.appendChild(el("h3", { text: st.headline }));
+
+    var meter = el("span", { className: "meter", role: "img", "aria-label": "Covered by " + (listWords(sc.leans) || "no rated outlets") },
+      SPECTRUM.map(function (l) { return el("i", { className: sc.leans.indexOf(l) >= 0 ? "on" : "" }); }));
+    box.appendChild(el("div", { className: "meta" }, [el("span", { className: "coverage" }, [meter,
+      el("span", { text: sc.outlets ? plural(sc.outlets, "outlet", "outlets") + " across " + listWords(sc.leans) : "No news coverage" })])]));
+
+    var groups = el("div", { className: "who-covered" });
+    function group(title, arts, note) {
+      if (!arts.length) return;
+      groups.appendChild(el("div", {}, [el("h4", { text: title }), el("ul", {}, arts.map(function (a) {
+        var src = D.sources[a.source_id];
+        return el("li", {}, [el("a", { href: a.url, target: "_blank", rel: "noopener", text: a.title }),
+          el("span", { text: " (" + (src ? src.name : a.source_id) + (note ? note(src) : "") + ")" })]);
+      }))]));
+    }
+    ["left", "center", "right"].forEach(function (l) {
+      group(cap(l), st.articles.filter(function (a) { var s = D.sources[a.source_id]; return s && s.type !== "primary" && s.lean === l; }));
+    });
+    group("Unrated outlets", st.articles.filter(function (a) { var s = D.sources[a.source_id]; return s && s.type !== "primary" && s.lean === "unrated"; }));
+    group("Government", st.articles.filter(function (a) { var s = D.sources[a.source_id]; return s && s.type === "primary"; }),
+      function (s) { return s && s.role === "record" ? ", record" : ", statement"; });
+    var covered = {};
+    st.articles.forEach(function (a) { covered[a.source_id] = true; });
+    var missing = Object.keys(D.sources).filter(function (id) {
+      var s = D.sources[id]; return s.type !== "primary" && s.lean !== "unrated" && !covered[id];
+    }).map(function (id) { return D.sources[id].name; }).sort();
+    if (missing.length) groups.appendChild(el("div", {}, [el("h4", { text: "Didn't run it" }), el("p", { className: "empty-note", text: missing.join(", ") })]));
+    box.appendChild(groups);
+
+    var cite = el("pre", { className: "formula", hidden: "" });
+    var copy = el("button", { type: "button", text: "Copy citation" });
+    copy.addEventListener("click", function () { copyText(citation(st), copy, cite); });
+    var actions = el("div", { className: "actions" }, [copy]);
+    if (st.date === D.edition) actions.appendChild(el("a", { href: "#story-" + st.id, text: "Read the summary" }));
+    box.appendChild(actions);
+    box.appendChild(cite);
+    return box;
+  }
+
+  function runLookup() {
+    var q = $("lookup-q").value;
+    var out = $("lookup-results");
+    out.innerHTML = "";
+    if (!q.trim()) return;
+    out.appendChild(el("p", { className: "empty-note", text: "Searching…" }));
+    loadResearch().then(function (idx) {
+      out.innerHTML = "";
+      var res = RS.lookup(idx, q);
+      if (!res.matches.length) {
+        out.appendChild(el("p", { className: "empty-note", text: "No coverage found in the last 30 days. That doesn't mean it's false: it may be newer than our latest edition, or covered only by outlets we don't read." }));
+        return;
+      }
+      if (res.how === "link") out.appendChild(el("p", { className: "hint", text: "We read this exact article. Here's the story it belongs to." }));
+      res.matches.forEach(function (m) { out.appendChild(matchNode(m)); });
+      out.appendChild(el("p", { className: "hint", text: "Matches are found by shared words, so check that each one is really about your claim." }));
+    }, function () {
+      out.innerHTML = "";
+      out.appendChild(el("p", { className: "empty-note", text: "The research data didn't load. Check your connection and try again." }));
+    });
+  }
+
+  function renderRecords() {
+    var list = $("rec-list"), count = $("rec-count");
+    loadResearch().then(function (idx) {
+      if (!idx) { count.textContent = "Government records appear here once the site is live."; return; }
+      var sel = $("rec-source");
+      if (sel.options.length === 1) {
+        var ids = {};
+        idx.records.forEach(function (r) { ids[r.source_id] = true; });
+        Object.keys(ids).sort(function (a, b) { return (D.sources[a] || {}).name > (D.sources[b] || {}).name ? 1 : -1; })
+          .forEach(function (id) { sel.appendChild(el("option", { value: id, text: D.sources[id] ? D.sources[id].name : id })); });
+      }
+      var rows = RS.searchRecords(idx, { q: $("rec-q").value, source: sel.value, role: $("rec-role").value, uncovered: $("rec-uncovered").checked });
+      count.textContent = plural(rows.length, "item", "items") + " from the last " + plural(idx.days.length, "edition", "editions") + ".";
+      list.innerHTML = "";
+      rows.slice(0, 100).forEach(function (r) {
+        var src = D.sources[r.source_id];
+        var summary = r.summary.length > 240 ? r.summary.slice(0, 237).replace(/\s+\S*$/, "") + "…" : r.summary;
+        list.appendChild(el("li", {}, [
+          el("span", { className: "meta-line" }, [shortDate(r.published_at) + ", " + (src ? src.name : r.source_id),
+            el("span", { className: "badge" + (r.role === "record" ? "" : " statement"), text: r.role === "record" ? "Government record" : "Government statement" })]),
+          el("a", { className: "rec-title", href: r.url, target: "_blank", rel: "noopener", text: r.title }),
+          summary ? el("p", { text: summary }) : null,
+          r.outlets ? el("span", { className: "status", text: "Covered by " + plural(r.outlets, "outlet", "outlets") + ": " + r.story_headline })
+                    : el("span", { className: "status" }, [el("span", { className: "badge none", text: "No news coverage" })])
+        ]));
+      });
+    }, function () { count.textContent = "The records didn't load. Check your connection and try again."; });
+  }
+
   // ---------- market ticker (yesterday's closes)
   function renderTicker() {
     var items = D.markets || [];
@@ -496,6 +636,7 @@
     if (/^story-\d+$/.test(h)) { target = h; h = "all-stories"; }
     if (VIEWS.indexOf(h) < 0) h = "today";
     VIEWS.forEach(function (v) { $("view-" + v).hidden = v !== h; });
+    if (h === "research") renderRecords();
     Array.prototype.forEach.call(document.querySelectorAll(".tabs a"), function (a) {
       if (a.getAttribute("data-view") === h) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });
@@ -539,6 +680,11 @@
     } else fallback();
   });
   window.addEventListener("hashchange", route);
+  $("lookup-form").addEventListener("submit", function (e) { e.preventDefault(); runLookup(); });
+  ["rec-q", "rec-source", "rec-role", "rec-uncovered"].forEach(function (id) {
+    $(id).addEventListener(id === "rec-q" ? "input" : "change", renderRecords);
+  });
+  if (D.research_url) $("research-file").href = D.research_url;
 
   $("dateline").textContent = longDate(D.edition);
   $("sample-note").hidden = !D.sample;

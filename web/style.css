@@ -298,6 +298,37 @@ th { font-weight: 500; color: var(--muted); font-size: 14px; }
 .params td:first-child { white-space: nowrap; }
 #source-table td:not(:first-child) { color: var(--muted); }
 
+/* ---------- Research */
+.search, .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+.search input, .filters input[type="search"], .filters select {
+  flex: 1 1 200px; min-width: 0; font: 400 15.5px/1.2 var(--font); color: var(--ink);
+  background: var(--well); border: 0; border-radius: 9px; padding: 11px 13px;
+  box-shadow: 0 0 0 1px var(--line), var(--inset);
+}
+.filters select { flex: 0 1 auto; padding-right: 8px; }
+.filters .check { margin: 0; align-self: center; flex-basis: 100%; }
+button.primary { background: var(--ink); color: var(--sheet); box-shadow: none; }
+.search button { background: var(--ink); color: var(--sheet); box-shadow: none; }
+.match { margin: 0 0 14px; padding: 16px 18px; border-radius: 10px; background: var(--well); box-shadow: var(--inset); display: grid; gap: 8px; }
+.match-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 13.5px; color: var(--muted); }
+.match h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.who-covered { display: grid; gap: 10px; margin: 4px 0 0; }
+.who-covered h4 { margin: 0 0 3px; font-size: 13.5px; font-weight: 500; color: var(--muted); }
+.who-covered ul { list-style: none; margin: 0; padding: 0 !important; display: grid; gap: 4px !important; font-size: 15px; }
+.who-covered li span { color: var(--muted); }
+.match .actions { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 14px; }
+.match .actions button { font-size: 13.5px; padding: 8px 12px; }
+.empty-note { color: var(--muted); margin: 0; }
+.records { list-style: none; margin: 0; padding: 0 !important; display: grid; gap: 0 !important; }
+.records li { display: grid; gap: 3px; padding: 14px 0; border-top: 1px solid var(--line); }
+.records .meta-line { font-size: 13.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.records a.rec-title { font-size: 16.5px; font-weight: 600; text-decoration: none; letter-spacing: -0.01em; line-height: 1.35; }
+.records a.rec-title:hover { text-decoration: underline; }
+.records p { margin: 0; font-size: 15px; color: var(--muted); }
+.records .status { font-size: 13.5px; }
+.records .badge { margin-left: 0; }
+.badge.none { color: var(--down); background: color-mix(in srgb, var(--down) 10%, transparent); margin-left: 0; }
+
 @media (max-width: 520px) {
   .quick { padding-left: 20px; padding-right: 20px; }
   body { font-size: 16px; }

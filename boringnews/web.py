@@ -16,7 +16,7 @@ import os
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
-from . import config
+from . import config, research
 from .db import connect
 from .edition import Edition, NoEdition
 from .reader import feeds
@@ -37,13 +37,14 @@ def _edition(date: str | None) -> Edition:
         conn.close()
 
 
-def _page_data(date: str | None) -> dict:
-    return _edition(date).page_data(config.BASE_URL, sample=SAMPLE, corrections=load_corrections())
+def _page_data(date: str | None, research_url: str | None = None) -> dict:
+    return _edition(date).page_data(config.BASE_URL, sample=SAMPLE, corrections=load_corrections(),
+                                    research_url=research_url)
 
 
 @app.get("/", response_class=HTMLResponse)
 def index(date: str | None = Query(None)):
-    return render_page(_page_data(date))
+    return render_page(_page_data(date, research_url="research.json"))
 
 
 @app.get("/api/edition.json")
@@ -56,6 +57,15 @@ def feed(request: Request, date: str | None = None):
     xml = feeds(_page_data(date), [request.url.query])[0]
     return Response(xml, media_type="application/rss+xml; charset=utf-8",
                     headers={"Cache-Control": "public, max-age=900"})
+
+
+@app.get("/research.json")
+def research_json():
+    conn = connect(config.DB_PATH)
+    try:
+        return JSONResponse(research.build(conn, load_sources(config.sources_path(SAMPLE))))
+    finally:
+        conn.close()
 
 
 @app.get("/healthz")
