@@ -20,7 +20,7 @@ So everything below is ordered around one question: **does this work on real new
 
 ## First check on real news (2026-11-05)
 
-One local run on the live feeds, with no model and nothing published. It's a single day, two days after the midterms, and without a Congress key, so government records are undercounted.
+One local run on the live feeds, with no model and nothing published. It's a single day just after the midterms, and without a Congress key, so government records are undercounted. Local runs also stored feed times 8 hours late until a bug was fixed afterward, so the window was slightly off. A recount of the one-sided stories with a true 36-hour window matched.
 
 | Measure | Result |
 | --- | --- |
@@ -33,10 +33,11 @@ One local run on the live feeds, with no model and nothing published. It's a sin
 
 What this showed:
 
-- **Three-sided coverage is rare, partly because of the list.** The WSJ feed is dead, leaving The Hill and the BBC as the only working center outlets (L4, T3). The strict setting would show almost nothing.
-- **Grouping misses far more than it wrongly merges.** Most articles stayed alone, and raising the similarity setting makes that worse, while 0.10 chains 54 articles together. 0.15 is about right, so word matching itself looks like the limit (D4). It also merged two different stories: Mike Johnson stepping aside and Hakeem Jeffries's bid for speaker.
-- **One-sided stories are being lost (T1).** Five of the six one-sided stories were dropped, on the left, center and right.
-- **Sports reached the edition.** A Lions injury and a Valkyries story made the list (D8).
+- **Three-sided coverage is rare, partly because of the list.** The WSJ feed moved, leaving The Hill and the BBC as the only working center outlets (L4, T3). The strict setting would show almost nothing.
+- **Grouping publishes wrong merges (D4).** A test on 232 hand-labeled articles found 4 groups that would have published a wrong story, including the day's only three-sided story, which merged separate events. Better grouping mostly prevents those. It doesn't find many more matches, so it won't raise three-sided coverage by itself.
+- **One-sided stories are being lost (T1).** All six one-lean stories were dropped at the current setting. Four of them had 2 or more rated outlets on one side.
+- **Feeds are shallow.** One fetch reached back 1.6 hours for the NY Post and 4.2 for The Hill, against 131 for the Guardian. A once-a-day fetch can make a story look one-sided when it isn't, and it tilts against center and right.
+- **Sports reached the edition.** Decided: no sports for now. `docs/ranking.md` has the rule, and each edition file lists what it left out.
 - **Reposted laws looked new.** GovInfo reposted old laws with fresh dates, so 2021 laws appeared as today's records, and it was weeks behind on real ones. Fixed by F7.
 
 With the Congress key added, the same check found no bills with a significant action in the window, so records didn't change the result that day. Congress was just past an election, so this needs a week in session to judge. A rerun later that day gave 8 stories rather than 10, because the feeds had moved on, so treat these counts as rough.
@@ -69,6 +70,7 @@ These block or shape work, and only the maintainer can make them.
 | D1 | **When to turn the nightly job back on.** It's disabled on GitHub until launch | L1, L2 |
 | D3 | **Should a story covered only by one side be written up?** Today many aren't (see T1). This is an editorial change, not a bug fix | T1, R1 |
 | D4 | **Which rating services can we cite,** and do their terms allow it? | T2 |
+| D9 | **Which center and right outlets to add,** and whether WSJ's new feed is allowed. See T3 | T3 |
 | D5 | **What does Boring News do on a day the pipeline fails?** Show yesterday's edition with a notice, or nothing? | L8 |
 | D6 | **Monthly spending limit** for the Claude API, and who pays | L5, B1 |
 | D7 | **How much AI writing is disclosed** on each story, beyond the "written by" field in edition files | T5 |
@@ -101,7 +103,7 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 
 - **Exists:** `python -m boringnews.pipeline check-feeds`, and tests for the failure paths. Checked live on 2026-11-05: 14 of 16 sources work.
 - **Gaps:**
-  - `wsj-world` answers, but its newest item is from January 2025. It needs replacing (T3).
+  - `wsj-world` answers, but its newest item is from January 2025, because the feed moved (T3).
   - `war-department-releases` returns 403 Access Denied to our requests. It may behave differently from GitHub, which is unknown.
   - Each official source's `max_items` cap is a guess.
 - **Done when:** every source reports healthy or is removed, with the reason in the commit.
@@ -169,6 +171,12 @@ Two things cause this:
 
 So today a three-outlet story on the left is dropped and the same story on the right is kept.
 
+- **Options tested (2026-11-05):**
+  - **A, separate blind-spot lane (recommended):** write any story with 2+ rated outlets on one side and keep it out of the main list. Adds 4 stories that day, under a cent a day, and treats all sides alike because it counts outlets, not weights. Needs a third lane in `rubric.py` and `core.js`, and a new rubric version.
+  - **B, lower the broad threshold:** 0.28 still drops every left pair. 0.26 is even but by a thin margin, and it changes what "broad" means for everyone.
+  - **C, drop weights from the write-up test:** adds nothing that day.
+  - **D, balance the list:** adds nothing by itself, and adding outlets can unwrite stories through reweighting.
+- **Conditions for A:** word labels as a fact about our list ("Among the outlets we read, only right outlets ran this"), withhold them if any side's feeds failed that day, and fetch more than once a day. Decide what happens if a reader's weights lift one into the main list.
 - **Needs a person:** decision D3.
 - **Done when:** the rule is decided and published, `docs/ranking.md` explains it, and tests pin it for each side. Any change to the score bumps the rubric version.
 
@@ -182,7 +190,11 @@ So today a three-outlet story on the left is dropped and the same story on the r
 ### T3. A more balanced source list ⬜ M
 
 - **Exists:** 11 outlets: 4 left, 3 center, 3 right, 1 unrated.
-- **Gaps:** the WSJ feed is dead, which leaves two working center outlets (see the check above). Left and right outlets are all national. The BBC is the only international outlet with a lean, and no outlet is typed regional or wire, partly because Reuters and AP don't offer public feeds. So the diversity part of the score can't reach its maximum on any story that only left and right outlets cover.
+- **Shortlist (2026-11-05):** UPI (center wire, a new type), NewsNation (center, both raters agree; check whether its owner also owns The Hill), The Oregonian (center regional). Straight Arrow News is the alternative on coverage gain. All have working feeds. AllSides ratings came from search summaries and need checking before citing, and feed terms aren't confirmed.
+- **Balance:** adding only center outlets widens the gap between sides, to left 1.08, center 0.72 and right 1.44 with those three, so pair them with right outlets. The only non-national right option found is The Center Square, rated by AllSides only.
+- **WSJ:** the feed moved to `feeds.content.dowjones.io` and works, but Dow Jones's terms may limit RSS to personal use. That needs a yes or no before using it.
+- **Ratings:** Ad Fontes labels aren't in `RATING_SCALE`, and its "Middle" spans -5.30 to +5.50, so T2 needs a mapping rule first.
+- **Gaps:** two working center outlets. Left and right outlets are all national. The BBC is the only international outlet with a lean, and no outlet is typed regional or wire, partly because Reuters and AP don't offer public feeds. So the diversity part of the score can't reach its maximum on any story that only left and right outlets cover.
 - **Done when:** each side has a mix of outlet types, and each addition follows the process in `docs/labeling.md`.
 
 ### T4. A public way to challenge decisions 🟡 S
@@ -213,7 +225,7 @@ Goal: "the reader owns the algorithm" is true in practice, not just for four swi
 
 Stories covered heavily by one side and barely by the other.
 
-- **Exists:** each story's outlets and leans, in the page data. The Outlets tab already shows what each outlet skipped.
+- **Exists:** each story's outlets and leans, in the page data. The Outlets tab shows what each outlet skipped. Today has an "Only one side covered" list, and every story's scale stripes a side that ran nothing, but that only covers stories that were written.
 - **Gaps:** depends on T1, because many of these stories are never written. There's no definition yet of "heavily" and "barely". There's also no history view, though Research holds 30 days.
 - **Done when:** the rule is published, the view is on the site, and it has its own feed.
 
@@ -374,8 +386,10 @@ Goal: journalists and researchers can use the data without asking.
 ### D4. Better grouping ⬜ M
 
 - **Exists:** word-based grouping.
-- **Gaps:** `docs/clustering.md` plans sentence embeddings, which match on meaning. The first real check suggests word matching isn't good enough, so this may need to move up to Phase 0 once L6 confirms it over a normal week.
-- **Done when:** real editions measurably improve, on the week of checks from L6.
+- **Tested (2026-11-05):** sentence embeddings with a shared-name check and average linkage, at 0.60, gave no wrong multi-outlet groups and 16 clean ones, against 4 that would publish wrongly and 9 clean today. Embeddings alone are worse, merging by topic. They find about the same number of matches as word matching, so the gain is fewer wrong stories.
+- **Cost:** about 110 MB of packages, a 90 MB model to cache in CI, and seconds to run. If that's too much, average linkage on word matching at 0.14 needs no new dependency and separates the Johnson and Jeffries stories, but it leaves wrong multi-outlet groups.
+- **Gaps:** 0.60 was picked on one unusual day, so test it on a normal week first. It also won't link stories with no shared name, and same-official-source rules were barely exercised.
+- **Done when:** real editions measurably improve, on the week of checks from L6. A wrong merge publishes a false story, so this should come before launch.
 
 ---
 
