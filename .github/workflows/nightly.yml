@@ -27,6 +27,11 @@ jobs:
       - name: Rebuild the database from past editions
         run: python -m boringnews.archive restore
 
+      - uses: actions/cache@v4
+        with:
+          path: data/models   # the grouping model, about 90 MB
+          key: grouping-all-MiniLM-L6-v2
+
       - name: Build today's edition
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

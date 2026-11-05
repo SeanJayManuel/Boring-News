@@ -28,7 +28,8 @@ process.stdin.on("end", () => {
       const sc = C.score(ids);
       sc.lanes = {};
       for (const threshold of Object.keys(data.rubric.thresholds)) {
-        sc.lanes[threshold] = [C.lane(sc, { threshold, official: true }), C.lane(sc, { threshold, official: false })];
+        sc.lanes[threshold] = [C.lane(sc, { threshold, official: true }), C.lane(sc, { threshold, official: false }),
+          C.lane(sc, { threshold, official: true, blindspots: false })];
       }
       return sc;
     }),

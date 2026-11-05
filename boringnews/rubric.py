@@ -17,11 +17,17 @@ A story makes the edition with score >= threshold AND at least two outlets.
 Official items that no outlet covered are listed too, under their topic,
 because they matter whether or not anyone wrote about them.
 
+A story that doesn't reach the threshold but that at least two rated outlets ran,
+all on one side, is a blind spot: written up and listed apart, never in the main
+list. It counts outlets and ignores weights and the score, so the same rule holds
+for left, center and right. What one side alone ran is information in itself.
+
 The top SPOTLIGHT stories by score are the day's spotlight.
 
 Sports are left out, whatever their score: see `is_sports`. That rule decides
 what is written and not how anything scores, so it doesn't change VERSION.
 
+v0.5 (2026-11-05): added the blind-spot lane. Scores and the main list don't change.
 v0.4 (2026-11-04): coverage counts weighted outlets (each side counts equally).
 v0.3 (2026-11-04): only official records earn `record`; statements are listed
 but add nothing, so an administration's press releases can't lift a story.
@@ -40,11 +46,12 @@ from urllib.parse import urlsplit
 
 from .sources import Source
 
-VERSION = "0.4"
+VERSION = "0.5"
 WEIGHTS = {"breadth": 0.40, "coverage": 0.25, "diversity": 0.10, "record": 0.25}
 THRESHOLDS = {"broad": 0.30, "standard": 0.40, "strict": 0.55}
 COVERAGE_CAP = 10
 MIN_OUTLETS = 2
+BLINDSPOT_OUTLETS = 2
 SPOTLIGHT = 5
 SPECTRUM = ("left", "center", "right")
 OUTLET_TYPES = ("wire", "national", "regional", "international")
@@ -63,6 +70,7 @@ class Score:
     has_primary: bool
     has_record: bool = False
     has_statement: bool = False
+    rated_outlets: int = 0  # outlets with a lean; `outlets` also counts unrated ones
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -71,7 +79,8 @@ class Score:
 def score(sources: Iterable[Source]) -> Score:
     sources = list({s.id: s for s in sources}.values())  # one vote per outlet
     outlets = [s for s in sources if s.type != "primary"]
-    leans = sorted({s.lean for s in outlets if s.lean in SPECTRUM}, key=SPECTRUM.index)
+    rated = [s for s in outlets if s.lean in SPECTRUM]
+    leans = sorted({s.lean for s in rated}, key=SPECTRUM.index)
     types = sorted({s.type for s in outlets if s.type in OUTLET_TYPES}, key=OUTLET_TYPES.index)
     has_record = any(s.type == "primary" and s.role == "record" for s in sources)
     has_statement = any(s.type == "primary" and s.role != "record" for s in sources)
@@ -93,13 +102,21 @@ def score(sources: Iterable[Source]) -> Score:
         has_primary=has_primary,
         has_record=has_record,
         has_statement=has_statement,
+        rated_outlets=len(rated),
     )
 
 
-def lane(sc: Score, threshold: str = "standard", official: bool = True) -> str | None:
-    """'main' (covered across outlets), 'official' (on the record, little coverage), or None."""
+def is_blindspot(sc: Score) -> bool:
+    return len(sc.leans) == 1 and sc.rated_outlets >= BLINDSPOT_OUTLETS
+
+
+def lane(sc: Score, threshold: str = "standard", official: bool = True, blindspots: bool = True) -> str | None:
+    """'main' (covered across outlets), 'blindspot' (below that, but two or more outlets
+    on one side ran it), 'official' (on the record, little coverage), or None."""
     if sc.outlets >= MIN_OUTLETS and sc.total >= THRESHOLDS[threshold]:
         return "main"
+    if blindspots and is_blindspot(sc):
+        return "blindspot"
     if sc.has_primary and official:
         return "official"
     return None

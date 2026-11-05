@@ -354,6 +354,7 @@ button.primary { background: var(--ink); color: var(--sheet); box-shadow: none; 
 .side.on { background: var(--ink); }
 .side.on i { display: block; width: 3px; height: 8px; background: var(--desk); }
 .side.gap { background: repeating-linear-gradient(135deg, var(--gap) 0 3px, transparent 3px 6px); box-shadow: inset 0 0 0 1px var(--gap); }
+.side.unread { background: transparent; box-shadow: inset 0 0 0 1px var(--line, currentColor); opacity: .5; }
 .sheet .side.on i { background: var(--sheet); }
 
 /* ---------- Today: lead, rail, and what one side ran */

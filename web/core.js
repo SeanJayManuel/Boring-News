@@ -17,6 +17,7 @@
     { id: "topic", label: "Outside your categories" },
     { id: "sources", label: "All its sources are off" },
     { id: "threshold", label: "Below your threshold" },
+    { id: "blindspot", label: "One-sided stories you turned off" },
     { id: "official", label: "Government items you turned off" }
   ];
   // Example recipes. Plain settings links: they change how much is shown or what
@@ -38,6 +39,7 @@
     // Null means the published weights, which come with the edition.
     { name: "weights", kind: "weights", value: null },
     { name: "official", kind: "flag", value: true },
+    { name: "blindspots", kind: "flag", value: true },
     { name: "statements", kind: "flag", value: true },
     { name: "spotlight", kind: "flag", value: false },
     { name: "length", kind: "choice", value: "full", allowed: function () { return ["full", "headlines"]; } },
@@ -86,6 +88,7 @@
       return {
         total: Math.round(total * 1000) / 1000, parts: parts, points: points, custom: w !== R.weights,
         outlets: outlets.length, leans: leans,
+        ratedOutlets: outlets.filter(function (s) { return SPECTRUM.indexOf(s.lean) >= 0; }).length,
         hasPrimary: hasRecord || hasStatement, hasRecord: hasRecord, hasStatement: hasStatement
       };
     }
@@ -106,10 +109,36 @@
       WEIGHT_PARTS.forEach(function (k, i) { w[k] = p.weights[i] / sum; });
       return w;
     }
+    function isBlindspot(sc) { return sc.leans.length === 1 && sc.ratedOutlets >= R.blindspot_outlets; }
     function lane(sc, p) {
       if (sc.outlets >= R.min_outlets && sc.total >= R.thresholds[p.threshold]) return "main";
+      if (p.blindspots !== false && isBlindspot(sc)) return "blindspot";
       if (sc.hasPrimary && p.official) return "official";
       return null;
+    }
+    // What a story's coverage shows and can't show. A side with an unread feed
+    // can't be called absent, and leaving out a source changes what "only" means.
+    function coverageGap(sc, p) {
+      var missing = SPECTRUM.filter(function (l) { return sc.leans.indexOf(l) < 0; });
+      var off = excluded(p), down = D.feeds_down || [];
+      var unread = down.filter(function (id) {
+        var s = D.sources[id];
+        return s && missing.indexOf(s.lean) >= 0 && off.indexOf(id) < 0;
+      });
+      return {
+        missing: missing,
+        unreadSides: missing.filter(function (l) { return unread.some(function (id) { return D.sources[id].lean === l; }); }),
+        unread: unread.map(function (id) { return D.sources[id].name; }),
+        ours: !off.some(function (id) { return D.sources[id] && SPECTRUM.indexOf(D.sources[id].lean) >= 0; })
+      };
+    }
+    function blindspotWords(sc, p) {
+      var g = coverageGap(sc, p);
+      if (g.unread.length) {
+        return sc.leans[0][0].toUpperCase() + sc.leans[0].slice(1) + " outlets ran this. We couldn't read " +
+          g.unread.join(" or ") + " today, so we can't say whether other sides did.";
+      }
+      return (g.ours ? "Among the outlets we read" : "Among the outlets you kept") + ", only " + sc.leans[0] + " outlets ran this.";
     }
     function explain(sc) {
       if (sc.outlets === 0 && sc.hasPrimary) {
@@ -142,6 +171,7 @@
         short.push("Score " + sc.total.toFixed(2) + (sc.custom ? " with your weights" : "") + "; your setting needs " + needs.toFixed(2) + ".");
       }
       if (x.articles.length < known.length) short.push("Sources you turned off no longer count toward it.");
+      if (reason === "blindspot") return short.concat("You turned off one-sided stories.").join(" ");
       if (reason === "threshold") return short.join(" ");
       var item = "A government " + (sc.hasRecord ? "record" : "statement");
       return (sc.outlets ? [item + " that didn't make the main list."].concat(short) : [item + " no outlet covered."])
@@ -164,8 +194,12 @@
         else if (!x.articles.length) reason = "sources";
         else {
           x.lane = lane(x.score, p);
-          if (x.lane) { x.why = explain(x.score); shown.push(x); return; }
-          reason = x.score.hasPrimary ? "official" : "threshold";
+          if (x.lane) {
+            x.why = (x.lane === "blindspot" ? blindspotWords(x.score, p) + " " : "") + explain(x.score);
+            shown.push(x);
+            return;
+          }
+          reason = x.score.hasPrimary ? "official" : isBlindspot(x.score) ? "blindspot" : "threshold";
         }
         x.reason = reason;
         x.why = leftOutWhy(reason, x, p);
@@ -250,6 +284,7 @@
           return '<a href="' + esc(a.url) + '">' + esc(D.sources[a.source_id].name) + "</a>";
         }).join(", ") + "</p>";
         var title = x.lane === "main" ? s.headline
+          : x.lane === "blindspot" ? (coverageGap(x.score, p).unread.length ? "Coverage unclear: " : "One side only: ") + s.headline
           : (x.score.hasRecord ? "Government record: " : "Government statement: ") + s.headline;
         out.push("<item><title>" + esc(title) + "</title>" +
           "<link>" + esc(baseUrl + "/#story-" + s.id) + "</link>" +
@@ -263,7 +298,7 @@
     }
 
     return {
-      DEFAULTS: DEFAULTS, score: score, lane: lane, explain: explain, scoreStory: scoreStory,
+      DEFAULTS: DEFAULTS, score: score, lane: lane, isBlindspot: isBlindspot, coverageGap: coverageGap, blindspotWords: blindspotWords, explain: explain, scoreStory: scoreStory,
       select: select, spotlight: spotlight, fromQuery: fromQuery, toQuery: toQuery, rss: rss,
       isStatement: isStatement, excluded: excluded, cleanWeights: cleanWeights, cleanName: cleanName,
       weightsFor: weightsFor, link: link, recipes: recipes

@@ -42,7 +42,8 @@ def test_one_sided_story_is_symmetric_left_and_right():
 def test_thresholds_and_lanes():
     one_sided = rubric.score(src("heartland-post", "liberty-daily", "prairie-gazette"))
     assert rubric.lane(one_sided, "broad") == "main"
-    assert rubric.lane(one_sided, "standard") is None
+    assert rubric.lane(one_sided, "standard") == "blindspot"
+    assert rubric.lane(one_sided, "standard", blindspots=False) is None
     primary = rubric.score(src("rules-register"))
     assert rubric.lane(primary, "strict", official=True) == "official"
     assert rubric.lane(primary, "strict", official=False) is None
@@ -62,7 +63,7 @@ def test_duplicate_outlet_counts_once():
 def test_fixture_clusters_match_events():
     arts = load_fixtures(config.FIXTURE_ARTICLES_PATH)
     official = frozenset(sid for sid, s in SOURCES.items() if s.type == "primary")
-    sizes = sorted((len(c) for c in cluster(arts, config.CLUSTER_SIMILARITY, separate=official)), reverse=True)
+    sizes = sorted((len(c) for c in cluster(arts, separate=official)), reverse=True)
     assert sizes == [7, 4, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1, 1]
 
 
@@ -120,7 +121,7 @@ def test_prefs_filter_and_rescore(edition_db):
     assert "right" not in water["leans"]
 
     only_states = select(data, "topics=states")["items"]
-    assert {s["topic"] for s in only_states} == {"states"} and len(only_states) == 7
+    assert {s["topic"] for s in only_states} == {"states"} and len(only_states) == 8
 
 
 def test_prefs_query_round_trip(edition_db):
@@ -134,14 +135,15 @@ def test_bad_settings_fall_back_to_defaults(edition_db):
     data = page_data(edition_db)
     for q in ("threshold=constructor", "threshold=nonsense", "topics=constructor", "length=tiny"):
         assert select(data, q)["query"] == "", q
-        assert len(select(data, q)["items"]) == 15, q
+        assert len(select(data, q)["items"]) == 17, q
 
 
 def test_rss_is_valid_xml(edition_db):
     root = ET.fromstring(feeds(page_data(edition_db), [""])[0])
     items = root.findall("./channel/item")
-    assert len(items) == 15
+    assert len(items) == 17
     assert items[-1].find("title").text.startswith("Government ")
+    assert sum(i.find("title").text.startswith("One side only: ") for i in items) == 2
 
 
 def test_feeds_fail_loudly_without_node(monkeypatch):
@@ -164,7 +166,7 @@ def test_web_routes(tmp_path, monkeypatch):
     assert page.status_code == 200 and "Standard Edition" in page.text and "__DATA__" not in page.text
     feed = client.get("/feed.xml?topics=states&threshold=strict")
     assert feed.status_code == 200
-    assert len(ET.fromstring(feed.content).findall("./channel/item")) == 7
+    assert len(ET.fromstring(feed.content).findall("./channel/item")) == 8
     assert client.get("/feed.xml?date=1999-01-01").status_code == 404
     assert "/mcp" in client.get("/api/docs.md").text
 
@@ -241,7 +243,7 @@ def test_spotlight_is_top_five_covered_stories(edition_db):
 
 def test_official_documents_from_one_source_stay_separate():
     arts = [a for a in load_fixtures(config.FIXTURE_ARTICLES_PATH) if a.source_id == "rules-register"]
-    assert len(cluster(arts, config.CLUSTER_SIMILARITY, separate=frozenset({"rules-register"}))) == 2
+    assert len(cluster(arts, separate=frozenset({"rules-register"}))) == 2
 
 
 # ---------------------------------------------------------------- v0.3: records vs statements

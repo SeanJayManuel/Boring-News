@@ -45,6 +45,7 @@ def _rubric() -> dict:
     return {
         "version": rubric.VERSION, "weights": rubric.WEIGHTS, "thresholds": rubric.THRESHOLDS,
         "coverage_cap": rubric.COVERAGE_CAP, "min_outlets": rubric.MIN_OUTLETS, "spotlight": rubric.SPOTLIGHT,
+        "blindspot_outlets": rubric.BLINDSPOT_OUTLETS,
     }
 
 
@@ -58,6 +59,7 @@ class Edition:
     stories: list[Story]
     sources: dict[str, Source]
     markets: list[dict] = field(default_factory=list)
+    feeds_down: list[str] = field(default_factory=list)  # sources we couldn't read that day
 
     @classmethod
     def load(cls, conn, sources: dict[str, Source], date: str | None = None) -> "Edition":
@@ -68,12 +70,14 @@ class Edition:
         date = date or dates[0]
         if date not in dates:
             raise NoEdition(f"No edition for {date}")
-        return cls(date, db.load_edition(conn, date), sources, db.load_extra(conn, date, "markets", []))
+        return cls(date, db.load_edition(conn, date), sources, db.load_extra(conn, date, "markets", []),
+                   db.load_extra(conn, date, "feeds_down", []))
 
     def save(self, conn) -> None:
         """Store it, replacing any earlier run for the same date. Sets story ids."""
         db.replace_edition(conn, self.date, self.stories)
         db.save_extra(conn, self.date, "markets", self.markets)
+        db.save_extra(conn, self.date, "feeds_down", self.feeds_down)
 
     def page_data(self, base_url: str, sample: bool = False, data_url: str | None = None,
                   corrections: list[dict] | None = None, research_url: str | None = None,
@@ -87,6 +91,7 @@ class Edition:
             "data_url": data_url,
             "corrections": corrections or [],
             "markets": self.markets,
+            "feeds_down": self.feeds_down,
             "research_url": research_url,
             "research": research,
             "rubric": _rubric(),
@@ -130,7 +135,7 @@ class Edition:
         }}
 
     def file_data(self, articles: list[Article], clusters: list[list[Article]], model: str,
-                  usage: dict | None = None, sports: list[list[Article]] = ()) -> dict:
+                  usage: dict | None = None, sports: list[list[Article]] = (), grouping: dict | None = None) -> dict:
         """The public record of the run. Needs saved stories, for their ids."""
         return {
             "format": FORMAT,
@@ -142,12 +147,14 @@ class Edition:
                 "banned_words_sha256": _sha(config.BANNED_WORDS_PATH),
                 "model": model,
                 "usage": usage,  # input and output tokens across the run; null if no model reported any
+                "grouping": grouping,  # how articles were grouped: method, model and threshold
             },
             "sources": _sources(self.sources),
             "articles": [{"source_id": a.source_id, "url": a.url, "title": a.title, "summary": a.summary,
                           "published_at": a.published_at} for a in articles],
             "clusters": [[a.url for a in g] for g in clusters],
             "left_out": self._left_out(sports),
+            "feeds_down": self.feeds_down,
             "markets": self.markets,
             "stories": [
                 {
@@ -164,11 +171,11 @@ class Edition:
         }
 
     def write_file(self, directory: Path, articles: list[Article], clusters: list[list[Article]], model: str,
-                   usage: dict | None = None, sports: list[list[Article]] = ()) -> Path:
+                   usage: dict | None = None, sports: list[list[Article]] = (), grouping: dict | None = None) -> Path:
         directory = Path(directory)
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / f"{self.date}.json"
-        path.write_text(json.dumps(self.file_data(articles, clusters, model, usage, sports), ensure_ascii=False, indent=1))
+        path.write_text(json.dumps(self.file_data(articles, clusters, model, usage, sports, grouping), ensure_ascii=False, indent=1))
         return path
 
 
@@ -199,6 +206,7 @@ def _restore_file(conn, data: dict) -> None:
     ]
     db.replace_edition(conn, data["edition"], stories)
     db.save_extra(conn, data["edition"], "markets", data.get("markets", []))
+    db.save_extra(conn, data["edition"], "feeds_down", data.get("feeds_down", []))
 
 
 def restore(directory: Path, db_path: Path) -> int:

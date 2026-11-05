@@ -68,7 +68,6 @@ These block or shape work, and only the maintainer can make them.
 | # | Decision | Affects |
 | --- | --- | --- |
 | D1 | **When to turn the nightly job back on.** It's disabled on GitHub until launch | L1, L2 |
-| D3 | **Should a story covered only by one side be written up?** Today many aren't (see T1). This is an editorial change, not a bug fix | T1, R1 |
 | D4 | **Which rating services can we cite,** and do their terms allow it? | T2 |
 | D9 | **Which center and right outlets to add,** and whether WSJ's new feed is allowed. See T3 | T3 |
 | D5 | **What does Boring News do on a day the pipeline fails?** Show yesterday's edition with a notice, or nothing? | L8 |
@@ -117,7 +116,7 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 
 ### L6. Tune grouping and ranking on real news 🟡 M
 
-- **Exists:** word-based grouping, with a similarity setting of 0.15 tuned on sample data. Edition files record every grouping.
+- **Exists:** grouping by embeddings and shared names, with a word-based fallback (`docs/clustering.md`). Hand-labeled on one day: 0 wrong published groups, down from 4. Edition files record every grouping and the method used.
 - **Gaps:** one day has been measured (see above), and it needs a normal news week. Rubric thresholds are uncalibrated: on that day only about 10 stories would be written, and only 1 reached all three sides. This doesn't need a model, so it can run locally.
 - **Done when:** a week of real editions is hand-checked for wrongly merged or split stories, the settings are updated, and `docs/clustering.md` and `docs/ranking.md` record the result.
 
@@ -153,7 +152,7 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 
 Goal: when someone asks "why is this outlet labeled that?" or "why wasn't this story here?", there's a good, public answer.
 
-### T1. One-sided stories survive to be written ⬜ S to M
+### T1. One-sided stories survive to be written 🟡 S to M
 
 The most important gap in the product. The thesis says a story only one side covers is "information in itself", but the pipeline only writes up stories that pass the broad threshold (0.30). With the current source list:
 
@@ -177,8 +176,9 @@ So today a three-outlet story on the left is dropped and the same story on the r
   - **C, drop weights from the write-up test:** adds nothing that day.
   - **D, balance the list:** adds nothing by itself, and adding outlets can unwrite stories through reweighting.
 - **Conditions for A:** word labels as a fact about our list ("Among the outlets we read, only right outlets ran this"), withhold them if any side's feeds failed that day, and fetch more than once a day. Decide what happens if a reader's weights lift one into the main list.
-- **Needs a person:** decision D3.
-- **Done when:** the rule is decided and published, `docs/ranking.md` explains it, and tests pin it for each side. Any change to the score bumps the rubric version.
+- **Built (2026-11-05, option A, rubric v0.5):** the blind-spot lane, wording as a fact about our list, no claim when a feed on a missing side failed, and a reader setting (`blindspots=0`). With the new grouping, the one tested day has 7 blind spots: 5 left, 2 right.
+- **Still open:** fetching more than once a day, so shallow feeds don't make stories look one-sided. It needs somewhere to keep articles between runs, so it belongs with deployment.
+- **Done when:** fetching is fixed, and the labels hold up on a normal week.
 
 ### T2. Cited ratings for every outlet ⬜ M
 

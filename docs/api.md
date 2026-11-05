@@ -63,6 +63,8 @@ An edition file is the full public record of one day:
 - `sources`: every source that day, by id
 - `articles`: every article read, with its outlet, link, title, summary and time
 - `clusters`: how articles were grouped
+- `feeds_down`: ids of sources that couldn't be read that day. Editions from before this field don't have it.
+- `editorial.grouping`: how articles were grouped, as `method`, `model` and `threshold`. Editions from before this field don't have it.
 - `left_out`: what the rules kept out of the edition. `left_out.sports` has the `rule` in force and `groups`, each with its `titles`, `articles`, the links `from_sports_sections` and the `score` it would have had. Editions from before this rule don't have it.
 - `markets`: market closes
 - `stories`: each story, with `headline`, `bullets`, `whats_next`, `topic`, `region`, `day`, `thread_id`, `checks` (the fact-check log), `score`, and `articles`, a list of links into the `articles` list

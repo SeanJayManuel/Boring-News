@@ -140,23 +140,26 @@
     });
     return sides;
   }
-  function missingSides(sc) { return SPECTRUM.filter(function (l) { return sc.leans.indexOf(l) < 0; }); }
 
   // The scale: one segment per side, one tick per outlet. A side that ran
-  // nothing is striped, so what wasn't covered is as visible as what was.
+  // nothing is striped, so what wasn't covered is as visible as what was. A side
+  // we couldn't fully read is left blank, because it may have run the story.
   function scale(item) {
-    var sides = outletsBySide(item.articles), missing = missingSides(item.score);
-    var words = "Covered by " + listWords(item.score.leans) + (missing.length ? ". Not covered by " + listWords(missing) : "");
+    var sides = outletsBySide(item.articles), gap = C.coverageGap(item.score, prefs);
+    var missing = gap.missing.filter(function (l) { return gap.unreadSides.indexOf(l) < 0; });
+    var words = "Covered by " + listWords(item.score.leans) + (missing.length ? ". Not covered by " + listWords(missing) : "") +
+      (gap.unreadSides.length ? ". Unknown for " + listWords(gap.unreadSides) : "");
     return el("span", { className: "scale", role: "img", "aria-label": words }, SPECTRUM.map(function (l) {
       var outlets = {};
       sides[l].forEach(function (a) { outlets[a.source_id] = true; });
-      return el("span", { className: "side " + (sides[l].length ? "on" : "gap") },
+      return el("span", { className: "side " + (sides[l].length ? "on" : gap.unreadSides.indexOf(l) >= 0 ? "unread" : "gap") },
         Object.keys(outlets).map(function () { return el("i"); }));
     }));
   }
   function gapWords(sc) {
-    var missing = missingSides(sc);
-    return "No " + listWords(missing).replace(" and ", " or ") + " outlet ran this.";
+    var gap = C.coverageGap(sc, prefs);
+    if (gap.unread.length) return "We couldn't read " + listWords(gap.unread).replace(" and ", " or ") + " today.";
+    return "No " + listWords(gap.missing).replace(" and ", " or ") + " outlet " + (gap.ours ? "" : "you kept ") + "ran this.";
   }
 
   // The lead story's outlets under the scale, each side in its own column.
@@ -171,7 +174,8 @@
               return el("li", {}, [el("span", { className: "who", text: D.sources[a.source_id].name }),
                 el("a", { href: a.url, target: "_blank", rel: "noopener", text: a.title })]);
             }))
-          : el("p", { className: "none", text: "No " + l + " outlet ran this." })
+          : el("p", { className: "none", text: C.coverageGap(item.score, prefs).unreadSides.indexOf(l) >= 0
+              ? "Unknown: a " + l + " feed couldn't be read." : "No " + l + " outlet ran this." })
       ]);
     }));
   }
@@ -346,14 +350,14 @@
   function renderOneSide(res, top) {
     var box = $("one-side");
     box.innerHTML = "";
-    var rows = res.shown.filter(function (x) { return x.score.leans.length === 1 && top.indexOf(x) < 0; });
+    var rows = res.shown.filter(function (x) { return C.isBlindspot(x.score) && top.indexOf(x) < 0; });
     if (!rows.length) return;
     box.appendChild(el("section", { className: "sheet", "aria-label": "Only one side covered" }, [
       el("div", { className: "sheet-head" }, [el("h2", { text: "Only one side covered" }),
-        el("p", { text: "A story needs enough coverage to be written up, so one side may have run more than this" })]),
+        el("p", { text: "Two or more outlets on one side ran these" })]),
       el("ul", { className: "quick" }, rows.map(function (x) {
         return el("li", {}, [el("a", { href: "#story-" + x.story.id, text: x.story.headline }),
-          el("span", { className: "coverage" }, [scale(x), el("span", { text: gapWords(x.score) })])]);
+          el("span", { className: "coverage" }, [scale(x), el("span", { text: C.blindspotWords(x.score, prefs) })])]);
       }))
     ]));
   }
@@ -453,7 +457,7 @@
     $("cap").textContent = R.coverage_cap + " outlets";
     $("threshold-text").textContent = "A story makes the edition when its score reaches your threshold (broad " +
       R.thresholds.broad.toFixed(2) + ", standard " + R.thresholds.standard.toFixed(2) + ", strict " +
-      R.thresholds.strict.toFixed(2) + ") and at least " + R.min_outlets + " outlets covered it. The top " + R.spotlight +
+      R.thresholds.strict.toFixed(2) + ") and at least " + R.min_outlets + " outlets covered it. A story below that which at least " + R.blindspot_outlets + " outlets ran, all on one side, is listed apart under Only one side covered. The top " + R.spotlight +
       " make Today's spotlight. Government records and statements that no outlet covered are listed under their category.";
 
     var lg = $("legend");
@@ -543,6 +547,9 @@
     var off = $("official");
     off.checked = prefs.official;
     off.onchange = function () { prefs.official = off.checked; update(); };
+    var bs = $("blindspots");
+    bs.checked = prefs.blindspots;
+    bs.onchange = function () { prefs.blindspots = bs.checked; update(); };
     var st = $("statements");
     st.checked = prefs.statements;
     st.onchange = function () { prefs.statements = st.checked; update(); };
@@ -608,6 +615,7 @@
       ["threshold=strict", "How much agreement a story needs: broad, standard (default) or strict."],
       ["weights=60,20,10,10", "Your own weights for " + WEIGHT_PARTS.join(", ") + ": four whole numbers from 0 to 100, in that order. Each counts as its share of their total. This re-ranks stories that were written; it can't bring back one the published rule dropped."],
       ["official=0", "Leave out government records and statements that no outlet has covered yet."],
+      ["blindspots=0", "Leave out stories that only one side ran and that didn't reach your threshold."],
       ["statements=0", "Leave out government statements, such as White House and agency press releases. Records still count."],
       ["spotlight=1", "Only the top " + R.spotlight + " stories each day."],
       ["length=headlines", "Headlines without the bullet points."],
@@ -640,6 +648,7 @@
     bits.push(prefs.topics.length ? prefs.topics.map(function (t) { return D.topics[t]; }).join(", ") : "all categories");
     if (prefs.exclude.length) bits.push(plural(prefs.exclude.length, "source", "sources") + " off");
     if (!prefs.official) bits.push("no uncovered government items");
+    if (!prefs.blindspots) bits.push("no one-sided stories");
     if (!prefs.statements) bits.push("no government statements");
     if (prefs.weights) bits.push("your own weights");
     if (prefs.length === "headlines") bits.push("headlines only");

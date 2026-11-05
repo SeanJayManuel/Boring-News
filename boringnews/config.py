@@ -35,7 +35,10 @@ MODEL = os.environ.get("BN_MODEL", "claude-haiku-5-5")
 # articles must be to be considered the same story.
 LOOKBACK_HOURS = int(os.environ.get("BN_LOOKBACK_HOURS", "36"))
 CLUSTER_WINDOW_HOURS = int(os.environ.get("BN_CLUSTER_WINDOW_HOURS", "48"))
-CLUSTER_SIMILARITY = float(os.environ.get("BN_CLUSTER_SIMILARITY", "0.15"))
+# Two scales, so two settings. Both come from one day of real news: provisional (roadmap L6).
+EMBEDDING_SIMILARITY = float(os.environ.get("BN_EMBEDDING_SIMILARITY", "0.60"))
+WORD_SIMILARITY = float(os.environ.get("BN_WORD_SIMILARITY", "0.14"))
+MODEL_CACHE = ROOT / "data" / "models"
 
 # Two stories on consecutive days are the same developing story when their
 # headlines and article titles are this similar, or when they share an article.

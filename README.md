@@ -261,6 +261,7 @@ sources.yaml ──► ingest (RSS) ──► SQLite ──► cluster (TF-IDF) 
 | `threshold` | broad (0.30), standard (0.40), strict (0.55) | standard |
 | `weights` | four whole numbers, 0 to 100, for breadth, coverage, diversity and record, each counted as its share. Re-ranks written stories only | the published rule |
 | `official` | 1 or 0: include official items no outlet has covered yet | 1 |
+| `blindspots` | 1 or 0: include stories only one side ran that didn't reach the threshold | 1 |
 | `statements` | 1 or 0: include official statements (press releases) | 1 |
 | `spotlight` | 1: only the top 5 stories | 0 |
 | `length` | full or headlines | full |

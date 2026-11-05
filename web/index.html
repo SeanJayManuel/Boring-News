@@ -150,7 +150,7 @@
       <h2>From feeds to an edition</h2>
       <ol class="steps">
         <li><b>Collect.</b> Once a day we read the RSS feeds of every outlet on the source list, plus official sources. Records (Congress.gov, new laws, the Federal Register) are kept apart from statements (White House and agency press releases).</li>
-        <li><b>Group.</b> Articles about the same event are grouped into one story by comparing their words. Two documents from the same agency are never merged.</li>
+        <li><b>Group.</b> Articles about the same event are grouped into one story by comparing their meaning, and they must share a name few other articles use. Two documents from the same agency are never merged.</li>
         <li><b>Score.</b> Each story gets a score from 0 to 1 using the formula below. Nothing about clicks, shares or engagement goes into it.</li>
         <li><b>Write.</b> A model writes a plain summary from the outlets' own reporting, following our style guide. A banned-word check rejects loaded language, and a fact is stated plainly only when two outlets agree on it.</li>
         <li><b>Your settings.</b> Your settings decide which stories you see. If you turn off an outlet, every story is scored again without it. You can also set your own weights for the score below. They only re-rank stories that were written: a story the published rule dropped has no summary to bring back.</li>
@@ -231,6 +231,7 @@
           <legend>Show</legend>
           <div class="options">
             <label for="official"><input type="checkbox" id="official"> Government records and statements no outlet covered</label>
+            <label for="blindspots"><input type="checkbox" id="blindspots"> Stories only one side ran</label>
             <label for="statements"><input type="checkbox" id="statements"> Government statements, like press releases</label>
             <label for="headlines-only"><input type="checkbox" id="headlines-only"> Headlines only</label>
           </div>

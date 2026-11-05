@@ -96,7 +96,8 @@ def test_edition_json_carries_what_the_page_needs(site):
     assert len(data["markets"]) == 7 and len(data["stories"]) == 17
     assert all(s["id"] for s in data["stories"])
     assert json.loads((site / "archive" / f"{DATE}.json").read_text())["stories"][0]["id"] == data["stories"][0]["id"]
-    assert set(data["rubric"]) == {"version", "weights", "thresholds", "coverage_cap", "min_outlets", "spotlight"}
+    assert set(data["rubric"]) == {"version", "weights", "thresholds", "coverage_cap", "min_outlets", "spotlight",
+                                   "blindspot_outlets"}
 
 
 def test_static_feed_is_opt_in(site, tmp_path):
@@ -337,7 +338,7 @@ def test_function_serves_custom_weights_and_a_named_feed(site, tmp_path):
 @jsdom
 def test_front_page_shows_what_each_side_ran_and_what_one_side_missed(site):
     assert open_page(site, f"{BASE}/")["sideColumns"] == ["Left", "Center", "Right"]
-    page = open_page(site, f"{BASE}/?threshold=broad")
+    page = open_page(site, f"{BASE}/")
     assert page["errors"] == [] and page["oneSide"] and page["gapSides"]
     assert all(link.startswith("#story-") and link[1:] in page["anchors"] for link in page["oneSide"])
 

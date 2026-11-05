@@ -43,6 +43,17 @@ Official records and statements that no outlet has covered yet are listed separa
 
 The five highest-scoring stories are the day's spotlight.
 
+## Only one side covered
+
+A story that doesn't reach the threshold, but that at least 2 rated outlets ran, all on one side, is a **blind spot**. It's written up and listed under "Only one side covered". It never enters the spotlight, and it stays out of the main list.
+
+- **It counts outlets.** Weights and the score play no part, so the same rule holds for left, center and right. Before this rule, a three-outlet story on the left was dropped while the same story on the right was kept, because of how outlet weights and types add up.
+- **Scores and the main list don't change.** A story already above the threshold stays there.
+- **It's a fact about our list.** The page says "Among the outlets we read, only right outlets ran this", not that the other side ignored the story. If a reader turned off a source, it says "Among the outlets you kept".
+- **We don't claim what we couldn't check.** If a feed on a side the story lacks failed that day, the page says so and makes no claim, and that side of the coverage scale stays blank instead of striped. Each edition file lists the failed feeds under `feeds_down`.
+
+What this still gets wrong: a feed can work and still reach back only a little way. In one test the New York Post's feed covered 1.6 hours and The Guardian's 131. With one fetch a day, a story can look one-sided because a feed had already moved on. Fixing that means fetching more often (roadmap T1). A one-sided story also depends on grouping: if two outlets' articles aren't grouped, neither counts.
+
 ## No sports, for now
 
 Sports are left out of the edition, whatever their score. The score doesn't change: the rule runs after it, before a story is written, so nothing is spent on a story that's left out.
@@ -66,11 +77,11 @@ Nothing is hidden. Each edition file in [`archive/`](../archive/) lists every gr
 
 ## What readers can change
 
-Readers can choose the threshold, choose topics, drop any source, hide official items, and set their own weights for the four parts. Dropping a source re-scores every story without it. The page and the RSS feed apply exactly the same rules (`web/core.js`, with the score and lane also in `boringnews/rubric.py` for the pipeline, and tests check they match).
+Readers can choose the threshold, choose topics, drop any source, hide official items, hide one-sided stories, and set their own weights for the four parts. Dropping a source re-scores every story without it. The page and the RSS feed apply exactly the same rules (`web/core.js`, with the score and lane also in `boringnews/rubric.py` for the pipeline, and tests check they match).
 
 A reader's weights (`weights=60,20,10,10`, in the order breadth, coverage, diversity, record) count as shares of their total, so a score still runs from 0 to 1 and the thresholds stay the same. They apply only to that reader's page and feed. The published rule above still decides what gets written, so weights re-rank stories that were written, and can't bring back one it dropped.
 
-Every story a reader's settings hide is listed with the reason (`select` in `web/core.js`): outside their categories, all its sources off, below their threshold, or a government item they turned off.
+Every story a reader's settings hide is listed with the reason (`select` in `web/core.js`): outside their categories, all its sources off, below their threshold, a one-sided story or a government item they turned off.
 
 ## Every story explains itself
 
@@ -79,6 +90,7 @@ Each story on the site carries a one-line reason, for example: "6 outlets across
 ## History
 
 - **2026-11-04**: no sports, for now. This decides what is written and not how anything scores, so the rubric stays at v0.4.
+- **v0.5** (2026-11-05): added the blind-spot lane. Scores and the main list didn't change.
 - **v0.4** (2026-11-04): coverage counts weighted outlets, so each side counts equally.
 - **v0.3** (2026-11-04): only official records earn the record part; statements are listed but add nothing.
 - **v0.2** (2026-11-04): added the record part; thresholds recalibrated.

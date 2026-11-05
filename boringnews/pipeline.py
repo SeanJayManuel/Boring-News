@@ -16,7 +16,7 @@ import sys
 from datetime import date, datetime, time, timedelta, timezone
 
 from . import config, rubric, threads
-from .cluster import cluster
+from .cluster import WORDS, Grouping, best_available, cluster
 from .db import Story, articles_between, connect, upsert_articles
 from .edition import Edition
 from .inputs import FixtureInputs, LiveInputs
@@ -60,7 +60,8 @@ def run_blockers(mock: bool, fixtures: bool) -> list[str]:
     return blockers
 
 
-def run(inputs, writer, db_path, edition_date: str, archive_dir=None, require_writer: bool = False) -> Edition:
+def run(inputs, writer, db_path, edition_date: str, archive_dir=None, require_writer: bool = False,
+        grouping: Grouping = WORDS) -> Edition:
     """Build, store and (with archive_dir) publish the edition for a date.
     `inputs` is a LiveInputs or FixtureInputs; `writer` is None for the fallback writer.
     With `require_writer`, stops before storing if the writer produced nothing: a bad
@@ -84,8 +85,8 @@ def run(inputs, writer, db_path, edition_date: str, archive_dir=None, require_wr
     # 2. Cluster this edition's window
     articles = [a for a in articles_between(conn, start, end) if a.source_id in sources]
     official_ids = frozenset(sid for sid, s in sources.items() if s.type == "primary")
-    clusters = cluster(articles, config.CLUSTER_SIMILARITY, config.CLUSTER_WINDOW_HOURS, separate=official_ids)
-    print(f"{len(articles)} articles in window -> {len(clusters)} clusters.")
+    clusters = cluster(articles, grouping, config.CLUSTER_WINDOW_HOURS, separate=official_ids)
+    print(f"{len(articles)} articles in window -> {len(clusters)} clusters, grouped by {grouping.method}.")
 
     # 3. Score; only write up clusters that pass the loosest reader setting
     stories, sports = [], []
@@ -131,12 +132,12 @@ def run(inputs, writer, db_path, edition_date: str, archive_dir=None, require_wr
     print(f"Ticker: {len(ticker)} market closes.")
 
     # 7. Store, and write the public edition file
-    edition = Edition(edition_date, stories, sources, ticker)
+    edition = Edition(edition_date, stories, sources, ticker, [h.source_id for h in health if not h.ok])
     edition.save(conn)
     print(f"Edition {edition_date}: {len(stories)} stories stored in {db_path}.")
     if archive_dir:
         path = edition.write_file(archive_dir, articles, clusters, writer.model if writer else "none (fallback writer)",
-                                  writer.usage if writer else None, sports)
+                                  writer.usage if writer else None, sports, grouping.record())
         print(f"Edition file written to {path}.")
     return edition
 
@@ -199,7 +200,8 @@ def main(argv=None) -> int:
     inputs = FixtureInputs(sources) if args.fixtures else LiveInputs(sources)
     archive_dir = args.archive or (None if args.fixtures else str(config.ARCHIVE_DIR))
     run(inputs, pick_writer(args.mock_llm), args.db, args.date or datetime.now(timezone.utc).date().isoformat(),
-        None if args.no_archive else archive_dir, args.require_writer)
+        None if args.no_archive else archive_dir, args.require_writer,
+        WORDS if args.fixtures else best_available())
     return 0
 
 
