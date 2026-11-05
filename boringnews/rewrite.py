@@ -25,7 +25,7 @@ from pathlib import Path
 
 from .db import Article
 from .sources import Source
-from .topics import TOPIC_DESCRIPTIONS, TOPICS, guess_region, guess_topic, normalize
+from .topics import TOPIC_DESCRIPTIONS, guess_region, guess_topic, normalize
 
 QUOTE_RE = re.compile(r"\"[^\"]*\"|“[^”]*”")
 SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
@@ -112,73 +112,82 @@ def _parse(text: str) -> dict:
 
 
 # ---------------------------------------------------------------- writers
+#
+# A writer only turns a prompt into text. It has a `model` name, says whether
+# it `checks_facts` (a second read of each bullet), and has `complete`. The
+# rules for using that text, like parsing, retries and linting, are in
+# draft_from_writer and apply to every writer.
 
 class ClaudeWriter:
-    def __init__(self, model: str, style_guide: str, banned: list[str]):
-        import anthropic  # imported here so the package works without the SDK configured
+    checks_facts = True
 
-        self.client = anthropic.Anthropic()
+    def __init__(self, model: str, client=None):
+        if client is None:
+            import anthropic  # imported here so the package works without the SDK configured
+
+            client = anthropic.Anthropic()
+        self.client = client
         self.model = model
-        self.system = style_guide + "\n\n" + OUTPUT_CONTRACT
-        self.banned = banned
 
-    def _call(self, messages: list[dict]) -> str:
+    def complete(self, system: str, messages: list[dict], max_tokens: int = 800) -> str:
         resp = self.client.messages.create(
-            model=self.model, max_tokens=800, system=self.system, messages=messages
+            model=self.model, max_tokens=max_tokens, system=system, messages=messages
         )
         return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
 
-    def write(self, articles: list[Article], sources: dict[str, Source]) -> Draft | None:
-        messages = [{"role": "user", "content": build_prompt(articles, sources)}]
-        for _attempt in range(2):
-            text = self._call(messages)
-            try:
-                data = _parse(text)
-            except (ValueError, json.JSONDecodeError):
-                messages += [
-                    {"role": "assistant", "content": text},
-                    {"role": "user", "content": "That was not valid JSON with the required keys. Return only the JSON object."},
-                ]
-                continue
-            draft = _to_draft(data, articles, sources, self.model)
-            problems = lint_draft(draft, self.banned)
-            if not problems:
-                return draft
+
+class MockWriter:
+    """Demo writer: returns the canned output for the first article it recognizes."""
+
+    model = "mock"
+    checks_facts = False
+
+    def __init__(self, rewrites_path: Path, articles_path: Path):
+        titles = {a["url"]: a["title"] for a in json.loads(Path(articles_path).read_text())["articles"]}
+        rewrites = json.loads(Path(rewrites_path).read_text())["rewrites"]
+        self.by_title = {titles[r["match_url"]]: r for r in rewrites}
+
+    def complete(self, system: str, messages: list[dict], max_tokens: int = 800) -> str:
+        titles = TITLE_RE.findall(messages[0]["content"])
+        return next((json.dumps(self.by_title[t]) for t in titles if t in self.by_title), "")
+
+
+TITLE_RE = re.compile(r"^Title: (.*)$", re.M)
+
+
+def draft_from_writer(writer, style_guide: str, articles: list[Article], sources: dict[str, Source],
+                      banned: list[str]) -> Draft | None:
+    """Ask for a story, and once more if the reply is unusable or breaks the style guide."""
+    system = style_guide + "\n\n" + OUTPUT_CONTRACT
+    messages = [{"role": "user", "content": build_prompt(articles, sources)}]
+    for _attempt in range(2):
+        text = writer.complete(system, messages)
+        try:
+            data = _parse(text)
+        except (ValueError, json.JSONDecodeError):
             messages += [
                 {"role": "assistant", "content": text},
-                {"role": "user", "content": f"These words break the style guide: {', '.join(problems)}. Rewrite without them. Return only the JSON object."},
+                {"role": "user", "content": "That was not valid JSON with the required keys. Return only the JSON object."},
             ]
-        return None
+            continue
+        draft = _to_draft(data, articles, sources, writer.model)
+        problems = lint_draft(draft, banned)
+        if not problems:
+            return draft
+        messages += [
+            {"role": "assistant", "content": text},
+            {"role": "user", "content": f"These words break the style guide: {', '.join(problems)}. Rewrite without them. Return only the JSON object."},
+        ]
+    return None
 
 
 def _verify_with_model(writer, bullets, articles, sources) -> dict[int, dict]:
     listing = "\n".join(f"{i}. {b}" for i, b in enumerate(bullets, 1))
     content = build_prompt(articles, sources).rsplit("\n", 1)[0] + "\n\nStatements:\n" + listing
-    resp = writer.client.messages.create(
-        model=writer.model, max_tokens=600, system=VERIFY_PROMPT,
-        messages=[{"role": "user", "content": content}],
-    )
-    text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+    text = writer.complete(VERIFY_PROMPT, [{"role": "user", "content": content}], max_tokens=600)
     start, end = text.find("["), text.rfind("]")
     items = json.loads(text[start : end + 1])
     return {int(x["n"]): x for x in items}
-
-
-ClaudeWriter.verify = lambda self, bullets, articles, sources: _verify_with_model(self, bullets, articles, sources)
-
-
-class MockWriter:
-    """Demo writer: returns the canned output whose match_url is in the cluster."""
-
-    def __init__(self, path: Path):
-        data = json.loads(Path(path).read_text())
-        self.by_url = {r["match_url"]: r for r in data["rewrites"]}
-
-    def write(self, articles: list[Article], sources: dict[str, Source]) -> Draft | None:
-        for a in articles:
-            if a.url in self.by_url:
-                return _to_draft(self.by_url[a.url], articles, sources, "mock")
-        return None
 
 
 def fallback(articles: list[Article], sources: dict[str, Source], banned: list[str]) -> Draft:
@@ -274,9 +283,9 @@ def check_facts(draft: Draft, articles: list[Article], sources: dict[str, Source
             kept.append(b)
     method = "numbers"
 
-    if writer is not None and hasattr(writer, "verify") and kept:
+    if writer is not None and writer.checks_facts and kept:
         try:
-            verdicts = writer.verify(kept, articles, sources)
+            verdicts = _verify_with_model(writer, kept, articles, sources)
             method = "numbers+model"
             still = []
             for i, b in enumerate(kept, 1):
@@ -305,14 +314,14 @@ def check_facts(draft: Draft, articles: list[Article], sources: dict[str, Source
     return draft
 
 
-def write_story(articles, sources, banned, writer=None) -> Draft:
+def write_story(articles, sources, banned, writer=None, style_guide="") -> Draft:
     if writer is not None:
         try:
-            draft = writer.write(articles, sources)
+            draft = draft_from_writer(writer, style_guide, articles, sources, banned)
         except Exception as exc:  # API errors shouldn't kill the edition
             print(f"  writer error, using fallback: {exc}")
             draft = None
-        if draft is not None and not lint_draft(draft, banned):
+        if draft is not None:
             draft = check_facts(draft, articles, sources, writer)
             if draft.bullets and draft.checks["headline_ok"]:
                 return draft

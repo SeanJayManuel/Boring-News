@@ -19,23 +19,16 @@ import shutil
 from pathlib import Path
 
 from . import config
-from .db import connect, editions, load_edition, load_extra
-from .feeds import render_rss
-from .prefs import Prefs, apply
-from .render import page_data, render_page
+from .db import connect
+from .edition import Edition, NoEdition
+from .reader import feeds
+from .render import load_corrections, render_page
 from .sources import load_sources
 from .topics import TOPICS
 
 
-def export(out: Path, db_path: Path, sample: bool, base_url: str, cname: str | None = None,
+def export(edition: Edition, out: Path, base_url: str, sample: bool = False, cname: str | None = None,
            static_feed: bool = False, archive_dir: Path | None = None) -> list[Path]:
-    conn = connect(db_path)
-    dates = editions(conn)
-    if not dates:
-        raise SystemExit("No editions yet. Run: python -m boringnews.pipeline run")
-    stories = load_edition(conn, dates[0])
-    sources = load_sources(config.FIXTURE_SOURCES_PATH if sample else config.SOURCES_PATH)
-
     out.mkdir(parents=True, exist_ok=True)
     (out / "feeds").mkdir(exist_ok=True)
     written = []
@@ -47,25 +40,22 @@ def export(out: Path, db_path: Path, sample: bool, base_url: str, cname: str | N
         for f in sorted(Path(archive_dir).glob("*.json")):
             shutil.copy(f, out / "archive" / f.name)
             written.append(out / "archive" / f.name)
-        if (out / "archive" / f"{dates[0]}.json").exists():
-            data_url = f"{base_url}/archive/{dates[0]}.json"
-    data = page_data(dates[0], dates, stories, sources, base_url, sample=sample, data_url=data_url,
-                     markets=load_extra(conn, dates[0], "markets", []))
+        if (out / "archive" / f"{edition.date}.json").exists():
+            data_url = f"{base_url}/archive/{edition.date}.json"
+    data = edition.page_data(base_url, sample=sample, data_url=data_url, corrections=load_corrections())
     (out / "index.html").write_text(render_page(data))
     (out / "edition.json").write_text(json.dumps(data, ensure_ascii=False))
     written += [out / "index.html", out / "edition.json"]
 
-    if static_feed:
-        default = Prefs()
-        (out / "feed.xml").write_text(render_rss(dates[0], apply(stories, sources, default), sources, default, base_url))
-        written.append(out / "feed.xml")
     if cname:  # GitHub Pages custom domain
         (out / "CNAME").write_text(cname.strip() + "\n")
         written.append(out / "CNAME")
-    for topic in TOPICS:
-        p = Prefs(topics=[topic])
-        path = out / "feeds" / f"{topic}.xml"
-        path.write_text(render_rss(dates[0], apply(stories, sources, p), sources, p, base_url))
+
+    paths = {out / "feeds" / f"{topic}.xml": f"topics={topic}" for topic in TOPICS}
+    if static_feed:
+        paths[out / "feed.xml"] = ""
+    for path, xml in zip(paths, feeds(data, list(paths.values()))):
+        path.write_text(xml)
         written.append(path)
     return written
 
@@ -80,7 +70,11 @@ def main(argv=None):
     ap.add_argument("--archive", default=str(config.ARCHIVE_DIR), help="folder of edition files to publish")
     ap.add_argument("--static-feed", action="store_true", help="also write a fixed feed.xml (hosts without functions)")
     args = ap.parse_args(argv)
-    for p in export(Path(args.out), Path(args.db), args.sample, args.base_url.rstrip("/"), args.cname, args.static_feed,
+    try:
+        edition = Edition.load(connect(args.db), load_sources(config.sources_path(args.sample)))
+    except NoEdition as exc:
+        raise SystemExit(str(exc))
+    for p in export(edition, Path(args.out), args.base_url.rstrip("/"), args.sample, args.cname, args.static_feed,
                     Path(args.archive)):
         print("wrote", p)
 

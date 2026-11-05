@@ -20,6 +20,7 @@ jobs:
         with:
           node-version: "20"
       - run: pip install -r requirements.txt
+      - run: npm ci        # jsdom, for the page tests
       - run: pytest -q
 
       # The edition files in archive/ are the project's storage; the database is rebuilt from them.

@@ -1,8 +1,8 @@
 """The selection rubric: which stories make the edition, and why.
 
 This file is the editorial policy in code. It is published on the
-"How it works" page, and the web page applies the same rules in JavaScript
-(web/app.js) so readers can change the threshold or drop sources.
+"How it works" page, and web/core.js applies the same score and lane in
+JavaScript so readers can change the threshold or drop sources.
 
     score = 0.40 * breadth + 0.25 * coverage + 0.10 * diversity + 0.25 * record
 
@@ -103,20 +103,3 @@ def lane(sc: Score, threshold: str = "standard", official: bool = True) -> str |
 def is_candidate(sc: Score) -> bool:
     """Worth writing up at all: passes the loosest setting a reader could pick."""
     return lane(sc, threshold="broad", official=True) is not None
-
-
-def explain(sc: Score) -> str:
-    """One plain line telling the reader why the story is here."""
-    if sc.outlets == 0 and sc.has_primary:
-        if sc.has_record:
-            return "A government record; no news coverage yet."
-        return "A government statement; no news coverage yet."
-    if not sc.leans:
-        spectrum = "no rated outlets"
-    elif len(sc.leans) == 1:
-        spectrum = sc.leans[0]
-    else:
-        spectrum = ", ".join(sc.leans[:-1]) + " and " + sc.leans[-1]
-    record = " Backed by a government record." if sc.has_record else ""
-    outlet_word = "outlet" if sc.outlets == 1 else "outlets"
-    return f"{sc.outlets} {outlet_word} across {spectrum}.{record} Score {sc.total:.2f}."

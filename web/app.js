@@ -1,5 +1,4 @@
-// Boring News reader page. Applies the same selection rubric as
-// boringnews/rubric.py and the same preferences as boringnews/prefs.py.
+// Boring News reader page. The rubric and settings it applies are in core.js.
 (function () {
   "use strict";
   var D = window.BORING_NEWS;
@@ -24,7 +23,8 @@
   var fromQuery = C.fromQuery, toQuery = C.toQuery;
 
   function loadPrefs() {
-    if (/[?&](topics|exclude|threshold|official|statements|spotlight|length)=/.test(location.search)) return fromQuery(location.search);
+    var address = new URLSearchParams(location.search);
+    if (window.BoringCore.SETTINGS.some(function (x) { return address.has(x.name); })) return fromQuery(location.search);
     try {
       var saved = localStorage.getItem(STORE_KEY);
       if (saved !== null) return fromQuery("?" + saved);
@@ -46,7 +46,7 @@
       if (k === "text") n.textContent = attrs[k];
       else if (k === "className") n.className = attrs[k];
       else if (k === "style") n.setAttribute("style", attrs[k]);
-      else n.setAttribute(k, attrs[k]);
+      else if (attrs[k] !== null) n.setAttribute(k, attrs[k]);
     });
     (children || []).forEach(function (c) { if (c) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
     return n;
@@ -77,7 +77,9 @@
   var prefs = loadPrefs();
 
   // ---------- stories
-  function storyNode(item, headlinesOnly) {
+  // A story appears twice (Today and All stories), so only one copy, in
+  // All stories, carries the #story-N anchor that feed links open.
+  function storyNode(item, headlinesOnly, anchored) {
     var s = item.story, sc = item.score;
     var topicLine = el("p", { className: "topic" }, [el("span", { className: "topic-name", text: D.topics[s.topic] || s.topic })]);
     if (s.day > 1) topicLine.appendChild(el("span", { className: "badge day", text: "Day " + s.day }));
@@ -85,7 +87,7 @@
       title: "Backed by a law, rule, court ruling, vote or official statistics" }));
     else if (sc.hasStatement) topicLine.appendChild(el("span", { className: "badge statement", text: "Government statement",
       title: "A government press release or announcement. It doesn't add to the score." }));
-    var node = el("article", { className: "story", id: "story-" + s.id }, [topicLine, el("h3", { className: "headline", text: s.headline })]);
+    var node = el("article", { className: "story", id: anchored ? "story-" + s.id : null }, [topicLine, el("h3", { className: "headline", text: s.headline })]);
     if (headlinesOnly) return node;
 
     node.appendChild(el("ul", { className: "bullets" }, s.bullets.map(function (b) { return el("li", { text: b }); })));
@@ -144,8 +146,7 @@
     var box = el("section", { className: "sheet", "aria-label": title }, [
       el("div", { className: "sheet-head", id: id || null }, [el("h2", { text: title }), note ? el("p", { text: note }) : null])
     ]);
-    if (!id) box.firstChild.removeAttribute("id");
-    items.forEach(function (x) { box.appendChild(storyNode(x, hl)); });
+    items.forEach(function (x) { box.appendChild(storyNode(x, hl, !!id)); });
     return box;
   }
 

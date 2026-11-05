@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict, field, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import yaml
@@ -47,8 +47,10 @@ class Source:
     weight: float = 1.0           # coverage weight; balances sides with more outlets on the list
     params: dict = field(default_factory=dict, hash=False, compare=False)
 
-    def to_dict(self) -> dict:
-        return asdict(self)
+    def record(self) -> dict:
+        """What's published about a source, on the page and in edition files."""
+        return {"name": self.name, "lean": self.lean, "type": self.type, "role": self.role,
+                "weight": self.weight, "ratings": self.ratings}
 
 
 def load_sources(path: Path) -> dict[str, Source]:

@@ -3,8 +3,8 @@
     uvicorn boringnews.web:app --reload
 
 Routes
-    /                       today's edition (or ?date=YYYY-MM-DD); prefs read from the query string
-    /feed.xml               RSS, filtered by the same query parameters
+    /                       today's edition (or ?date=YYYY-MM-DD); settings read from the query string
+    /feed.xml               RSS, filtered by the same query parameters (needs node)
     /api/edition.json       the edition as JSON (same data the page embeds)
     /healthz                liveness check
 """
@@ -13,68 +13,47 @@ from __future__ import annotations
 
 import os
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from . import config
-from .db import connect, editions, load_edition, load_extra
-from .feeds import render_rss
-from .prefs import Prefs, apply
-from .render import page_data, render_page
+from .db import connect
+from .edition import Edition, NoEdition
+from .reader import feeds
+from .render import load_corrections, render_page
 from .sources import load_sources
 
 SAMPLE = os.environ.get("BN_SAMPLE") == "1"
 app = FastAPI(title="Boring News", docs_url=None, redoc_url=None)
 
 
-def _sources():
-    return load_sources(config.FIXTURE_SOURCES_PATH if SAMPLE else config.SOURCES_PATH)
-
-
-def _edition(date: str | None):
+def _edition(date: str | None) -> Edition:
     conn = connect(config.DB_PATH)
     try:
-        all_dates = editions(conn)
-        if not all_dates:
-            raise HTTPException(404, "No editions yet. Run: python -m boringnews.pipeline run")
-        d = date or all_dates[0]
-        if d not in all_dates:
-            raise HTTPException(404, f"No edition for {d}")
-        return d, all_dates, load_edition(conn, d), load_extra(conn, d, "markets", [])
+        return Edition.load(conn, load_sources(config.sources_path(SAMPLE)), date)
+    except NoEdition as exc:
+        raise HTTPException(404, str(exc))
     finally:
         conn.close()
 
 
+def _page_data(date: str | None) -> dict:
+    return _edition(date).page_data(config.BASE_URL, sample=SAMPLE, corrections=load_corrections())
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(date: str | None = Query(None)):
-    d, all_dates, stories, ticker = _edition(date)
-    return render_page(page_data(d, all_dates, stories, _sources(), config.BASE_URL, sample=SAMPLE, markets=ticker))
+    return render_page(_page_data(date))
 
 
 @app.get("/api/edition.json")
 def edition_json(date: str | None = Query(None)):
-    d, all_dates, stories, ticker = _edition(date)
-    return JSONResponse(page_data(d, all_dates, stories, _sources(), config.BASE_URL, sample=SAMPLE, markets=ticker))
+    return JSONResponse(_page_data(date))
 
 
 @app.get("/feed.xml")
-def feed(
-    date: str | None = None,
-    topics: str | None = None,
-    exclude: str | None = None,
-    threshold: str = "standard",
-    official: str = "1",
-    statements: str = "1",
-    spotlight: str = "0",
-    length: str = "full",
-):
-    prefs = Prefs.from_query({
-        "topics": topics, "exclude": exclude,
-        "threshold": threshold, "official": official, "statements": statements, "spotlight": spotlight, "length": length,
-    })
-    d, _, stories, _ = _edition(date)
-    sources = _sources()
-    xml = render_rss(d, apply(stories, sources, prefs), sources, prefs, config.BASE_URL)
+def feed(request: Request, date: str | None = None):
+    xml = feeds(_page_data(date), [request.url.query])[0]
     return Response(xml, media_type="application/rss+xml; charset=utf-8",
                     headers={"Cache-Control": "public, max-age=900"})
 

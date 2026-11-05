@@ -31,8 +31,6 @@ LEGACY = {
     "local-state": "states", "science-health": "health-science",
 }
 
-REGIONS = {"us-national": "U.S. national", "us-state": "U.S. states", "world": "World"}
-
 _KEYWORDS = {
     "government": ["congress", "senate", "house passed", "h.r.", "president", "white house", "federal",
                    "supreme court", "final rule", "federal register", "pentagon", "military", "department of war",

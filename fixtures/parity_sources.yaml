@@ -1,0 +1,16 @@
+# Only for tests/test_parity.py: an unbalanced list, like the real one, so
+# outlets get weights other than 1.0, plus an unrated outlet.
+sources:
+  - {id: l1, name: L1, url: x, lean: left, type: wire}
+  - {id: l2, name: L2, url: x, lean: left, type: national}
+  - {id: l3, name: L3, url: x, lean: left, type: regional}
+  - {id: l4, name: L4, url: x, lean: left, type: international}
+  - {id: c1, name: C1, url: x, lean: center, type: wire}
+  - {id: c2, name: C2, url: x, lean: center, type: national}
+  - {id: c3, name: C3, url: x, lean: center, type: international}
+  - {id: r1, name: R1, url: x, lean: right, type: national}
+  - {id: r2, name: R2, url: x, lean: right, type: regional}
+  - {id: r3, name: R3, url: x, lean: right, type: wire}
+  - {id: u1, name: U1, url: x, lean: unrated, type: national}
+  - {id: rec, name: Rec, url: x, type: primary, role: record}
+  - {id: st, name: St, url: x, type: primary, role: statement}
