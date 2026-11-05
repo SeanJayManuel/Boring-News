@@ -45,9 +45,11 @@ The five highest-scoring stories are the day's spotlight.
 
 ## What readers can change
 
-Readers can choose the threshold, choose topics, drop any source, and hide official items. Dropping a source re-scores every story without it. The page and the RSS feed apply exactly the same rules (`web/core.js`, with the score and lane also in `boringnews/rubric.py` for the pipeline, and tests check they match).
+Readers can choose the threshold, choose topics, drop any source, hide official items, and set their own weights for the four parts. Dropping a source re-scores every story without it. The page and the RSS feed apply exactly the same rules (`web/core.js`, with the score and lane also in `boringnews/rubric.py` for the pipeline, and tests check they match).
 
-Planned: letting readers change the four weights themselves.
+A reader's weights (`weights=60,20,10,10`, in the order breadth, coverage, diversity, record) count as shares of their total, so a score still runs from 0 to 1 and the thresholds stay the same. They apply only to that reader's page and feed. The published rule above still decides what gets written, so weights re-rank stories that were written, and can't bring back one it dropped.
+
+Every story a reader's settings hide is listed with the reason (`select` in `web/core.js`): outside their categories, all its sources off, below their threshold, or a government item they turned off.
 
 ## Every story explains itself
 

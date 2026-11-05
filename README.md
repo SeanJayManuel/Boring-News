@@ -258,10 +258,12 @@ sources.yaml ──► ingest (RSS) ──► SQLite ──► cluster (TF-IDF) 
 | `topics` | comma list of categories: government, states, economy, world, health-science, tech | all |
 | `exclude` | comma list of source ids | none |
 | `threshold` | broad (0.30), standard (0.40), strict (0.55) | standard |
+| `weights` | four whole numbers, 0 to 100, for breadth, coverage, diversity and record, each counted as its share. Re-ranks written stories only | the published rule |
 | `official` | 1 or 0: include official items no outlet has covered yet | 1 |
 | `statements` | 1 or 0: include official statements (press releases) | 1 |
 | `spotlight` | 1: only the top 5 stories | 0 |
 | `length` | full or headlines | full |
+| `recipe` | a name for this setup, up to 60 characters | none |
 
 Example: `/feed.xml?topics=economy,government&threshold=strict&exclude=ny-post`
 
