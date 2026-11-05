@@ -12,6 +12,7 @@ An edition file holds everything needed to check or reproduce an edition:
   - every article read in the edition window
   - how articles were grouped into stories, each story's id, score parts and
     fact-check log, and which writer produced it
+  - what the rules left out, and the rule that did it, under `left_out`
 
 Edition files are committed to the repo and published on the site (/archive/).
 `restore` rebuilds the database from them.
@@ -112,8 +113,24 @@ class Edition:
         """The outlets and the rubric, as edition files hold them."""
         return {"rubric": _rubric(), "sources": _sources(self.sources)}
 
+    def _left_out(self, sports: list[list[Article]]) -> dict:
+        """Groups that passed the score and were not written, and why."""
+        return {"sports": {
+            "rule": {"outlets_in_sections": "more than half", "official_source": "never left out",
+                     "sections": list(rubric.SPORTS_SECTIONS), "keep_words": list(rubric.HARD_NEWS_WORDS)},
+            "groups": [
+                {
+                    "titles": [a.title for a in g],
+                    "articles": [a.url for a in g],
+                    "from_sports_sections": [a.url for a in g if rubric.in_sports_section(a.url)],
+                    "score": rubric.score(self.sources[a.source_id] for a in g).to_dict(),
+                }
+                for g in sports
+            ],
+        }}
+
     def file_data(self, articles: list[Article], clusters: list[list[Article]], model: str,
-                  usage: dict | None = None) -> dict:
+                  usage: dict | None = None, sports: list[list[Article]] = ()) -> dict:
         """The public record of the run. Needs saved stories, for their ids."""
         return {
             "format": FORMAT,
@@ -130,6 +147,7 @@ class Edition:
             "articles": [{"source_id": a.source_id, "url": a.url, "title": a.title, "summary": a.summary,
                           "published_at": a.published_at} for a in articles],
             "clusters": [[a.url for a in g] for g in clusters],
+            "left_out": self._left_out(sports),
             "markets": self.markets,
             "stories": [
                 {
@@ -146,11 +164,11 @@ class Edition:
         }
 
     def write_file(self, directory: Path, articles: list[Article], clusters: list[list[Article]], model: str,
-                   usage: dict | None = None) -> Path:
+                   usage: dict | None = None, sports: list[list[Article]] = ()) -> Path:
         directory = Path(directory)
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / f"{self.date}.json"
-        path.write_text(json.dumps(self.file_data(articles, clusters, model, usage), ensure_ascii=False, indent=1))
+        path.write_text(json.dumps(self.file_data(articles, clusters, model, usage, sports), ensure_ascii=False, indent=1))
         return path
 
 
