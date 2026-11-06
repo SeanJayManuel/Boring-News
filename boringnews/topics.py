@@ -7,11 +7,11 @@ the site shows to readers and the model is given when it picks one.
 from __future__ import annotations
 
 TOPICS = {
-    "government": "Politics & government",
-    "states": "States & cities",
-    "economy": "Economy & business",
+    "government": "Politics & Government",
+    "states": "States & Cities",
+    "economy": "Economy & Business",
     "world": "World",
-    "health-science": "Health & science",
+    "health-science": "Health & Science",
     "tech": "Technology",
 }
 

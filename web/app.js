@@ -18,26 +18,34 @@
     strict: "Usually needs left, center and right, or two sides plus a government record."
   };
   var VIEWS = ["today", "all-stories", "outlets", "research", "how-it-works", "your-feed", "ledger", "about", "story"];
-  var KEY_WORDS = "Each mark and ring is one outlet that ran the story. Stripes and dotted circles mean no outlet on that side ran it. A black square means a government record backs it.";
+  var KEY_WORDS = "Each mark and ring is one outlet that ran the story. Stripes and dotted circles mean no outlet on that side ran it. A solid square means a government record backs it.";
 
   // Rubric and settings live in core.js, shared with the feed function.
   var lane = C.lane, scoreStory = C.scoreStory, select = C.select, spotlight = C.spotlight;
   var fromQuery = C.fromQuery, toQuery = C.toQuery;
 
+  // What a settings link replaced, so the reader can go back to it.
+  var replaced = null;
+
   function loadPrefs() {
-    var address = new URLSearchParams(location.search);
-    if (window.BoringCore.SETTINGS.some(function (x) { return address.has(x.name); })) return fromQuery(location.search);
-    try {
-      var saved = localStorage.getItem(STORE_KEY);
-      if (saved !== null) return fromQuery("?" + saved);
-    } catch (e) { /* storage unavailable */ }
+    var address = new URLSearchParams(location.search), saved = null;
+    try { saved = localStorage.getItem(STORE_KEY); } catch (e) { /* storage unavailable */ }
+    if (window.BoringCore.SETTINGS.some(function (x) { return address.has(x.name); })) {
+      var linked = fromQuery(location.search);
+      if (saved !== null && toQuery(fromQuery("?" + saved)) !== toQuery(linked)) replaced = saved;
+      return linked;
+    }
+    if (saved !== null) return fromQuery("?" + saved);
     return JSON.parse(JSON.stringify(DEFAULTS));
   }
   function savePrefs(p) {
     var q = toQuery(p);
     try { localStorage.setItem(STORE_KEY, q); } catch (e) { /* storage unavailable */ }
+    setAddress(location.pathname + (q ? "?" + q : "") + location.hash);
+  }
+  function setAddress(url) {
     if (window.self === window.top && /^https?:$/.test(location.protocol)) {
-      try { history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash); } catch (e) { /* ignore */ }
+      try { history.replaceState(null, "", url); } catch (e) { /* ignore */ }
     }
   }
 
@@ -54,6 +62,7 @@
     return n;
   }
   function $(id) { return document.getElementById(id); }
+  function say(text) { $("announce").textContent = text; }
   function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
   function listWords(arr) {
     return arr.length < 2 ? arr.join("") : arr.slice(0, -1).join(", ") + " and " + arr[arr.length - 1];
@@ -95,7 +104,7 @@
 
   // ---------- earlier days of a developing story
   // The index is a large file, so it's only fetched when a reader asks.
-  function earlierDays(s) {
+  function earlierDays(s, heading) {
     var label = "Earlier days of this story", done = false;
     var box = el("div", { className: "earlier", hidden: "", "aria-live": "polite" });
     var btn = el("button", { type: "button", className: "toggle earlier-toggle", "aria-expanded": "false", text: label });
@@ -109,7 +118,7 @@
       found.days.forEach(function (d) {
         box.appendChild(el("section", { className: "earlier-day" }, [
           el("p", { className: "topic", text: shortDate(d.date) + ", day " + d.day }),
-          el("h4", { text: d.headline }),
+          el(heading || "h4", { text: d.headline }),
           el("ul", { className: "bullets" }, d.bullets.map(function (b) { return el("li", { text: b }); })),
           sourceLine(d.articles)
         ]));
@@ -234,7 +243,7 @@
     return el("div", { className: "sides" }, SPECTRUM.map(function (l) {
       var rows = sides[l];
       return el("div", { className: "side-col lean-" + l }, [
-        el("h4", { text: cap(l) }),
+        el("h3", { text: cap(l) }),
         said && said[l] ? el("p", { className: "side-said", text: said[l].join(" ") }) : null,
         rows.length
           ? el("ul", {}, rows.map(function (a) {
@@ -280,7 +289,7 @@
   function storyNode(item, headlinesOnly, anchored, lead) {
     var s = item.story, sc = item.score;
     var node = el("article", { className: "story", id: anchored ? "story-" + s.id : null }, [topicLine(s, sc),
-      el("h3", { className: "headline" }, [el("a", { href: "#story-" + s.id, text: s.headline })])]);
+      el(lead ? "h2" : "h3", { className: "headline" }, [el("a", { href: "#story-" + s.id, text: s.headline })])]);
     var days = s.day > 1 && !lead ? earlierDays(s) : null;
     if (headlinesOnly) {
       if (days) { node.appendChild(el("div", { className: "meta" }, [days.button])); node.appendChild(days.box); }
@@ -432,6 +441,16 @@
     if ((D.corrections || []).some(function (c) { return c.edition === D.edition; })) {
       sayNote(["A story in this edition was corrected. ", el("a", { href: "#how-it-works", text: "See what changed" })]);
     }
+    if (replaced !== null) {
+      var undo = el("button", { type: "button", className: "toggle", text: "Go back to my settings" });
+      undo.addEventListener("click", function () {
+        restore(replaced);
+        say("Your settings are back.");
+        $("lede").setAttribute("tabindex", "-1");
+        $("lede").focus();
+      });
+      sayNote(["This link replaced the settings saved in this browser. ", undo]);
+    }
   }
 
   function renderToday(res) {
@@ -509,16 +528,14 @@
     var official = res.shown.filter(function (x) { return x.score.hasRecord; }).length;
     $("all-summary").textContent = res.shown.length
       ? plural(res.shown.length, "story", "stories") + " in " + plural(order.length, "category", "categories") +
-        ", highest score first in each. " + official + " are backed by a government record."
+        ", highest score first in each. " + plural(official, "is", "are") + " backed by a government record."
       : D.stories.length ? "Nothing matches your settings." : "No stories in this edition.";
     $("all-key").hidden = hl || !res.shown.length;
 
     var jump = $("topic-jump");
     jump.innerHTML = "";
     order.forEach(function (t) {
-      var a = el("a", { href: "#all-stories" }, [D.topics[t] || t, el("span", { className: "n", text: String(groups[t].length) })]);
-      a.addEventListener("click", function (e) { e.preventDefault(); var h = $("topic-" + t); if (h) h.scrollIntoView({ block: "start" }); });
-      jump.appendChild(a);
+      jump.appendChild(el("a", { href: "#topic-" + t }, [(D.topics[t] || t) + " ", el("span", { className: "n", text: String(groups[t].length) })]));
     });
 
     var box = $("all");
@@ -607,6 +624,7 @@
       .sort(function (a, b) { return b.score.total - a.score.total; });
     var keyPlate = $("key-plate"), covered = rows.filter(function (x) { return x.score.outlets; })[0];
     keyPlate.innerHTML = "";
+    keyPlate.parentNode.hidden = !covered;
     if (covered) keyPlate.appendChild(plate(covered));
     var chart = $("score-chart");
     chart.innerHTML = "";
@@ -644,7 +662,7 @@
     cbox.innerHTML = "";
     if (D.corrections && D.corrections.length) {
       cbox.appendChild(el("ul", { className: "corrections" }, D.corrections.map(function (c) {
-        return el("li", {}, [el("span", { className: "when", text: c.date + ", edition of " + c.edition }),
+        return el("li", {}, [el("span", { className: "when", text: shortDate(c.date) + ", edition of " + shortDate(c.edition) }),
           el("b", { text: c.story }), el("span", { text: c.correction })]);
       })));
     } else {
@@ -710,7 +728,7 @@
       var ids = Object.keys(D.sources).filter(function (id) { return b[1](D.sources[id]); })
         .sort(function (x, y) { return D.sources[x].name.localeCompare(D.sources[y].name); });
       if (!ids.length) return;
-      var g = el("div", {}, [el("h3", { text: b[0] })]);
+      var g = el("div", {}, [el("h2", { text: b[0] })]);
       ids.forEach(function (id) {
         g.appendChild(checkbox("src-" + id, D.sources[id].name, prefs.exclude.indexOf(id) < 0, function (on) {
           prefs.exclude = toggleIn(prefs.exclude, id, !on); update();
@@ -724,19 +742,23 @@
     var w = C.weightsFor(prefs);
     WEIGHT_PARTS.forEach(function (k) { $("weight-share-" + k).textContent = Math.round(w[k] * 100) + "%"; });
   }
+  function sliderValue(k, i) { return String(prefs.weights ? prefs.weights[i] : Math.round(R.weights[k] * 100)); }
   function renderWeights() {
-    var box = $("weight-controls"), v = prefs.weights;
+    var box = $("weight-controls");
     box.innerHTML = "";
     WEIGHT_PARTS.forEach(function (k, i) {
       var input = el("input", { type: "range", id: "weight-" + k, min: "0", max: "100", step: "1" });
-      input.value = String(v ? v[i] : Math.round(R.weights[k] * 100));
+      input.value = sliderValue(k, i);
       input.addEventListener("input", function () {
         var values = WEIGHT_PARTS.map(function (part) { return Number($("weight-" + part).value); });
         prefs.weights = C.cleanWeights(values);
-        // All four at zero means nothing to rank by, so go back to the published rule.
-        if (!values.some(function (n) { return n > 0; })) renderWeights();
+        // All four at zero means nothing to rank by, so go back to the published
+        // rule. The sliders stay in place, because one of them is in use.
+        if (!values.some(function (n) { return n > 0; })) {
+          WEIGHT_PARTS.forEach(function (part, n) { $("weight-" + part).value = sliderValue(part, n); });
+        }
         renderShares();
-        update();
+        updateSoon();
       });
       box.appendChild(el("div", { className: "weight" }, [
         el("label", { for: "weight-" + k, text: partLabel(k) }), input,
@@ -762,7 +784,7 @@
     ];
     var tb = $("param-table");
     tb.innerHTML = "";
-    rows.forEach(function (r) { tb.appendChild(el("tr", {}, [el("td", {}, [el("code", { text: r[0] })]), el("td", { text: r[1] })])); });
+    rows.forEach(function (r) { tb.appendChild(el("tr", {}, [el("td", {}, [el("code", { translate: "no", text: r[0] })]), el("td", { text: r[1] })])); });
 
     var base = D.base_url + "/feed.xml";
     var ex = [
@@ -772,7 +794,7 @@
     ];
     var ul = $("examples");
     ul.innerHTML = "";
-    ex.forEach(function (e) { ul.appendChild(el("li", {}, [el("span", { text: e[0] }), el("code", { text: e[1] })])); });
+    ex.forEach(function (e) { ul.appendChild(el("li", {}, [el("span", { text: e[0] }), el("code", { translate: "no", text: e[1] })])); });
     var recipes = $("recipe-list");
     recipes.innerHTML = "";
     C.recipes().forEach(function (r) {
@@ -831,19 +853,27 @@
   function citation(st) {
     var parts = st.articles.map(function (a) {
       var src = D.sources[a.source_id];
-      return (src ? src.name : a.source_id) + ', "' + a.title + '," ' + a.url;
+      return (src ? src.name : a.source_id) + ", \u201c" + a.title + ",\u201d " + a.url;
     });
-    return '"' + st.headline + '." The Standard Edition, ' + shortDate(st.date) + ". Sources: " + parts.join("; ") + ".";
+    return "\u201c" + st.headline + ".\u201d The Standard Edition, " + shortDate(st.date) + ". Sources: " + parts.join("; ") + ".";
   }
 
   function copyText(text, button, fallbackBox) {
+    var label = button.getAttribute("data-label") || button.textContent;
+    button.setAttribute("data-label", label);
     function fallback() {
       fallbackBox.hidden = false;
       fallbackBox.textContent = text;
       button.textContent = "Select the text below to copy";
+      say("Couldn't copy. Select the text below the button.");
+    }
+    function copied() {
+      button.textContent = "Copied";
+      say("Copied.");
+      setTimeout(function () { button.textContent = label; }, 2000);
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () { button.textContent = "Copied"; }, fallback);
+      navigator.clipboard.writeText(text).then(copied, fallback);
     } else fallback();
   }
 
@@ -895,10 +925,32 @@
     return box;
   }
 
+  // The research tools keep their state after the #, so a search can be shared
+  // and bookmarked and the server never sees what anyone looked up.
+  var wantSource = "";
+  function researchAddress() {
+    if ($("view-research").hidden) return;  // a slow load can finish after the reader has left
+    var a = new URLSearchParams();
+    [["lookup", $("lookup-q").value.trim()], ["q", $("rec-q").value.trim()],
+     ["source", wantSource || $("rec-source").value], ["role", $("rec-role").value],
+     ["uncovered", $("rec-uncovered").checked ? "1" : ""]].forEach(function (p) { if (p[1]) a.set(p[0], p[1]); });
+    var state = a.toString();
+    setAddress(location.pathname + location.search + "#research" + (state ? "?" + state : ""));
+  }
+  function readResearch(state) {
+    var a = new URLSearchParams(state);
+    $("lookup-q").value = a.get("lookup") || "";
+    $("rec-q").value = a.get("q") || "";
+    wantSource = a.get("source") || "";
+    $("rec-role").value = a.get("role") || "";
+    $("rec-uncovered").checked = a.get("uncovered") === "1";
+  }
+
   function runLookup() {
     var q = $("lookup-q").value;
     var out = $("lookup-results");
     out.innerHTML = "";
+    researchAddress();
     if (!q.trim()) return;
     out.appendChild(el("p", { className: "empty-note", text: "Searching…" }));
     loadResearch().then(function (idx) {
@@ -917,6 +969,7 @@
     });
   }
 
+  var RECORD_LIMIT = 100;
   function renderRecords() {
     var list = $("rec-list"), count = $("rec-count");
     loadResearch().then(function (idx) {
@@ -928,11 +981,14 @@
         Object.keys(ids).sort(function (a, b) { return (D.sources[a] || {}).name > (D.sources[b] || {}).name ? 1 : -1; })
           .forEach(function (id) { sel.appendChild(el("option", { value: id, text: D.sources[id] ? D.sources[id].name : id })); });
       }
+      if (wantSource) { sel.value = wantSource; wantSource = ""; }
+      researchAddress();
       var rows = RS.searchRecords(idx, { q: $("rec-q").value, source: sel.value, role: $("rec-role").value, uncovered: $("rec-uncovered").checked });
-      count.textContent = plural(rows.length, "item", "items") + " from the last " + plural(idx.days.length, "edition", "editions") + ".";
+      count.textContent = (rows.length > RECORD_LIMIT ? "The newest " + RECORD_LIMIT + " of " + rows.length + " items" : plural(rows.length, "item", "items")) +
+        " from " + (idx.days.length === 1 ? "the latest edition" : "the last " + idx.days.length + " editions") + ".";
       list.innerHTML = "";
       if (!rows.length) list.appendChild(el("li", { className: "empty-note", text: "Nothing matches. Try fewer words, or clear a filter." }));
-      rows.slice(0, 100).forEach(function (r) {
+      rows.slice(0, RECORD_LIMIT).forEach(function (r) {
         var src = D.sources[r.source_id];
         var summary = r.summary.length > 240 ? r.summary.slice(0, 237).replace(/\s+\S*$/, "") + "…" : r.summary;
         list.appendChild(el("li", {}, [
@@ -989,7 +1045,7 @@
       href: D.repo_url + "/issues/new?template=wrong-story.yml&title=" + encodeURIComponent("Wrong story: " + s.headline) +
         "&edition=" + when + "&story=" + encodeURIComponent(link), text: "Does this summary seem wrong?" })]));
     if (s.day > 1 && !older) {
-      var days = earlierDays(s);
+      var days = earlierDays(s, "h3");
       side.appendChild(el("div", { className: "meta" }, [days.button]));
       side.appendChild(days.box);
     }
@@ -1031,10 +1087,14 @@
     var s = D.stories.filter(function (x) { return x.id === id; })[0];
     if (s) { storyPage(scoreStory(s, C.excluded(prefs), C.weightsFor(prefs))); return; }
     var body = $("story-page");
+    // The reader may have moved on while this loaded.
+    function stillHere() { return location.hash === "#story-" + id; }
     function missing() {
+      if (!stillHere()) return;
       $("story-title").textContent = "This story isn't available";
       $("story-note").textContent = "It may be older than the last 30 days of editions.";
       document.title = $("story-title").textContent + " | The Standard Edition";
+      say($("story-title").textContent + ". " + $("story-note").textContent);
     }
     $("story-topic").innerHTML = "";
     $("story-title").textContent = "Loading the story…";
@@ -1043,18 +1103,24 @@
     loadResearch().then(function (idx) {
       var old = idx && idx.stories.filter(function (x) { return x.id === id; })[0];
       if (!old) { missing(); return; }
+      if (!stillHere()) return;
       var known = old.articles.filter(function (a) { return D.sources[a.source_id]; });
       storyPage({ story: old, articles: known, score: C.score(known.map(function (a) { return a.source_id; })) }, true);
+      say(old.headline);
     }, missing);
   }
 
   // ---------- the ledger
-  function dollars(n) { return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function ledgerTable(rows, columns) {
-    return el("div", { className: "table-wrap" }, [el("table", {}, [
+  var USD = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+  function dollars(n) { return USD.format(n); }
+  function ledgerTable(rows, columns, label) {
+    return el("div", { className: "table-wrap", tabindex: "0", role: "region", "aria-label": label }, [el("table", {}, [
       el("thead", {}, [el("tr", {}, columns.map(function (c) { return el("th", { text: c }); }))]),
       el("tbody", {}, rows.map(function (r) {
-        return el("tr", {}, columns.map(function (c) { return el("td", { text: r[c] || "" }); }));
+        return el("tr", {}, columns.map(function (c) {
+          var when = c === "Date" && /^\d{4}-\d{2}-\d{2}$/.test(r[c] || "");
+          return el("td", { className: when ? "date" : null, text: when ? shortDate(r[c]) : r[c] || "" });
+        }));
       }))
     ])]);
   }
@@ -1065,15 +1131,17 @@
     var out = $("ledger-out"), into = $("ledger-in");
     out.innerHTML = "";
     into.innerHTML = "";
-    if (L.money_out.length) out.appendChild(ledgerTable(L.money_out, ["Date", "What", "Amount", "Recurring", "Receipt or note"]));
+    if (L.money_out.length) out.appendChild(ledgerTable(L.money_out, ["Date", "What", "Amount", "Recurring", "Receipt or note"], "Money out"));
     else out.appendChild(el("p", { text: "Nothing has been spent yet." }));
-    if (L.money_in.length) into.appendChild(ledgerTable(L.money_in, ["Date", "From", "Amount", "Note"]));
+    if (L.money_in.length) into.appendChild(ledgerTable(L.money_in, ["Date", "From", "Amount", "Note"], "Money in"));
     else into.appendChild(el("p", { text: "No donations are accepted yet, so nothing has come in." }));
     var costs = $("ledger-costs");
     costs.innerHTML = "";
-    costs.appendChild(ledgerTable(L.running_costs, ["Service", "What it's for", "Cost"]));
+    if (L.running_costs.length) costs.appendChild(ledgerTable(L.running_costs, ["Service", "What it's for", "Cost"], "Running costs"));
+    else costs.appendChild(el("p", { text: "No running costs are listed yet." }));
     var rules = $("ledger-rules");
     rules.innerHTML = "";
+    rules.parentNode.hidden = !L.rules.length;
     L.rules.forEach(function (r) { rules.appendChild(el("li", { text: r })); });
   }
 
@@ -1095,8 +1163,8 @@
         (dir === "flat" ? "unchanged" : (dir === "up" ? "up " : "down ") + change);
       // FRED posts each series on its own schedule, so one that lags says its own date.
       var late = m.date !== newest ? monthDay(m.date) : "";
-      return el("a", { className: "tick", href: m.source_url, target: "_blank", rel: "noopener",
-        title: words + (late ? ", as of " + late : "") + " (FRED)" }, [
+      var name = words + (late ? ", as of " + late : "") + " (FRED)";
+      return el("a", { className: "tick", href: m.source_url, target: "_blank", rel: "noopener", title: name, "aria-label": name }, [
         el("b", { text: m.label }),
         el("span", { text: m.prefix + fmt(m.value, m.decimals) + m.suffix }),
         el("span", { className: dir, text: dir === "flat" ? "unch" : arrow + " " + sign + change }),
@@ -1116,20 +1184,31 @@
     $("ticker-label").href = "#how-it-works";
     box.setAttribute("role", "group");
     box.setAttribute("aria-label", "Market closes for " + label);
+    // The row stops moving once a link has focus, so bring the link into view after that.
+    box.addEventListener("focusin", function (e) {
+      if (e.target.matches(".tick:focus-visible")) e.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
+    box.addEventListener("focusout", function () { box.querySelector(".ticker-window").scrollLeft = 0; });
     box.hidden = false;
   }
 
   // ---------- routing
   // Moving focus to the new view's heading tells keyboard and screen-reader users
   // the page changed. The first load keeps the browser's own starting point.
-  function route(moved) {
-    var h = (location.hash || "").replace("#", "");
+  // Back and Forward return to where the reader was on that page.
+  function route(moved, returning) {
+    var parts = (location.hash || "").replace("#", "").split("?"), h = parts[0];
     var story = /^story-(\d+)$/.exec(h), target = null;
     if (story) h = "story";
     if (h === "contact") { target = h; h = "about"; }
+    else if (/^topic-/.test(h) && $(h)) { target = h; h = "all-stories"; }
     if (VIEWS.indexOf(h) < 0) h = "today";
     VIEWS.forEach(function (v) { $("view-" + v).hidden = v !== h; });
-    if (h === "research") renderRecords();
+    if (h === "research") {
+      if (parts[1]) readResearch(parts[1]);
+      renderRecords();
+      if (parts[1] && $("lookup-q").value) runLookup();
+    }
     var name = document.querySelector('a[data-view="' + h + '"]');
     document.title = h === "today" || !name ? "The Standard Edition" : name.textContent + " | The Standard Edition";
     if (story) renderStory(Number(story[1]));
@@ -1137,7 +1216,7 @@
       if (a.getAttribute("data-view") === h) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });
     if (target) $(target).scrollIntoView({ block: "start" });
-    else window.scrollTo(0, 0);
+    else window.scrollTo(0, returning ? places[location.hash || "#"] || 0 : 0);
     if (moved) {
       var heading = (target ? $(target) : $("view-" + h)).querySelector("h1, h2");
       heading.setAttribute("tabindex", "-1");
@@ -1150,12 +1229,22 @@
     document.documentElement.classList.toggle("bn-dark", dark);
     var t = $("theme-toggle");
     t.textContent = dark ? "Light" : "Dark";
-    t.setAttribute("aria-pressed", String(dark));
     t.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+    var desk = getComputedStyle(document.documentElement).getPropertyValue("--desk").trim();
+    if (desk) document.querySelector('meta[name="theme-color"]').setAttribute("content", desk);
     if (remember) { try { localStorage.setItem("boringnews.theme", dark ? "dark" : "light"); } catch (e) {} }
   }
 
+  // Sliders and typing change settings many times a second, and every view has to
+  // be rebuilt for each change, so those wait until the reader pauses.
+  var updateTimer = null;
+  function updateSoon() {
+    clearTimeout(updateTimer);
+    updateTimer = setTimeout(update, 120);
+  }
   function update() {
+    clearTimeout(updateTimer);
+    $("undo-reset").hidden = true;
     savePrefs(prefs);
     var res = select(prefs);
     renderToday(res);
@@ -1163,22 +1252,41 @@
     renderHow();
     renderSettingsSummary();
   }
+  function restore(query) {
+    prefs = fromQuery("?" + query);
+    replaced = null;
+    renderControls();
+    update();
+    renderNotices();
+  }
 
   setTheme(document.documentElement.classList.contains("bn-dark"), false);
   $("theme-toggle").addEventListener("click", function () {
     setTheme(!document.documentElement.classList.contains("bn-dark"), true);
   });
+  var beforeReset = "";
   $("reset").addEventListener("click", function () {
+    beforeReset = toQuery(prefs);
     prefs = JSON.parse(JSON.stringify(DEFAULTS));
     renderControls();
     update();
+    $("undo-reset").hidden = false;
+    say("Settings reset.");
+  });
+  $("undo-reset").addEventListener("click", function () {
+    restore(beforeReset);
+    $("reset").focus();
+    say("Your settings are back.");
   });
   function copyField(buttonId, inputId, statusId) {
     $(buttonId).addEventListener("click", function () {
       var input = $(inputId), status = $(statusId);
       function fallback() { input.focus(); input.select(); status.textContent = "Selected. Press Ctrl+C or Cmd+C to copy."; }
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(input.value).then(function () { status.textContent = "Copied."; }, fallback);
+        navigator.clipboard.writeText(input.value).then(function () {
+          status.textContent = "Copied.";
+          setTimeout(function () { status.textContent = ""; }, 3000);
+        }, fallback);
       } else fallback();
     });
   }
@@ -1186,16 +1294,30 @@
   copyField("copy-recipe", "recipe-link", "recipe-status");
   $("recipe-name").addEventListener("input", function () {
     prefs.recipe = C.cleanName(this.value);
-    update();
+    updateSoon();
   });
-  window.addEventListener("hashchange", function () { route(true); });
+  var places = {}, followedLink = false;
+  if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+  document.addEventListener("click", function (e) {
+    if (e.target.closest && e.target.closest('a[href^="#"]:not(#skip)')) followedLink = true;
+  });
+  window.addEventListener("hashchange", function (e) {
+    places["#" + (e.oldURL.split("#")[1] || "")] = window.scrollY;
+    route(true, !followedLink);
+    followedLink = false;
+  });
   $("skip").addEventListener("click", function (e) {
     e.preventDefault();
     $("main").focus();
   });
   $("lookup-form").addEventListener("submit", function (e) { e.preventDefault(); runLookup(); });
-  ["rec-q", "rec-source", "rec-role", "rec-uncovered"].forEach(function (id) {
-    $(id).addEventListener(id === "rec-q" ? "input" : "change", renderRecords);
+  var recordTimer = null;
+  $("rec-q").addEventListener("input", function () {
+    clearTimeout(recordTimer);
+    recordTimer = setTimeout(renderRecords, 150);
+  });
+  ["rec-source", "rec-role", "rec-uncovered"].forEach(function (id) {
+    $(id).addEventListener("change", renderRecords);
   });
   if (D.research_url) $("research-file").href = D.research_url;
 

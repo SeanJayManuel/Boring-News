@@ -2,6 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
 <title>The Standard Edition</title>
 <meta name="description" content="The day's news, once a day. 100% transparent. 100% free. Always.">
 <link rel="icon" type="image/png" sizes="32x32" href="brand/favicon.png">
@@ -36,16 +37,17 @@
 
 <a class="skip" id="skip" href="#main">Skip to the news</a>
 <noscript><p class="note">This page needs JavaScript to show the edition. Without it, you can read the day's stories in any feed reader using <a href="feed.xml">the RSS feed</a>.</p></noscript>
-<p class="note" id="sample-note" hidden>This is a sample edition. Every outlet, place and story in it is invented.</p>
+<p class="sr-only" id="announce" role="status"></p>
 
 <header class="masthead">
+  <p class="note" id="sample-note" hidden>This is a sample edition. Every outlet, place and story in it is invented.</p>
   <div class="mast-inner">
     <div class="mast-top">
       <p class="date" id="dateline"></p>
-      <button type="button" class="theme" id="theme-toggle" aria-pressed="false">Dark</button>
+      <button type="button" class="theme" id="theme-toggle">Dark</button>
     </div>
-    <a class="name" href="#today" aria-label="The Standard Edition"><span aria-hidden="true">The <span class="initial">S</span>tandard Edition</span></a>
-    <p class="address">standardedition.org</p>
+    <a class="name" href="#today" aria-label="The Standard Edition" translate="no"><span aria-hidden="true">The <span class="initial">S</span>tandard Edition</span></a>
+    <p class="address" translate="no">standardedition.org</p>
     <nav class="tabs" aria-label="Sections">
       <a href="#today" data-view="today">Today</a>
       <a href="#all-stories" data-view="all-stories">All stories</a>
@@ -111,8 +113,8 @@
     <div id="outlet-list"></div>
     <div class="sheet prose">
       <h2>How this is measured</h2>
-      <p>A story counts as "every side covered" when at least one left, one center and one right outlet ran it. For each outlet we count how many of those stories appeared in its RSS feed during the edition window, which is about the last 36 hours.</p>
-      <p>Feeds don't carry everything an outlet publishes, so a story listed under "Didn't run" may have appeared elsewhere on its site. These numbers describe what each feed contained. They don't explain why, and one day is a small sample.</p>
+      <p>A story counts as “every side covered” when at least one left, one center and one right outlet ran it. For each outlet we count how many of those stories appeared in its RSS feed during the edition window, which is about the last 36 hours.</p>
+      <p>Feeds don't carry everything an outlet publishes, so a story listed under “Didn't run” may have appeared elsewhere on its site. These numbers describe what each feed contained. They don't explain why, and one day is a small sample.</p>
     </div>
   </section>
 
@@ -127,7 +129,7 @@
       <h2>Look up coverage</h2>
       <p>Paste a claim, a headline or a link. You'll see which outlets covered it, which didn't, and any government record behind it.</p>
       <form class="search" id="lookup-form" role="search">
-        <input id="lookup-q" type="search" autocomplete="off" placeholder="For example: judge blocks voter ID rule" aria-label="Claim, headline or link">
+        <input id="lookup-q" name="lookup" type="search" autocomplete="off" placeholder="Judge blocks voter ID rule…" aria-label="Claim, headline or link">
         <button type="submit">Look up</button>
       </form>
       <div id="lookup-results" aria-live="polite"></div>
@@ -137,16 +139,16 @@
       <h2>Search government records</h2>
       <p>Every bill, rule, ruling and official statement we've read, newest first. Records no outlet covered are often worth a closer look.</p>
       <div class="filters">
-        <input id="rec-q" type="search" autocomplete="off" placeholder="Search words" aria-label="Search records">
-        <select id="rec-source" aria-label="Source"><option value="">All sources</option></select>
-        <select id="rec-role" aria-label="Kind">
+        <input id="rec-q" name="q" type="search" autocomplete="off" placeholder="Search words…" aria-label="Search records">
+        <select id="rec-source" name="source" aria-label="Source"><option value="">All sources</option></select>
+        <select id="rec-role" name="role" aria-label="Kind">
           <option value="">Records and statements</option>
           <option value="record">Records only</option>
           <option value="statement">Statements only</option>
         </select>
-        <label class="check" for="rec-uncovered"><input type="checkbox" id="rec-uncovered"> Only ones no outlet covered</label>
+        <label class="check" for="rec-uncovered"><input type="checkbox" id="rec-uncovered" name="uncovered"> Only ones no outlet covered</label>
       </div>
-      <p class="hint" id="rec-count"></p>
+      <p class="hint" id="rec-count" role="status"></p>
       <ul class="records" id="rec-list"></ul>
     </div>
 
@@ -181,7 +183,7 @@
         <div><dt><span class="scale" aria-hidden="true"><span class="side lean-left on"><i></i><i></i></span><span class="side lean-center on"><i></i></span><span class="side lean-right on"><i></i><i></i><i></i></span></span></dt><dd>Every side ran it: two left outlets, one center and three right.</dd></div>
         <div><dt><span class="scale" aria-hidden="true"><span class="side lean-left gap"></span><span class="side lean-center on"><i></i></span><span class="side lean-right on"><i></i><i></i></span></span></dt><dd>Stripes: we read that side, and no outlet on it ran the story.</dd></div>
         <div><dt><span class="scale" aria-hidden="true"><span class="side lean-left unread"></span><span class="side lean-center on"><i></i></span><span class="side lean-right on"><i></i></span></span></dt><dd>Dashed outline: we couldn't read that side that day, so we don't know.</dd></div>
-        <div><dt id="key-plate"></dt><dd>The picture beside a story shows the same thing in the same order: left, center and right, with one ring per outlet. Circles overlap to show sides covering the same story. A dotted amber circle means no outlet on that side ran it, and a black square means a government record backs it.</dd></div>
+        <div><dt id="key-plate"></dt><dd>The picture beside a story shows the same thing in the same order: left, center and right, with one ring per outlet. Circles overlap to show sides covering the same story. A dotted amber circle means no outlet on that side ran it, and a solid square means a government record backs it.</dd></div>
       </dl>
     </div>
 
@@ -218,8 +220,8 @@
 
     <div class="sheet prose">
       <h2>Sources and their lean</h2>
-      <p>Every source starts with a lean label. When ratings from published media-bias services are added for a source, its label becomes their average, and the raters are listed under "Rated by". If the list has more outlets on one side than another, outlets are weighted so each side counts equally toward coverage; "Counts as" shows each outlet's weight. You can turn any source off in Your feed.</p>
-      <div class="table-wrap">
+      <p>Every source starts with a lean label. When ratings from published media-bias services are added for a source, its label becomes their average, and the raters are listed under “Rated by.” If the list has more outlets on one side than another, outlets are weighted so each side counts equally toward coverage; “Counts as” shows each outlet's weight. You can turn any source off in Your feed.</p>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Sources and their lean">
         <table>
           <thead><tr><th>Source</th><th>Lean</th><th>Rated by</th><th>Counts as</th><th>Kind</th></tr></thead>
           <tbody id="source-table"></tbody>
@@ -257,11 +259,11 @@
         </fieldset>
         <fieldset>
           <legend>Show</legend>
-          <div class="options">
-            <label for="official"><input type="checkbox" id="official"> Government records and statements no outlet covered</label>
-            <label for="blindspots"><input type="checkbox" id="blindspots"> Stories only one side ran</label>
-            <label for="statements"><input type="checkbox" id="statements"> Government statements, like press releases</label>
-            <label for="headlines-only"><input type="checkbox" id="headlines-only"> Headlines only</label>
+          <div class="options stacked">
+            <label for="official"><input type="checkbox" id="official" name="official"> Government records and statements no outlet covered</label>
+            <label for="blindspots"><input type="checkbox" id="blindspots" name="blindspots"> Stories only one side ran</label>
+            <label for="statements"><input type="checkbox" id="statements" name="statements"> Government statements, like press releases</label>
+            <label for="headlines-only"><input type="checkbox" id="headlines-only" name="headlines-only"> Headlines only</label>
           </div>
         </fieldset>
         <fieldset>
@@ -271,6 +273,7 @@
         </fieldset>
         <div class="settings-foot">
           <button type="button" id="reset">Reset to defaults</button>
+          <button type="button" id="undo-reset" hidden>Undo reset</button>
           <span class="hint" id="settings-summary"></span>
         </div>
       </div>
@@ -281,11 +284,11 @@
       <p>A recipe is a link: the settings above, with a name. There's no account and we keep nothing. Bookmark the link to save it, or send it to someone. Opening one replaces your settings in that browser.</p>
       <div class="recipe-name">
         <label for="recipe-name">Name</label>
-        <input id="recipe-name" type="text" maxlength="60" autocomplete="off" placeholder="For example: Morning brief">
+        <input id="recipe-name" name="recipe" type="text" maxlength="60" autocomplete="off" placeholder="For example: Morning brief…">
       </div>
       <div class="feed">
-        <input id="recipe-link" type="text" readonly aria-label="Recipe link">
-        <button type="button" id="copy-recipe">Copy</button>
+        <input id="recipe-link" name="recipe-link" type="url" readonly autocomplete="off" spellcheck="false" aria-label="Recipe link">
+        <button type="button" id="copy-recipe">Copy recipe link</button>
       </div>
       <p class="hint" id="recipe-status" role="status"></p>
       <h3>Try one</h3>
@@ -295,10 +298,10 @@
     <div class="sheet prose" id="subscribe">
       <h2>Get it by RSS</h2>
       <p>Add this address to any feed reader. It carries the settings above.</p>
-      <label class="check" for="spotlight-only"><input type="checkbox" id="spotlight-only"> Only the top <span class="spot-n"></span> stories each day</label>
+      <label class="check" for="spotlight-only"><input type="checkbox" id="spotlight-only" name="spotlight"> <span>Only the top <span class="spot-n"></span> stories each day</span></label>
       <div class="feed">
-        <input id="feed-url" type="text" readonly aria-label="Feed address">
-        <button type="button" id="copy-feed">Copy</button>
+        <input id="feed-url" name="feed-url" type="url" readonly autocomplete="off" spellcheck="false" aria-label="Feed address">
+        <button type="button" id="copy-feed">Copy feed address</button>
       </div>
       <p class="hint" id="copy-status" role="status"></p>
     </div>
@@ -306,7 +309,7 @@
     <div class="sheet prose">
       <h2>Build a feed by hand</h2>
       <p>Every setting is a part of the feed address, so you can write one yourself or share it. Leave out anything you want at its default.</p>
-      <div class="table-wrap">
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Feed address settings">
         <table class="params">
           <thead><tr><th>Add</th><th>What it does</th></tr></thead>
           <tbody id="param-table"></tbody>
@@ -320,9 +323,9 @@
       <h2>Run your own copy</h2>
       <p>All of the Standard Edition is open source. To change the rules for everyone who reads your copy, fork the code and edit three files:</p>
       <ul>
-        <li><code>sources.yaml</code> lists every outlet and official source, with its lean. Add, remove or relabel them.</li>
-        <li><code>boringnews/rubric.py</code> holds the weights and thresholds shown in How it works.</li>
-        <li><code>editorial/style_guide.md</code> holds the writing rules the summaries follow, and <code>editorial/banned_words.txt</code> lists the words the checker rejects.</li>
+        <li><code translate="no">sources.yaml</code> lists every outlet and official source, with its lean. Add, remove or relabel them.</li>
+        <li><code translate="no">boringnews/rubric.py</code> holds the weights and thresholds shown in How it works.</li>
+        <li><code translate="no">editorial/style_guide.md</code> holds the writing rules the summaries follow, and <code translate="no">editorial/banned_words.txt</code> lists the words the checker rejects.</li>
       </ul>
       <p>The code is on <a id="repo-link" href="#">GitHub</a>. Changes to the rules are made in public commits, so you can see when and why anything changed.</p>
       <p>Think we got something wrong? <a href="__REPO_URL__/issues/new/choose">Challenge a label, report a wrong story, or propose a source or rubric change.</a></p>

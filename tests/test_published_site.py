@@ -76,9 +76,9 @@ def serve(site: Path, tmp_path: Path, *urls: str) -> list[dict]:
     return json.loads(out.stdout)
 
 
-def open_page(site: Path, url: str, research: str = "ok") -> dict:
-    out = subprocess.run([NODE, str(config.ROOT / "tests" / "page_smoke.cjs"), str(site / "index.html"), url, research],
-                         capture_output=True, text=True, check=True)
+def open_page(site: Path, url: str, research: str = "ok", saved: str | None = None) -> dict:
+    args = [NODE, str(config.ROOT / "tests" / "page_smoke.cjs"), str(site / "index.html"), url, research]
+    out = subprocess.run(args + ([] if saved is None else [saved]), capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
 
 
@@ -164,6 +164,64 @@ def test_page_renders_the_edition(site):
     assert page["lede"].startswith("Five stories today.") and page["spotlight"] == 5
     assert page["ticker"] == 14 and page["dataLink"]
     assert page["feedUrl"] == f"{BASE}/feed.xml?threshold=strict"
+
+
+def test_category_names_are_title_case():
+    words = [w for name in TOPICS.values() for w in name.split() if w != "&"]
+    assert words and all(w[0].isupper() for w in words)
+
+
+def test_sample_note_sits_in_a_landmark(site):
+    html = (site / "index.html").read_text()
+    assert html.index('<header class="masthead">') < html.index('id="sample-note"') < html.index("</header>")
+
+
+@jsdom
+def test_headings_and_names_read_in_order(site):
+    page = open_page(site, f"{BASE}/")
+    assert page["leadHeading"] == "H2" and page["themePressed"] is None
+    assert page["themeColor"] and page["allSummary"].count(" backed by a government record.") == 1
+    assert all(link.startswith("#topic-") for link in page["topicLinks"]) and page["topicLinks"]
+    assert all(" " in name for name in page["topicNames"])
+    assert all("\u25b2" not in name and "\u25bc" not in name and name.endswith("(FRED)") for name in page["tickNames"])
+
+
+@jsdom
+def test_a_topic_link_opens_its_place_in_all_stories(site):
+    topic = open_page(site, f"{BASE}/")["topicLinks"][0]
+    page = open_page(site, f"{BASE}/{topic}")
+    assert page["errors"] == [] and page["scrolledTo"] == topic[1:] and not page["scrolledToHidden"]
+
+
+@jsdom
+def test_a_research_search_can_be_shared(site):
+    page = open_page(site, f"{BASE}/#research?lookup=water&q=river&uncovered=1")
+    assert page["errors"] == [] and page["researchLookup"] == "water"
+    assert page["researchQuery"] == "river" and page["researchUncovered"] is True
+    assert page["address"].endswith("#research?lookup=water&q=river&uncovered=1")
+    assert page["recCount"].endswith(" edition.") or page["recCount"].endswith(" editions.")
+
+
+@jsdom
+def test_reset_can_be_undone(site):
+    page = open_page(site, f"{BASE}/?weights=10,20,30,40")
+    assert page["undoOffered"] and page["undoGone"]
+    assert page["reset"]["sliders"] != page["undone"]["sliders"] and "weights=" in page["undone"]["feedUrl"]
+
+
+@jsdom
+def test_all_sliders_at_zero_stay_in_place(site):
+    page = open_page(site, f"{BASE}/")
+    assert page["sliderKept"] and page["allZero"]["sliders"] == [40, 25, 10, 25]
+
+
+@jsdom
+def test_a_settings_link_offers_the_way_back(site):
+    replacing = open_page(site, f"{BASE}/?threshold=broad", saved="threshold=strict")
+    assert any(n.startswith("This link replaced the settings") for n in replacing["notices"])
+    same = open_page(site, f"{BASE}/?threshold=strict", saved="threshold=strict")
+    fresh = open_page(site, f"{BASE}/?threshold=broad")
+    assert not any("replaced" in n for n in same["notices"] + fresh["notices"])
 
 
 @jsdom

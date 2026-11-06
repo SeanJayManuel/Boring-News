@@ -44,7 +44,7 @@ Agreement only counts when sources are independent, and every outlet can miss th
 
 1. **Show, don't rule.** The site shows evidence. It doesn't decide for the reader. This is why we never highlight or mark words in outlets' text.
 2. **The gap is the signal.** Who didn't cover a story is the most distinctive thing on the page, and it gets the only stripes.
-3. **Calm is a feature.** Nothing flashes or competes for attention, and the one thing that moves, the market ticker, is slow and stops under the cursor. The edition has an end.
+3. **Calm is a feature.** Nothing flashes or competes for attention, and the one thing that moves, the market ticker, is slow, stops under the cursor and holds still on touch screens. The edition has an end.
 4. **Classic in the masthead, open everywhere else.** The newspaper tradition earns trust at the top. Below it, the page is spacious and speaks plainly.
 5. **Nothing hidden.** Any claim the site makes links to its proof.
 6. **Built for every reader.** Each decision has to survive other languages, slow connections, screen readers and blocked domains.
@@ -95,7 +95,7 @@ Agreement only counts when sources are independent, and every outlet can miss th
 - **The name:** The Standard Edition. Use "the Standard Edition" mid-sentence, with a lowercase "the."
 - **The address:** standardedition.org, always lowercase.
 - **Sections:** Today, All stories, Outlets, Research, How it works, Your feed, About us.
-- **Terms:** use "outlets," "stories," "edition" and "government record," as defined in the glossary. Use sentence case everywhere.
+- **Terms:** use "outlets," "stories," "edition" and "government record," as defined in the glossary. Use sentence case everywhere except category names, which are title case: Health & Science.
 
 ---
 
@@ -240,7 +240,7 @@ Both main families cover Latin, Cyrillic, Greek and Vietnamese. Retire Schibsted
 
 - **Nothing below 14px.**
 - **Keep reading text under 34em wide.** That's about 70 characters.
-- **Use sentence case.** No all-caps labels and no spaced-out letters.
+- **Use sentence case.** The one exception is category names, like Economy & Business. No all-caps labels and no spaced-out letters.
 - **Literata weights are 400 and 500 only.** Heavy headlines read as shouting.
 - **No italics for emphasis.** Use them only for titles of works.
 - **Left-align reading text.** Center only the logo, the navigation, the tagline and the About opening. Fill the width with columns, not with centered paragraphs.
@@ -439,7 +439,7 @@ Flat segments with direct labels where possible. Follow the score chart colors a
 
 ### Market closes
 
-A slow scrolling ticker of the latest closes under the navigation, in Source Sans 3 at 15px. FRED posts each series on its own schedule, so the label gives the newest date and any value that lags shows its own. It's the latest close, not a live price, and that's on purpose: FRED is free and the site updates once a day. It stops on hover or keyboard focus. With `prefers-reduced-motion` it holds still and the reader swipes it instead. Each value links to its source, and rises or falls are shown with words or signs as well as color.
+A slow scrolling ticker of the latest closes under the navigation, in Source Sans 3 at 15px. FRED posts each series on its own schedule, so the label gives the newest date and any value that lags shows its own. It's the latest close, not a live price, and that's on purpose: FRED is free and the site updates once a day. It stops on hover or keyboard focus. On touch screens and with `prefers-reduced-motion` it holds still and the reader swipes it instead, because moving content needs a way to stop it. Each value links to its source, and rises or falls are shown with words or signs as well as color.
 
 ### Notices
 
@@ -605,6 +605,8 @@ Before merging any change a reader can see:
 | 2026-11-05 | Tagline: "100% transparent. 100% free. Always." | Replaces "The rest is up to you." It says plainly what the site promises |
 | 2026-11-05 | Keep the scrolling ticker | Replaces the still row. It gives the masthead some life and stays slow |
 | 2026-11-05 | No Pause button on the ticker | Keeps the row clean. It still stops on hover or focus, and holds still with reduced motion. Phone readers can't stop it, which needs review in the accessibility audit (L10) |
+| 2026-11-05 | Ticker holds still on touch screens | Replaces the open question above. Moving content needs a way to stop it, and a phone has no hover. This keeps the row clean without a Pause button |
+| 2026-11-05 | Title case for category names | A name like Health & Science read as unfinished with a lowercase second word |
 | 2026-11-05 | Latest closes from FRED, not live prices | Free, and it fits a once-a-day edition |
 | 2026-11-05 | Ledger in the footer, not the top navigation | Readers should be able to find it, but it isn't a daily destination |
 

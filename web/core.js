@@ -374,6 +374,13 @@
     return { days: days, missing: Math.max(0, (me.day || 1) - 1 - days.length) };
   }
 
+  // A record's words, kept so typing in the search box doesn't tokenize every record again.
+  var RECORD_WORDS = new WeakMap();
+  function recordWords(r) {
+    if (!RECORD_WORDS.has(r)) RECORD_WORDS.set(r, tokens(r.title + " " + r.summary + " " + r.story_headline));
+    return RECORD_WORDS.get(r);
+  }
+
   // Filter government records. Every search word must appear (in any order).
   function searchRecords(index, f) {
     f = f || {};
@@ -386,7 +393,7 @@
       if (f.from && r.date < f.from) return false;
       if (f.to && r.date > f.to) return false;
       if (qt.length) {
-        var have = tokens(r.title + " " + r.summary + " " + r.story_headline);
+        var have = recordWords(r);
         if (!qt.every(function (t) { return have.indexOf(t) >= 0; })) return false;
       }
       return true;

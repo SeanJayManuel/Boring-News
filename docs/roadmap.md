@@ -147,8 +147,8 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 ### L10. Launch page basics 🟡 S
 
 - **Exists:** the reader page, RSS, and a local demo.
-- **Built (2026-11-05):** a footer, story pages, a favicon, social preview tags, a skip link, focus and page titles that follow each tab, notes for failed feeds and old editions, and tested empty states. Checked by keyboard at desktop width, and at 320px, 375px and 1440px wide.
-- **Gaps:** nobody has tested it with a real screen reader, the ticker has no way to stop on a phone (accessibility rules ask for one on moving content), no outside reader has tried it, and link previews can't be tested until the site is live.
+- **Built (2026-11-05):** a footer, story pages, a favicon, social preview tags, a skip link, focus and page titles that follow each tab, a ticker that holds still on touch screens, notes for failed feeds and old editions, and tested empty states. Checked by keyboard at desktop width, and at 320px, 375px and 1440px wide.
+- **Gaps:** nobody has tested it with a real screen reader, no outside reader has tried it, and link previews can't be tested until the site is live.
 - **Done when:** a link previews properly when shared, and the page passes a real screen-reader check.
 
 ### L11. About page 🟡 S
