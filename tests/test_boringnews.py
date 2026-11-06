@@ -168,6 +168,9 @@ def test_web_routes(tmp_path, monkeypatch):
     assert feed.status_code == 200
     assert len(ET.fromstring(feed.content).findall("./channel/item")) == 8
     assert client.get("/feed.xml?date=1999-01-01").status_code == 404
+    missing = client.get("/?date=1999-01-01")
+    assert missing.status_code == 404 and "no edition for that date" in missing.text
+    assert client.get("/brand/favicon.png").status_code == 200
     assert "/mcp" in client.get("/api/docs.md").text
 
 

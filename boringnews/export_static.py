@@ -28,6 +28,8 @@ from .render import load_corrections, render_page
 from .sources import load_sources
 from .topics import TOPICS
 
+BRAND = config.ROOT / "web" / "brand"
+
 
 def export(edition: Edition, research_index: dict, out: Path, base_url: str, sample: bool = False,
            cname: str | None = None, static_feed: bool = False, archive_dir: Path | None = None,
@@ -57,6 +59,12 @@ def export(edition: Edition, research_index: dict, out: Path, base_url: str, sam
     (out / "index.html").write_text(render_page(data))
     (out / "edition.json").write_text(json.dumps(data, ensure_ascii=False))
     written += [out / "index.html", out / "edition.json"]
+
+    # The favicon and the image a shared link previews with.
+    (out / "brand").mkdir(exist_ok=True)
+    for f in sorted(BRAND.glob("*.png")):
+        shutil.copy(f, out / "brand" / f.name)
+        written.append(out / "brand" / f.name)
 
     if cname:  # GitHub Pages custom domain
         (out / "CNAME").write_text(cname.strip() + "\n")

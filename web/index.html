@@ -2,12 +2,25 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Standard Edition</title>
-<meta name="description" content="The day's news, once a day. 100% transparent. 100% free.">
-<link rel="alternate" type="application/rss+xml" title="Standard Edition" href="/feed.xml">
+<title>The Standard Edition</title>
+<meta name="description" content="The day's news, once a day. 100% transparent. 100% free. Always.">
+<link rel="icon" type="image/png" sizes="32x32" href="brand/favicon.png">
+<link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="The Standard Edition">
+<meta property="og:title" content="The Standard Edition">
+<meta property="og:description" content="The day's news, once a day. Who covered it, who didn't, and every rule in public.">
+<meta property="og:url" content="__BASE_URL__/">
+<meta property="og:image" content="__BASE_URL__/brand/social.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Standard Edition. 100% transparent. 100% free. Always.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" type="application/rss+xml" title="The Standard Edition" href="/feed.xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Geist+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,500&family=Source+Sans+3:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manufacturing+Consent&text=S&display=swap">
 <script>
   // Light by default. Dark only if the reader chose it here, or the host app asks for it.
   (function () {
@@ -21,16 +34,18 @@
 /*__CSS__*/
 </style>
 
+<a class="skip" id="skip" href="#main">Skip to the news</a>
+<noscript><p class="note">This page needs JavaScript to show the edition. Without it, you can read the day's stories in any feed reader using <a href="feed.xml">the RSS feed</a>.</p></noscript>
+<p class="note" id="sample-note" hidden>This is a sample edition. Every outlet, place and story in it is invented.</p>
+
 <header class="masthead">
   <div class="mast-inner">
-    <div class="mast-row">
-      <a class="name" href="#today">Standard Edition</a>
-      <div class="mast-side">
-        <p class="date" id="dateline"></p>
-        <button type="button" class="theme" id="theme-toggle" aria-pressed="false">Dark</button>
-      </div>
+    <div class="mast-top">
+      <p class="date" id="dateline"></p>
+      <button type="button" class="theme" id="theme-toggle" aria-pressed="false">Dark</button>
     </div>
-    <p class="tagline">All the news, from every side, with nothing hidden.</p>
+    <a class="name" href="#today" aria-label="The Standard Edition"><span aria-hidden="true">The <span class="initial">S</span>tandard Edition</span></a>
+    <p class="address">standardedition.org</p>
     <nav class="tabs" aria-label="Sections">
       <a href="#today" data-view="today">Today</a>
       <a href="#all-stories" data-view="all-stories">All stories</a>
@@ -38,6 +53,7 @@
       <a href="#research" data-view="research">Research</a>
       <a href="#how-it-works" data-view="how-it-works">How it works</a>
       <a href="#your-feed" data-view="your-feed">Your feed</a>
+      <a href="#about" data-view="about">About us</a>
     </nav>
   </div>
   <div class="ticker" id="ticker" hidden>
@@ -46,15 +62,16 @@
       <div class="ticker-window">
         <div class="ticker-track" id="ticker-track"></div>
       </div>
+      <button type="button" class="ticker-pause" id="ticker-pause" aria-pressed="false">Pause</button>
     </div>
   </div>
 </header>
 
-<div class="page">
-  <p class="note" id="sample-note" hidden>This is a sample edition. Every outlet, place and story in it is invented.</p>
+<main class="page" id="main" tabindex="-1">
 
   <!-- Today: the spotlight -->
   <section class="view" id="view-today" data-view="today">
+    <div class="notices" id="notices"></div>
     <div class="intro">
       <h1 class="lede" id="lede"></h1>
       <p class="sublede" id="sublede"></p>
@@ -62,15 +79,15 @@
     </div>
     <div class="front">
       <div id="spotlight"></div>
-      <aside class="below" aria-label="What coverage missed">
-        <div id="one-side"></div>
-        <div id="uncovered"></div>
-      </aside>
+      <div id="spot-rest"></div>
     </div>
-    <div id="spot-rest"></div>
-    <div id="see-all"></div>
+    <aside class="below" aria-label="What coverage missed">
+      <div id="one-side"></div>
+      <div id="uncovered"></div>
+    </aside>
     <p class="showing" id="showing"></p>
     <div id="left-out"></div>
+    <div class="closing" id="see-all"></div>
   </section>
 
   <!-- All stories, grouped by topic -->
@@ -78,6 +95,7 @@
     <div class="intro">
       <h1 class="title">All stories</h1>
       <p class="sublede" id="all-summary"></p>
+      <p class="hint" id="all-key">Each mark is one outlet that ran the story. Stripes mean no outlet on that side ran it.</p>
       <nav class="jump" id="topic-jump" aria-label="Topics"></nav>
     </div>
     <div id="all"></div>
@@ -158,6 +176,16 @@
     </div>
 
     <div class="sheet prose">
+      <h2>Reading the coverage bar</h2>
+      <p>Every story has a bar with three parts: left in blue, center in gray and right in red. Each mark is one outlet that ran the story, so more marks mean more outlets on that side.</p>
+      <dl class="key">
+        <div><dt><span class="scale" aria-hidden="true"><span class="side lean-left on"><i></i><i></i></span><span class="side lean-center on"><i></i></span><span class="side lean-right on"><i></i><i></i><i></i></span></span></dt><dd>Every side ran it: two left outlets, one center and three right.</dd></div>
+        <div><dt><span class="scale" aria-hidden="true"><span class="side lean-left gap"></span><span class="side lean-center on"><i></i></span><span class="side lean-right on"><i></i><i></i></span></span></dt><dd>Stripes: we read that side, and no outlet on it ran the story.</dd></div>
+        <div><dt><span class="scale" aria-hidden="true"><span class="side lean-left unread"></span><span class="side lean-center on"><i></i></span><span class="side lean-right on"><i></i></span></span></dt><dd>Dashed outline: we couldn't read that side that day, so we don't know.</dd></div>
+      </dl>
+    </div>
+
+    <div class="sheet prose">
       <h2>The score</h2>
       <div class="weights" id="weights"></div>
       <p class="hint" id="weights-yours" hidden></p>
@@ -197,7 +225,7 @@
           <tbody id="source-table"></tbody>
         </table>
       </div>
-      <p>The market ticker at the top shows the previous trading day's closing values from FRED, the St. Louis Fed's free data service. It updates once a day with the edition, and each value links to its source.</p>
+      <p>The market closes at the top show the previous trading day's closing values from FRED, the St. Louis Fed's free data service. They update once a day with the edition, and each value links to its source.</p>
       <p class="fine" id="rubric-version"></p>
     </div>
   </section>
@@ -206,7 +234,7 @@
   <section class="view" id="view-your-feed" data-view="your-feed" hidden>
     <div class="intro">
       <h1 class="title">Make it yours</h1>
-      <p class="sublede">Standard Edition is free, with no ads, no accounts and no tracking. Your settings stay in your browser and in your feed address, nowhere else.</p>
+      <p class="sublede">The Standard Edition is free, with no ads, no accounts and no tracking. Your settings stay in your browser and in your feed address, nowhere else.</p>
     </div>
 
     <div class="sheet settings">
@@ -290,7 +318,7 @@
 
     <div class="sheet prose">
       <h2>Run your own copy</h2>
-      <p>All of Standard Edition is open source. To change the rules for everyone who reads your copy, fork the code and edit three files:</p>
+      <p>All of the Standard Edition is open source. To change the rules for everyone who reads your copy, fork the code and edit three files:</p>
       <ul>
         <li><code>sources.yaml</code> lists every outlet and official source, with its lean. Add, remove or relabel them.</li>
         <li><code>boringnews/rubric.py</code> holds the weights and thresholds shown in How it works.</li>
@@ -300,7 +328,100 @@
       <p>Think we got something wrong? <a href="__REPO_URL__/issues/new/choose">Challenge a label, report a wrong story, or propose a source or rubric change.</a></p>
     </div>
   </section>
-</div>
+  <!-- About us -->
+  <section class="view" id="view-about" data-view="about" hidden>
+    <div class="intro about-open">
+      <h1 class="lede">The day's news, once a day. Who covered it, who didn't, and every rule in public.</h1>
+      <p class="sublede">100% transparent. 100% free. Always.</p>
+    </div>
+
+    <div class="sheet prose">
+      <h2>Our mission</h2>
+      <p>We want people to see what happened, who covered it and who didn't, so they can make up their own minds. The Standard Edition is free to read and free to copy, and every decision behind it is open to question.</p>
+      <p>Our goal is for anyone to have that view, in their own language, wherever they live, including places where news is restricted. Today we cover the United States, and the rest is on our <a href="__REPO_URL__/blob/main/docs/roadmap.md">public roadmap</a>.</p>
+    </div>
+
+    <div class="sheet prose">
+      <h2>The idea behind it</h2>
+      <p>Most people think media bias is about how a story is written. The bigger bias is which stories get told at all.</p>
+      <p>Gather enough reporting from across the political spectrum, and what the sources have in common points toward what's true. So we read outlets on the left, center and right, put government records beside them, and show where coverage is missing.</p>
+      <p>This has limits. Outlets repeating one wire report aren't really separate sources, and we're still working on how to count that. Every outlet can also miss the same thing. That's why we show the evidence and leave the conclusion to you.</p>
+    </div>
+
+    <div class="sheet beliefs">
+      <h2>What we believe</h2>
+      <ul>
+        <li><b>Free, permanently.</b> No ads, paywall, premium tier or accounts, and we never sell your data.</li>
+        <li><b>Every decision is visible.</b> Sources, labels, ranking and writing rules are public.</li>
+        <li><b>You own the algorithm.</b> Our rules are a starting point, and you can change them.</li>
+        <li><b>Show the whole spread.</b> You can see who covered a story and who didn't.</li>
+        <li><b>Records sit next to the reporting.</b> Laws, rules and rulings appear beside the coverage.</li>
+        <li><b>Local news matters.</b> State and city coverage is on the way as a full part of the edition.</li>
+        <li><b>Boring on purpose.</b> Once a day, with no outrage, infinite scroll or engagement metrics.</li>
+        <li><b>Open books.</b> Every dollar in and out is published.</li>
+        <li><b>No tracking.</b> No third-party analytics, ad pixels or profiles.</li>
+      </ul>
+    </div>
+
+    <div class="sheet prose">
+      <h2>Who runs it and who pays</h2>
+      <p>The Standard Edition is an open-source project run by Sean Manuel, not a business. It has no growth target, no exit and nothing to sell. It has no ads and no investors, and it doesn't take donations yet.</p>
+      <p>Every cost is listed in the <a href="__REPO_URL__/blob/main/LEDGER.md">public ledger</a>, and every change to the rules is a <a href="__REPO_URL__">public commit</a>.</p>
+    </div>
+
+    <div class="sheet prose" id="contact">
+      <h2>Contact us</h2>
+      <p>To report a mistake, challenge a label or propose a change, <a href="__REPO_URL__/issues/new/choose">open a public issue</a>. Anyone can read it, and that's on purpose.</p>
+      <p id="contact-email" hidden></p>
+    </div>
+
+    <div class="sheet prose faq">
+      <h2>Questions people ask</h2>
+      <div class="answers">
+      <div class="qa"><h3>Is this written by AI?</h3>
+      <p>Yes. A model writes each summary from the outlets' own reporting, following our <a href="__REPO_URL__/blob/main/editorial/style_guide.md">style guide</a>. A banned-word check rejects loaded language, and any number in a summary has to appear in the sources.</p></div>
+      <div class="qa"><h3>Are you biased?</h3>
+      <p>Every system has biases, and that includes ours. The difference is that you can inspect ours: the <a href="#how-it-works">source list, labels and scoring</a> are all public, and <a href="#your-feed">your settings</a> can change them for you.</p></div>
+      <div class="qa"><h3>Why is an outlet labeled the way it is?</h3>
+      <p>Every outlet starts with a left, center or right label. When ratings from published media-bias services are added, the label becomes their average. You can see each label in <a href="#how-it-works">How it works</a>.</p></div>
+      <div class="qa"><h3>Why was a story left out?</h3>
+      <p>A published rule decides which stories get written, and your settings decide which of those you see. Today lists anything your settings hid, and why.</p></div>
+      <div class="qa"><h3>Does this tell me what's true?</h3>
+      <p>No. We aren't fact-checkers. We show who said what and what the records say, so you can get as close to the truth as the evidence allows.</p></div>
+      <div class="qa"><h3>Do you track me?</h3>
+      <p>No. Your settings stay in your browser and your feed address, and there are no accounts.</p></div>
+      <div class="qa"><h3>How do I challenge a decision?</h3>
+      <p><a href="__REPO_URL__/issues/new/choose">Open a public issue</a> to challenge a label, report a wrong story, or propose a source or rule change. Corrections appear in <a href="#how-it-works">How it works</a>.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- One story: opened by every #story-N link -->
+  <section class="view" id="view-story" data-view="story" hidden>
+    <div class="intro">
+      <a class="back" href="#today">Back to Today</a>
+      <p class="topic" id="story-topic"></p>
+      <h1 class="title" id="story-title"></h1>
+      <p class="sublede" id="story-note"></p>
+    </div>
+    <div id="story-page"></div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <p class="tagline">100% transparent. 100% free. Always.</p>
+    <nav class="foot-links" aria-label="More about this site">
+      <a href="#about">About us</a>
+      <a href="#how-it-works">How it works</a>
+      <a href="#your-feed">Your feed</a>
+      <a href="__REPO_URL__/blob/main/LEDGER.md">Public ledger</a>
+      <a href="__REPO_URL__">Source code</a>
+      <a href="#contact">Contact us</a>
+    </nav>
+    <p class="foot-note">Open source under the AGPL-3.0 license.</p>
+  </div>
+</footer>
 
 <script>
 window.BORING_NEWS = "__DATA__";

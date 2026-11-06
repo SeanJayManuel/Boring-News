@@ -88,6 +88,7 @@ class Edition:
             "sample": sample,
             "base_url": base_url,
             "repo_url": config.REPO_URL,
+            "contact_email": config.CONTACT_EMAIL,
             "data_url": data_url,
             "corrections": corrections or [],
             "markets": self.markets,

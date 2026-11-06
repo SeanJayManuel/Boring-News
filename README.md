@@ -280,7 +280,7 @@ llama.cpp, instead of Claude; the URL is the server's base address and the model
 name is published with each story), `BN_LOOKBACK_HOURS`,
 `BN_CLUSTER_SIMILARITY` (default 0.15, tuned on the sample data; re-tune on
 real feeds), `BN_CLUSTER_WINDOW_HOURS`, `BN_THREAD_SIMILARITY`, `BN_ARCHIVE`,
-`BN_REPO_URL`, `BN_SAMPLE=1` (serve the sample source list).
+`BN_REPO_URL`, `BN_CONTACT_EMAIL` (shown on the About page), `BN_SAMPLE=1` (serve the sample source list).
 
 ## Market ticker
 

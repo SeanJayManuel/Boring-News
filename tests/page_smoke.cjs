@@ -66,6 +66,7 @@ function see() {
 }
 
 async function main() {
+  await tick(); await tick(); await tick();
   const docs = [...document.querySelectorAll("#param-table code")].map((n) => n.textContent.split("=")[0]);
   const anchors = [...document.querySelectorAll("[id^='story-']")].map((n) => n.id);
   const loaded = see();
@@ -75,6 +76,9 @@ async function main() {
   threshold.checked = true;
   threshold.dispatchEvent(new Event("change"));
   const strict = see();
+  const pause = byId("ticker-pause");
+  pause.click();
+  const tickerPause = { paused: byId("ticker").classList.contains("paused"), label: pause.textContent, pressed: pause.getAttribute("aria-pressed") };
 
   const report = {
     errors,
@@ -85,10 +89,21 @@ async function main() {
     scrolledTo: scrolledTo && scrolledTo.id,
     scrolledToHidden: !!(scrolledTo && scrolledTo.closest("[hidden]")),
     ticker: document.querySelectorAll("#ticker-track .tick").length,
+    tickerPause,
     dataLink: !!document.querySelector("#data-line a"),
     feedUrl: byId("feed-url").value,
     docs,
-    sideColumns: [...document.querySelectorAll("#spotlight .side-col h4")].map((n) => n.textContent),
+    sideColumns: texts("#story-page .side-col h4"),
+    leadLink: document.querySelector("#spotlight .meta a") && document.querySelector("#spotlight .meta a").getAttribute("href"),
+    storyTitle: byId("view-story").hidden ? null : text(byId("story-title")),
+    storyNote: text(byId("story-note")),
+    storyScore: text(document.querySelector("#story-page .score")),
+    title: document.title,
+    notices: texts("#notices .notice"),
+    footLinks: document.querySelectorAll(".foot-links a").length,
+    socialImage: document.querySelector('meta[property="og:image"]').content,
+    contactEmail: byId("contact-email").hidden ? null : text(byId("contact-email")),
+    tabCount: document.querySelectorAll(".tabs a").length,
     gapSides,
     oneSide,
     settings: dom.window.BoringCore.SETTINGS.map((x) => x.name),

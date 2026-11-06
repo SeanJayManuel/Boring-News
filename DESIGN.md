@@ -4,7 +4,7 @@ The brand and design rules for The Standard Edition. Read this before changing a
 
 If a choice isn't covered here, take the plainer option. If a rule needs to change, change it here first, in the same pull request.
 
-**Status:** version 1, 2026-11-05. The direction is chosen but not built. `web/` still has the previous design. See [Moving the site over](#14-moving-the-site-over).
+**Status:** version 1, 2026-11-05. Steps 1 to 7 of [Moving the site over](#14-moving-the-site-over) are built, along with the favicon and social preview.
 
 The approved visual reference is the "The blend" board on the [brand canvas](https://claude.ai/artifact/E8eY8W89an8E5ckUVnhM72) (private to the owner). Where this file and the canvas differ, this file wins.
 
@@ -43,8 +43,8 @@ Agreement only counts when sources are independent, and every outlet can miss th
 ### Principles
 
 1. **Show, don't rule.** The site shows evidence. It doesn't decide for the reader. This is why we never highlight or mark words in outlets' text.
-2. **The gap is the signal.** Who didn't cover a story is the most distinctive thing on the page, and it gets the only color.
-3. **Calm is a feature.** Nothing moves, flashes or competes for attention. The edition has an end.
+2. **The gap is the signal.** Who didn't cover a story is the most distinctive thing on the page, and it gets the only stripes.
+3. **Calm is a feature.** Nothing flashes or competes for attention, and the one thing that moves, the market ticker, is slow and can be paused. The edition has an end.
 4. **Classic in the masthead, open everywhere else.** The newspaper tradition earns trust at the top. Below it, the page is spacious and speaks plainly.
 5. **Nothing hidden.** Any claim the site makes links to its proof.
 6. **Built for every reader.** Each decision has to survive other languages, slow connections, screen readers and blocked domains.
@@ -61,7 +61,7 @@ Agreement only counts when sources are independent, and every outlet can miss th
 | Short | About page opening, link previews | The Standard Edition reads outlets across the political spectrum and public records, then publishes one plain edition a day. It's free, with no ads, accounts or tracking. The rules are public, and you can change them. |
 | Long | About page | The thesis, how a story gets chosen, who runs it, how it's paid for, and the FAQ |
 
-**Closing line:** "That's the edition. The rest is up to you." This ends every Today page. It's the brand's main line, because it states the promise: we stop, and your thinking starts.
+**Tagline:** "100% transparent. 100% free. Always." This ends every page, in the footer, and sits under the About opening. It's the brand's main line, and it's a promise we have to keep: everything behind the site stays public, and nothing goes behind a paywall.
 
 ### Voice
 
@@ -94,7 +94,7 @@ Agreement only counts when sources are independent, and every outlet can miss th
 
 - **The name:** The Standard Edition. Use "the Standard Edition" mid-sentence, with a lowercase "the."
 - **The address:** standardedition.org, always lowercase.
-- **Sections:** Today, All stories, Outlets, Research, How it works, Your feed, About.
+- **Sections:** Today, All stories, Outlets, Research, How it works, Your feed, About us.
 - **Terms:** use "outlets," "stories," "edition" and "government record," as defined in the glossary. Use sentence case everywhere.
 
 ---
@@ -131,19 +131,18 @@ standardedition.org
 
 **Don't:** stretch it, outline it, add effects, set the whole name in blackletter, use the blackletter for anything else, or put the logo on a photograph.
 
-### Before launch
+### The S
 
-The current S comes from a free font called Manufacturing Consent, as a stand-in. Before launch, the S needs to be drawn by hand and saved as SVG:
+The S comes from a free font called Manufacturing Consent. It's good enough to launch with, and it reads well at favicon size. A hand-drawn SVG is a nice upgrade for later, not a launch requirement:
 
-- Its shape resembles the New York Times nameplate, and ours should be distinct.
+- Its shape resembles the New York Times nameplate, so a drawn S could be more distinct.
 - An SVG loads no extra font and looks the same everywhere.
-- The font's name would look odd in a project promising that nothing's hidden.
 
 ---
 
 ## 4. Color
 
-The palette is ink on white, plus one warm color for gaps. There's no brand accent: the logo, type and scale carry the identity.
+The palette is ink on white, plus blue, gray and red for the three sides and amber for gaps. There's no brand accent: the logo, type and scale carry the identity. Everything except the coverage scale stays ink on white.
 
 ### Tokens
 
@@ -158,6 +157,9 @@ Keep the existing names from `web/style.css` where they still apply, so the chan
 | `--line` | Dividers (decorative only) | `#dedcd6` | `#35363b` |
 | `--control` | Borders of inputs and buttons | `#8a8b91` | `#7d7e84` |
 | `--gap` | Coverage gap stripes | `#b57a00` | `#e9b23a` |
+| `--left` | Left outlets on the scale | `#2a5db0` | `#7ea6ec` |
+| `--center` | Center outlets on the scale | `#6f7076` | `#a2a3a9` |
+| `--right` | Right outlets on the scale | `#c0392b` | `#f0897a` |
 | `--c-record` | Government record chart segment | `#2f6b57` | `#8fcdb4` |
 | `--up` | Market value rose | `#2f6b57` | `#8fcdb4` |
 | `--down` | Market value fell | `#a13a2c` | `#e8a092` |
@@ -172,6 +174,12 @@ Keep the existing names from `web/style.css` where they still apply, so the chan
 | Muted on sheet | 7.6:1 | 7.5:1 |
 | Gap on desk | 3.7:1 | 9.5:1 |
 | Gap on sheet | 3.3:1 | 8.5:1 |
+| Left on desk | 6.4:1 | 7.4:1 |
+| Left on sheet | 5.7:1 | 6.7:1 |
+| Center on desk | 4.9:1 | 7.3:1 |
+| Center on sheet | 4.4:1 | 6.5:1 |
+| Right on desk | 5.4:1 | 7.4:1 |
+| Right on sheet | 4.9:1 | 6.7:1 |
 | Control on desk | 3.4:1 | 4.5:1 |
 
 `--gap` and `--control` are for shapes and borders, never text. `--line` is too faint to be a control's only outline.
@@ -181,6 +189,8 @@ Keep the existing names from `web/style.css` where they still apply, so the chan
 - **About 95% ink and white.** `--sheet` appears for one band per page, or to group a settings panel.
 - **Amber means one thing:** a side of the spectrum didn't run the story. Never use it for warnings, links, hover states or decoration.
 - **Links are ink with an underline.** Hover makes the underline darker, not a new color.
+- **Side colors mean one thing:** which side of the spectrum an outlet is on. Use them only on the scale, the outlet bars and the outlet columns, never for text or decoration. The label always appears with the color.
+- **The colors follow the US convention.** In Canada, red is the Liberals and blue the Conservatives, so review them before a second country's edition (I4).
 - **Flag colors** appear only inside the location control.
 
 ### Score chart
@@ -232,7 +242,7 @@ Both main families cover Latin, Cyrillic, Greek and Vietnamese. Retire Schibsted
 - **Use sentence case.** No all-caps labels and no spaced-out letters.
 - **Literata weights are 400 and 500 only.** Heavy headlines read as shouting.
 - **No italics for emphasis.** Use them only for titles of works.
-- **Left-align reading text.** Center only the logo, the navigation and the closing line.
+- **Left-align reading text.** Center only the logo, the navigation, the tagline and the About opening. Fill the width with columns, not with centered paragraphs.
 - **Numbers stay with their words.** Don't turn counts into large stat graphics.
 
 ### Other scripts
@@ -294,8 +304,8 @@ Below 880px, everything falls into one column, with the lead story first. The DO
  ░ Story              Story                   ░
  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
-        That's the edition.
-        The rest is up to you.
+        100% transparent.
+        100% free. Always.
         See all 17 stories
 ```
 
@@ -322,7 +332,7 @@ The date sits top left, and the location and language controls top right, then t
 ### Navigation
 
 - Plain text between two 1px `--ink` rules. The current tab is 600 weight.
-- On a phone, one row that scrolls sideways if needed, with no hamburger menu. Sections should be seen.
+- On a phone, the tabs wrap onto two centered rows, with no hamburger menu. Every section should be seen without swiping.
 - Tap area at least 44px tall.
 
 ### Location and language controls (planned)
@@ -353,19 +363,20 @@ The scale is the brand's signature, and appears on every story. It has three equ
 
 | State | Look | Meaning |
 | --- | --- | --- |
-| **Covered** | One solid `--ink` tick per outlet | That many outlets ran it |
+| **Covered** | One solid tick per outlet, in `--left`, `--center` or `--right` | That many outlets ran it |
 | **Gap** | Diagonal `--gap` stripes, 3px on and 3px off, at 135° | We read that side, and nothing ran |
 | **Unread** | Empty, with a 1px dashed `--control` outline | That side's feeds failed, so we don't know |
 
 | Size | Height | Labels |
 | --- | --- | --- |
 | Lead | 10px | Count below each segment ("Left: 2") |
-| Compact | 8px | None, but a note appears when a side is missing |
+| Compact | 8px | Count below each segment, plus a note when a side is missing |
 
 **Rules:**
 
 - Segments are always equal width, whatever the outlet count.
 - Ticks fill their segment, with a 2px gap between them.
+- Every scale has its labels, and a key sits nearby: "Each mark is one outlet that ran the story. Stripes mean no outlet on that side ran it." How it works explains it in full.
 - A gap must never rely on color alone. The stripes are the pattern, and the note says it in words.
 - The whole scale has one screen-reader label, like "Left 2, center 2, right 3."
 - An unread side is never shown as a gap. Don't claim silence when we simply couldn't look.
@@ -377,7 +388,15 @@ A full-width `--sheet` band after the main stories, with a heading, the line "A 
 
 ### Closing
 
-The closing line, centered, in the opening-sentence style, then a link to all stories. Nothing follows it except the footer. This is the anti-infinite-scroll moment, and it should feel finished.
+Today ends with a link to all stories, then the footer. This is the anti-infinite-scroll moment, and it should feel finished.
+
+### Footer
+
+On every page, after a 1px `--ink` rule: the tagline, centered, in the opening-sentence style, then the site links and the license. The name of who runs the project stays on the About page.
+
+### Story page
+
+Every headline opens its own page at `#story-N`: the scale with its key, the bullets, what's next, how it was scored, then every outlet in a column for its side. Links keep working for 30 days, because a story that has left the edition is read from the research file.
 
 ### Buttons and links
 
@@ -403,12 +422,12 @@ Flat segments with direct labels where possible. Follow the score chart colors a
 
 ### Market closes
 
-A quiet row of yesterday's closes under the navigation, in Source Sans 3 at 15px. It stays still, replacing the current scrolling ticker, which conflicts with calm. It scrolls sideways on a phone only if the reader swipes. Each value links to its source, and rises or falls are shown with words or signs as well as color.
+A slow scrolling ticker of yesterday's closes under the navigation, in Source Sans 3 at 15px. It pauses on hover or focus and has a Pause button. With `prefers-reduced-motion` it holds still and the reader swipes it instead. Each value links to its source, and rises or falls are shown with words or signs as well as color.
 
 ### Notices
 
 - **Sample edition:** a thin `--sheet` bar at the very top, in 14px text. Required on all invented content.
-- **Failed feeds or corrections:** a plain note at the top of Today, stating what happened and linking to the details.
+- **Failed feeds, corrections or an old edition:** a plain note at the top of Today, stating what happened and linking to the details.
 
 ### Empty and error states
 
@@ -424,16 +443,16 @@ If an image is ever needed outside the edition, like a social preview, use the l
 
 **Icons:** prefer words. Where an icon is needed, use a simple 1.5px outline at 16 or 20px, and add a text label unless its meaning is universal. No emoji in the interface.
 
-**Social preview:** a 1200×630 image with the logo centered on white, with a hairline rule and the day's opening sentence beneath, generated with each edition.
+**Favicon:** the S alone in `--ink` on white. **Social preview:** a 1200×630 image with the logo centered on white, with a rule and the tagline beneath. Both live in `web/brand/`, each with its HTML source, and need rendering again when the S is redrawn. The preview is the same every day for now, and a story's link previews with the site's image, because the part of a link after the # never reaches the server.
 
 ---
 
 ## 9. Motion
 
-The page holds still. Motion only responds to what the reader does.
+The page holds still, with one exception: the market ticker. All other motion only responds to what the reader does.
 
 - **Allowed:** opening a section, switching a tab, a "Copied" confirmation, and focus and hover changes. 120 to 200ms, ease-out.
-- **Not allowed:** autoplay, loading animations on arrival, parallax, anything that loops, or elements fading in as you scroll.
+- **Not allowed:** autoplay, loading animations on arrival, parallax, any other loop, or elements fading in as you scroll.
 - With `prefers-reduced-motion`, remove all transitions.
 
 ---
@@ -478,9 +497,9 @@ Planned in roadmap items I1 to I6. New work should stay ready for them.
 | **Research** | Check a claim or record | Search leads the page. The site never says whether a claim is true |
 | **How it works** | Prove the method | Plain steps, then the formula, then live numbers |
 | **Your feed** | Own the rules | Settings first. Every change shows its effect |
-| **About** (planned) | Explain why, and who | See below |
+| **About us** | Explain why, and who | See below |
 
-### About page (roadmap L11)
+### About us page (roadmap L11)
 
 1. **Mission:** one short paragraph.
 2. **The thesis:** what commonalities across sources can show, and where that falls short.
@@ -509,7 +528,7 @@ Every answer should link to its evidence: code, ledger, source list or correctio
 - Use photos, stock images or AI images in the edition.
 - Add ads, pop-ups, sign-up prompts, streaks, notification requests or share counts.
 - Rank or style anything by clicks or engagement.
-- Add infinite scroll, or anything after the closing line except the footer.
+- Add infinite scroll, or anything after the tagline except the footer.
 - Use "breaking," urgency colors or countdowns.
 - Set the whole logo, or anything else, in blackletter.
 - Use flags for languages.
@@ -527,11 +546,13 @@ Do these in order, in small changes. Nothing here changes the rubric or the data
 3. **Coverage scale:** ticks and stripes as specified, keeping the existing three states and screen-reader labels.
 4. **Today page:** the opening sentence, the lead and list layout, the one-sided band and the closing.
 5. **Other tabs:** apply the type and spacing, then remove the old card styles.
-6. **Market closes:** replace the scrolling ticker.
+6. **Market closes:** restyle the scrolling ticker and add its Pause button.
 7. **About page:** build it once its words are written (L11).
-8. **Before launch:** a hand-drawn S, the favicon and the social preview (L10).
+8. **Before launch:** the favicon and the social preview (L10). Both are built.
 
 The location and language controls wait for their roadmap items. Don't ship controls that do nothing.
+
+**Done so far:** steps 1 to 7. In step 2, the name changed on the site, feed titles and citations. The API docs, MCP server and repo keep "Standard Edition" for now. The ranking explanation that sat under the opening moved out of Today, and How it works still covers it.
 
 ### Review checklist
 
@@ -539,9 +560,9 @@ Before merging any change a reader can see:
 
 - [ ] It works from 320px to wide desktop, in light and dark.
 - [ ] It works by keyboard and with a screen reader.
-- [ ] The only color added is for a coverage gap.
+- [ ] The only colors added are the side colors on a scale and amber for a coverage gap.
 - [ ] Words follow section 2, and any claim links to proof.
-- [ ] Nothing moves unless the reader caused it.
+- [ ] Nothing moves unless the reader caused it, except the ticker.
 - [ ] It would still work in another language.
 
 ---
@@ -555,8 +576,12 @@ Before merging any change a reader can see:
 | 2026-11-05 | Name: The Standard Edition, with standardedition.org beneath | A publication's name, and the .org stays visible |
 | 2026-11-05 | No highlighting of words | The site shows evidence and doesn't judge language for the reader |
 | 2026-11-05 | No photos | No rights from RSS, and a chosen photo frames a story |
+| 2026-11-05 | Launch with the font S | It reads well at small sizes, so a hand-drawn S can wait |
 | 2026-11-05 | Amber only for gaps | Keeps the one loud thing meaningful |
-| 2026-11-05 | Closing line: "The rest is up to you" | The brand's own way of asking readers to keep thinking for themselves |
+| 2026-11-05 | Blue, gray and red for left, center and right | Replaces black ticks, which didn't say what they showed. US readers already know these colors |
+| 2026-11-05 | Tagline in the footer of every page | Replaces a closing line on Today alone |
+| 2026-11-05 | Tagline: "100% transparent. 100% free. Always." | Replaces "The rest is up to you." It says plainly what the site promises |
+| 2026-11-05 | Keep the scrolling ticker | Replaces the still row. It gives the masthead some life, stays slow, and can be paused |
 
 ### What we took from the references
 

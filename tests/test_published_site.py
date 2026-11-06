@@ -2,6 +2,7 @@
 and served by the real page script and the real Cloudflare function."""
 
 import json
+import re
 import shutil
 import subprocess
 import xml.etree.ElementTree as ET
@@ -160,8 +161,9 @@ jsdom = pytest.mark.skipif(not (config.ROOT / "node_modules" / "jsdom").exists()
 def test_page_renders_the_edition(site):
     page = open_page(site, f"{BASE}/")
     assert page["errors"] == []
-    assert page["lede"] == "Five stories today." and page["spotlight"] == 5
-    assert page["ticker"] == 14 and page["dataLink"]  # the ticker repeats so it can scroll
+    assert page["lede"].startswith("Five stories today.") and page["spotlight"] == 5
+    assert page["ticker"] == 14 and page["dataLink"]
+    assert page["tickerPause"] == {"paused": True, "label": "Play", "pressed": "true"}
     assert page["feedUrl"] == f"{BASE}/feed.xml?threshold=strict"
 
 
@@ -171,7 +173,8 @@ def test_feed_links_open_the_visible_story(site):
     assert top
     page = open_page(site, f"{BASE}/#{top[0]}")
     assert page["errors"] == [] and page["duplicates"] == []
-    assert page["scrolledTo"] == top[0] and not page["scrolledToHidden"]
+    assert page["storyTitle"] and page["storyScore"] and page["storyTitle"] in page["title"]
+    assert page["sideColumns"] == ["Left", "Center", "Right"]
 
 
 @jsdom
@@ -237,7 +240,7 @@ def test_custom_weights_change_what_the_page_says(site):
 @jsdom
 def test_default_weights_say_nothing_new(site):
     seen = open_page(site, f"{BASE}/")["loaded"]
-    assert seen["sublede"].startswith("Ranked by how widely") and "weights" not in seen["showing"]
+    assert seen["sublede"] == "" and "weights" not in seen["showing"]
     assert seen["scoreLine"].startswith("Score ") and "with your weights" not in seen["scoreLine"]
     assert "weights" not in seen["chartLabel"] and seen["chartNote"] == "" and seen["weightsYours"] is None
     assert "weights" not in seen["thresholdHint"] and seen["sliders"] == [40, 25, 10, 25]
@@ -325,21 +328,102 @@ def test_earlier_days_say_so_when_the_index_is_unavailable(two_days, research):
     assert page["earlier"]["days"] == [] and "aren't available" in page["earlier"]["message"]
 
 
+def test_opening_sentence_names_a_side_the_reader_left_out(site):
+    left = "bay-chronicle,metro-ledger,northside-tribune"
+    lede = open_page(site, f"{BASE}/?exclude={left}")["lede"]
+    assert lede.endswith(" stories today. No left outlet you kept ran these.")
+
+
+@jsdom
+def test_a_link_to_a_story_outside_todays_edition(two_days):
+    data = json.loads((two_days / "research.json").read_text())
+    old = next(s for s in data["stories"] if s["date"] == "2026-11-03")
+    page = open_page(two_days, f"{BASE}/#story-{old['id']}")
+    assert page["errors"] == [] and page["storyTitle"] == old["headline"]
+    assert page["storyNote"] == "From the edition of Tuesday, November 3, 2026."
+
+
+@jsdom
+def test_a_link_to_a_story_we_no_longer_have(site):
+    page = open_page(site, f"{BASE}/#story-999999")
+    assert page["errors"] == [] and page["storyTitle"] == "This story isn't available"
+
+
+@jsdom
+def test_every_page_has_a_footer_and_a_link_preview(site):
+    page = open_page(site, f"{BASE}/")
+    assert page["footLinks"] == 6 and page["socialImage"] == f"{BASE}/brand/social.png"
+    assert (site / "brand" / "social.png").exists() and (site / "brand" / "favicon.png").exists()
+
+
+@jsdom
+def test_page_says_when_it_could_not_read_a_feed(tmp_path, site):
+    html = (site / "index.html").read_text()
+    copy = tmp_path / "site"
+    shutil.copytree(site, copy)
+    source = next(iter(json.loads((site / "edition.json").read_text())["sources"]))
+    (copy / "index.html").write_text(html.replace('"feeds_down": []', f'"feeds_down": ["{source}"]'))
+    assert "couldn't read" in open_page(copy, f"{BASE}/")["notices"][0]
+
+
+@jsdom
+def test_about_page_shows_a_contact_address_only_when_there_is_one(tmp_path, site):
+    assert open_page(site, f"{BASE}/")["contactEmail"] is None
+    copy = tmp_path / "site"
+    shutil.copytree(site, copy)
+    html = (site / "index.html").read_text()
+    (copy / "index.html").write_text(html.replace('"contact_email": ""', '"contact_email": "desk@example.org"'))
+    assert "desk@example.org" in open_page(copy, f"{BASE}/")["contactEmail"]
+
+
+def with_data(site, tmp_path, **changes):
+    """A copy of the site whose page data has `changes` applied."""
+    raw = (site / "edition.json").read_text()
+    copy = tmp_path / "site"
+    shutil.copytree(site, copy)
+    html = (site / "index.html").read_text()
+    assert raw.replace("</", "<\\/") in html
+    new = json.dumps({**json.loads(raw), **changes}, ensure_ascii=False).replace("</", "<\\/")
+    (copy / "index.html").write_text(html.replace(raw.replace("</", "<\\/"), new))
+    return copy
+
+
+@jsdom
+def test_page_says_when_the_edition_is_old(tmp_path, site):
+    page = open_page(with_data(site, tmp_path, edition="2026-10-01", sample=False), f"{BASE}/")
+    assert page["errors"] == [] and "A newer one hasn't been published yet." in page["notices"][0]
+
+
+@jsdom
+def test_page_with_no_stories_says_so(tmp_path, site):
+    page = open_page(with_data(site, tmp_path, stories=[]), f"{BASE}/")
+    assert page["errors"] == [] and page["lede"] == "No stories in this edition."
+
+
+def test_every_tab_opens_a_view():
+    page = (config.ROOT / "web" / "index.html").read_text()
+    views = re.findall(r'<a href="#[\w-]+" data-view="([\w-]+)"', page)
+    assert "about" in views
+    app = (config.ROOT / "web" / "app.js").read_text()
+    for view in views:
+        assert f'id="view-{view}"' in page and f'"{view}"' in app
+
+
 def test_function_serves_custom_weights_and_a_named_feed(site, tmp_path):
     plain, weighted, same = serve(site, tmp_path, f"{BASE}/feed.xml", f"{BASE}/feed.xml?weights=0,0,0,100&recipe=Records",
                                   f"{BASE}/feed.xml?weights=40,25,10,25")
     assert same["body"] == plain["body"]
     root = ET.fromstring(weighted["body"]).find("channel")
-    assert root.findtext("title") == "Standard Edition (reader recipe: Records)"
+    assert root.findtext("title") == "The Standard Edition (reader recipe: Records)"
     assert [i.findtext("title") for i in root.findall("item")] != \
         [i.findtext("title") for i in ET.fromstring(plain["body"]).findall("./channel/item")]
 
 
 @jsdom
 def test_front_page_shows_what_each_side_ran_and_what_one_side_missed(site):
-    assert open_page(site, f"{BASE}/")["sideColumns"] == ["Left", "Center", "Right"]
     page = open_page(site, f"{BASE}/")
     assert page["errors"] == [] and page["oneSide"] and page["gapSides"]
+    assert page["leadLink"].startswith("#story-")
     assert all(link.startswith("#story-") and link[1:] in page["anchors"] for link in page["oneSide"])
 
 

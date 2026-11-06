@@ -133,30 +133,33 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 ### L8. Failure handling and alerts ⬜ S
 
 - **Exists:** source and ticker problems are printed in the workflow log.
-- **Gaps:** nobody is told when a run fails or half the sources go quiet. The page has no way of saying an edition is old. Decision D5.
-- **Done when:** a failed or thin run sends the maintainer an alert, and the page says when it's showing an old edition.
+- **Built (2026-11-05):** Today says when an edition is two or more days old, when feeds couldn't be read and when a story was corrected.
+- **Gaps:** nobody is told when a run fails or half the sources go quiet. Decision D5.
+- **Done when:** a failed or thin run sends the maintainer an alert.
 
-### L9. Launch legal check ⬜ S
+### L9. Launch legal check 🟡 S
 
 - **Exists:** summaries only, with links out, and a rule against republishing full articles.
-- **Gaps:** each outlet's feed terms haven't been read. The README licenses docs under CC BY-SA 4.0, but the repo has no file saying so. The site has no contact address for corrections or takedown requests.
-- **Needs a person:** review the terms, and take legal advice if in doubt.
+- **Gaps:** each outlet's feed terms haven't been read. The README licenses docs under CC BY-SA 4.0, but the repo has no file saying so. The About page has a contact section with public issues, and shows a private address once `BN_CONTACT_EMAIL` is set, but the mailbox is on hold for now, so public issues are the only route.
+- **Needs a person:** review the terms, take legal advice if in doubt, and decide when to set up the mailbox.
 - **Done when:** each outlet's terms have been checked, and the site has a contact route.
 
-### L10. Launch page basics ⬜ S
+### L10. Launch page basics 🟡 S
 
 - **Exists:** the reader page, RSS, and a local demo.
-- **Gaps:** no social preview tags or favicon. No outside reader has tried it, and accessibility hasn't been audited.
-- **Done when:** a link previews properly when shared, and the page passes a keyboard and screen-reader check.
+- **Built (2026-11-05):** a footer, story pages, a favicon, social preview tags, a skip link, focus and page titles that follow each tab, notes for failed feeds and old editions, and tested empty states. Checked by keyboard at desktop width, and at 320px, 375px and 1440px wide.
+- **Gaps:** nobody has tested it with a real screen reader, no outside reader has tried it, and link previews can't be tested until the site is live.
+- **Done when:** a link previews properly when shared, and the page passes a real screen-reader check.
 
-### L11. About page ⬜ S
+### L11. About page 🟡 S
 
 A new About tab: why this exists, in plain language, for someone who has never heard of it. How it works stays the method. About is the reason, and the people behind it.
 
+- **Built (2026-11-05):** an About us tab with the mission, thesis, principles, funding and an FAQ, using only facts already public in this repo.
 - **Exists:** the principles in the README ("What we believe"), the method in How it works, and the ledger.
 - **The thesis to state:** gather enough reporting from across the spectrum, and what the sources have in common points toward what's true. The page should also say where this falls short: outlets repeating one wire report count as one source, and every outlet can miss the same thing.
-- **Gaps:** the mission, who runs it, how it's paid for, and an FAQ. The FAQ should answer the hard questions directly: Is this written by AI? Who pays for it? Are you biased? Why is this outlet labeled that way? Why was a story left out? How do I challenge a decision? Does this tell me what's true? Some answers depend on D6 and D7.
-- **Needs a person:** the words on who runs it and why. "Organization, not a company" should only appear once the legal form is settled. A `.org` address doesn't show that by itself.
+- **Gaps:** the legal form. A private contact address (L9). The FAQ should answer the hard questions directly: Is this written by AI? Who pays for it? Are you biased? Why is this outlet labeled that way? Why was a story left out? How do I challenge a decision? Does this tell me what's true? Some answers depend on D6 and D7.
+- **Needs a person:** the words on why it exists. The page names Sean Manuel once, under who runs it, and nowhere else. "Organization, not a company" should only appear once the legal form is settled. A `.org` address doesn't show that by itself.
 - **Done when:** the tab is live, every FAQ answer links to its evidence (ledger, source list, code), and an outside reader can explain the project after reading it.
 
 ---
@@ -269,6 +272,14 @@ Stories covered heavily by one side and barely by the other.
 
 - **Built:** Day 2+ stories have an "Earlier days of this story" button, which loads the research index on click.
 - **Limit:** it reaches back 30 days, older editions have no page of their own, and RSS items don't link to earlier days.
+
+### R6. Past editions ⬜ M
+
+A way to read any earlier day, from a date picker or an archive tab.
+
+- **Exists:** every edition is saved in `archive/` and published as a data file. The local server takes `?date=YYYY-MM-DD`, but the live site only serves the latest edition. Story links keep working for 30 days through the research file.
+- **Gaps:** a page per day, or one page that loads a day's file, and something to pick the day with. Story links need a date in them to last longer than 30 days. Should wait until there's real history to browse.
+- **Done when:** a reader can open any published day, and a story link keeps working for good.
 
 ---
 
@@ -439,11 +450,11 @@ Goal: anyone, in their own language, can see what each country's outlets and rec
 
 ### I1. Location picker ⬜ S to M
 
-A small flag and country code in the corner of the masthead (US, Canada, Mexico) that sets whose news the page follows.
+A small flag and country code in the corner of the masthead (US, Canada, Mexico) that sets whose news the page follows. The control is designed in `DESIGN.md`, and it stays off the page until the features behind it exist, because a control that does nothing breaks trust. The same goes for the language picker (I2).
 
 - **Exists:** reader settings that travel in the page and feed address, declared in `SETTINGS` in `web/core.js`. A stored `region` field that nothing reads (see S2).
 - **Gaps:** an `edition` setting, and a page and feeds that follow it. Depends on S2 and on a second edition existing (I4). Before then, a country that isn't ready can only be shown as planned.
-- **Rules:** the choice stays in the browser and feed address, like every other setting. No location detection from the reader's IP address. Flags appear only here, never on the language picker.
+- **Rules:** the choice stays in the browser and feed address, like every other setting. No location detection from the reader's IP address. Flags appear only here, never on the language picker. Blue for left and red for right follow the US convention, so review the scale's colors for each new country.
 - **Done when:** a reader can switch editions, and the page, feeds and API follow.
 
 ### I2. Interface language ⬜ M
