@@ -12,6 +12,7 @@ An edition file holds everything needed to check or reproduce an edition:
   - every article read in the edition window
   - how articles were grouped into stories, each story's id, score parts and
     fact-check log, and which writer produced it
+  - what the rules left out, and the rule that did it, under `left_out`
 
 Edition files are committed to the repo and published on the site (/archive/).
 `restore` rebuilds the database from them.
@@ -24,8 +25,9 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import config, db, rubric
+from . import config, db, ledger, rubric
 from .db import Article, Story
+from .reposts import reposts
 from .sources import Source
 from .topics import LEGACY, TOPIC_DESCRIPTIONS, TOPICS
 
@@ -44,7 +46,14 @@ def _rubric() -> dict:
     return {
         "version": rubric.VERSION, "weights": rubric.WEIGHTS, "thresholds": rubric.THRESHOLDS,
         "coverage_cap": rubric.COVERAGE_CAP, "min_outlets": rubric.MIN_OUTLETS, "spotlight": rubric.SPOTLIGHT,
+        "blindspot_outlets": rubric.BLINDSPOT_OUTLETS,
     }
+
+
+def _page_articles(articles: list[Article]) -> list[dict]:
+    copies = reposts(articles)
+    return [{"source_id": a.source_id, "title": a.title, "url": a.url, "published_at": a.published_at,
+             "copy_of": copies[a.url].source_id if a.url in copies else None} for a in articles]
 
 
 def _sources(sources: dict[str, Source]) -> dict:
@@ -57,6 +66,7 @@ class Edition:
     stories: list[Story]
     sources: dict[str, Source]
     markets: list[dict] = field(default_factory=list)
+    feeds_down: list[str] = field(default_factory=list)  # sources we couldn't read that day
 
     @classmethod
     def load(cls, conn, sources: dict[str, Source], date: str | None = None) -> "Edition":
@@ -67,12 +77,14 @@ class Edition:
         date = date or dates[0]
         if date not in dates:
             raise NoEdition(f"No edition for {date}")
-        return cls(date, db.load_edition(conn, date), sources, db.load_extra(conn, date, "markets", []))
+        return cls(date, db.load_edition(conn, date), sources, db.load_extra(conn, date, "markets", []),
+                   db.load_extra(conn, date, "feeds_down", []))
 
     def save(self, conn) -> None:
         """Store it, replacing any earlier run for the same date. Sets story ids."""
         db.replace_edition(conn, self.date, self.stories)
         db.save_extra(conn, self.date, "markets", self.markets)
+        db.save_extra(conn, self.date, "feeds_down", self.feeds_down)
 
     def page_data(self, base_url: str, sample: bool = False, data_url: str | None = None,
                   corrections: list[dict] | None = None, research_url: str | None = None,
@@ -83,9 +95,12 @@ class Edition:
             "sample": sample,
             "base_url": base_url,
             "repo_url": config.REPO_URL,
+            "contact_email": config.CONTACT_EMAIL,
             "data_url": data_url,
             "corrections": corrections or [],
+            "ledger": ledger.load(),
             "markets": self.markets,
+            "feeds_down": self.feeds_down,
             "research_url": research_url,
             "research": research,
             "rubric": _rubric(),
@@ -102,7 +117,8 @@ class Edition:
                     "topic": s.topic,
                     "checks": s.checks,
                     "day": s.day,
-                    "articles": [{"source_id": a.source_id, "title": a.title, "url": a.url} for a in s.articles],
+                    "sides": s.sides,
+                    "articles": _page_articles(s.articles),
                 }
                 for s in self.stories
             ],
@@ -112,8 +128,24 @@ class Edition:
         """The outlets and the rubric, as edition files hold them."""
         return {"rubric": _rubric(), "sources": _sources(self.sources)}
 
+    def _left_out(self, sports: list[list[Article]]) -> dict:
+        """Groups that passed the score and were not written, and why."""
+        return {"sports": {
+            "rule": {"outlets_in_sections": "more than half", "official_source": "never left out",
+                     "sections": list(rubric.SPORTS_SECTIONS), "keep_words": list(rubric.HARD_NEWS_WORDS)},
+            "groups": [
+                {
+                    "titles": [a.title for a in g],
+                    "articles": [a.url for a in g],
+                    "from_sports_sections": [a.url for a in g if rubric.in_sports_section(a.url)],
+                    "score": rubric.score(self.sources[a.source_id] for a in g).to_dict(),
+                }
+                for g in sports
+            ],
+        }}
+
     def file_data(self, articles: list[Article], clusters: list[list[Article]], model: str,
-                  usage: dict | None = None) -> dict:
+                  usage: dict | None = None, sports: list[list[Article]] = (), grouping: dict | None = None) -> dict:
         """The public record of the run. Needs saved stories, for their ids."""
         return {
             "format": FORMAT,
@@ -125,19 +157,23 @@ class Edition:
                 "banned_words_sha256": _sha(config.BANNED_WORDS_PATH),
                 "model": model,
                 "usage": usage,  # input and output tokens across the run; null if no model reported any
+                "grouping": grouping,  # how articles were grouped: method, model and threshold
             },
             "sources": _sources(self.sources),
             "articles": [{"source_id": a.source_id, "url": a.url, "title": a.title, "summary": a.summary,
                           "published_at": a.published_at} for a in articles],
             "clusters": [[a.url for a in g] for g in clusters],
+            "left_out": self._left_out(sports),
+            "feeds_down": self.feeds_down,
             "markets": self.markets,
             "stories": [
                 {
                     "id": s.id,
                     "headline": s.headline, "bullets": s.bullets, "whats_next": s.whats_next,
                     "topic": s.topic, "region": s.region, "written_by": s.written_by,
-                    "checks": s.checks, "thread_id": s.thread_id, "day": s.day,
+                    "checks": s.checks, "thread_id": s.thread_id, "day": s.day, "sides": s.sides,
                     "articles": [a.url for a in s.articles],
+                    "reposts": {url: first.url for url, first in reposts(s.articles).items()},
                     "score": rubric.score(self.sources[a.source_id] for a in s.articles
                                           if a.source_id in self.sources).to_dict(),
                 }
@@ -146,11 +182,11 @@ class Edition:
         }
 
     def write_file(self, directory: Path, articles: list[Article], clusters: list[list[Article]], model: str,
-                   usage: dict | None = None) -> Path:
+                   usage: dict | None = None, sports: list[list[Article]] = (), grouping: dict | None = None) -> Path:
         directory = Path(directory)
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / f"{self.date}.json"
-        path.write_text(json.dumps(self.file_data(articles, clusters, model, usage), ensure_ascii=False, indent=1))
+        path.write_text(json.dumps(self.file_data(articles, clusters, model, usage, sports, grouping), ensure_ascii=False, indent=1))
         return path
 
 
@@ -176,11 +212,13 @@ def _restore_file(conn, data: dict) -> None:
             checks=s.get("checks", {}),
             thread_id=s.get("thread_id"),
             day=s.get("day", 1),
+            sides=s.get("sides", {}),
         )
         for s in data["stories"]
     ]
     db.replace_edition(conn, data["edition"], stories)
     db.save_extra(conn, data["edition"], "markets", data.get("markets", []))
+    db.save_extra(conn, data["edition"], "feeds_down", data.get("feeds_down", []))
 
 
 def restore(directory: Path, db_path: Path) -> int:

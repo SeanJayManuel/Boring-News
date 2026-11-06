@@ -26,6 +26,7 @@ def render_page(data: dict) -> str:
     payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     return (
         template.replace("__REPO_URL__", html.escape(data["repo_url"]))
+        .replace("__BASE_URL__", html.escape(data["base_url"]))
         .replace("/*__CSS__*/", (WEB / "style.css").read_text())
         .replace("/*__CORE__*/", (WEB / "core.js").read_text())
         .replace("/*__APP__*/", (WEB / "app.js").read_text())

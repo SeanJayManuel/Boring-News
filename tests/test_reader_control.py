@@ -53,9 +53,9 @@ def test_a_story_with_no_sources_left_blames_the_right_setting():
 
 
 def test_below_threshold_gives_the_numbers():
-    hidden = reasons("threshold=strict")
-    assert hidden[3]["reason"] == "threshold"
-    assert "0.55" in hidden[3]["why"] and "Score" in hidden[3]["why"]
+    hidden = reasons("threshold=strict&blindspots=0")
+    assert hidden[3]["reason"] == "blindspot"
+    assert "0.55" in hidden[3]["why"] and "Score" in hidden[3]["why"] and "one-sided" in hidden[3]["why"]
 
 
 def test_too_few_outlets_is_not_called_a_low_score():
@@ -74,12 +74,11 @@ def test_hidden_official_items_say_so():
     assert hidden[4]["reason"] == "official" and "record" in hidden[4]["why"]
     assert hidden[5]["reason"] == "official" and "statement" in hidden[5]["why"]
     assert hidden[6]["reason"] == "official" and "at least 2" in hidden[6]["why"]  # covered, but fell short
-    assert hidden[3]["reason"] == "threshold"  # no government item at all
 
 
 def test_every_reason_has_a_label():
     out = run_core(DATA)
-    assert [r["id"] for r in out["reasons"]] == ["topic", "sources", "threshold", "official"]
+    assert [r["id"] for r in out["reasons"]] == ["topic", "sources", "threshold", "blindspot", "official"]
     assert all(r["label"] for r in out["reasons"])
 
 
@@ -130,8 +129,8 @@ def test_feed_carries_weights_in_its_own_address():
 def test_recipe_name_round_trips_and_titles_the_feed():
     res = select(DATA, "topics=economy&recipe=Morning%20%26%20night")
     assert res["query"] == "topics=economy&recipe=Morning%20%26%20night"
-    assert "<title>Boring News (reader recipe: Morning &amp; night)</title>" in res["rss"]
-    assert "<title>Boring News</title>" in select(DATA)["rss"]
+    assert "<title>The Standard Edition (reader recipe: Morning &amp; night)</title>" in res["rss"]
+    assert "<title>The Standard Edition</title>" in select(DATA)["rss"]
 
 
 def test_a_recipe_name_is_cleaned_and_cut():

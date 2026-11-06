@@ -2,6 +2,7 @@
 and served by the real page script and the real Cloudflare function."""
 
 import json
+import re
 import shutil
 import subprocess
 import xml.etree.ElementTree as ET
@@ -9,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from boringnews import config
+from boringnews import config, ledger
 from boringnews.export_static import main as export_main
 from boringnews.pipeline import main as pipeline_main
 from boringnews.topics import TOPICS
@@ -75,9 +76,9 @@ def serve(site: Path, tmp_path: Path, *urls: str) -> list[dict]:
     return json.loads(out.stdout)
 
 
-def open_page(site: Path, url: str, research: str = "ok") -> dict:
-    out = subprocess.run([NODE, str(config.ROOT / "tests" / "page_smoke.cjs"), str(site / "index.html"), url, research],
-                         capture_output=True, text=True, check=True)
+def open_page(site: Path, url: str, research: str = "ok", saved: str | None = None) -> dict:
+    args = [NODE, str(config.ROOT / "tests" / "page_smoke.cjs"), str(site / "index.html"), url, research]
+    out = subprocess.run(args + ([] if saved is None else [saved]), capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
 
 
@@ -96,7 +97,8 @@ def test_edition_json_carries_what_the_page_needs(site):
     assert len(data["markets"]) == 7 and len(data["stories"]) == 17
     assert all(s["id"] for s in data["stories"])
     assert json.loads((site / "archive" / f"{DATE}.json").read_text())["stories"][0]["id"] == data["stories"][0]["id"]
-    assert set(data["rubric"]) == {"version", "weights", "thresholds", "coverage_cap", "min_outlets", "spotlight"}
+    assert set(data["rubric"]) == {"version", "weights", "thresholds", "coverage_cap", "min_outlets", "spotlight",
+                                   "blindspot_outlets"}
 
 
 def test_static_feed_is_opt_in(site, tmp_path):
@@ -159,9 +161,67 @@ jsdom = pytest.mark.skipif(not (config.ROOT / "node_modules" / "jsdom").exists()
 def test_page_renders_the_edition(site):
     page = open_page(site, f"{BASE}/")
     assert page["errors"] == []
-    assert page["lede"] == "Five stories today." and page["spotlight"] == 5
-    assert page["ticker"] == 14 and page["dataLink"]  # the ticker repeats so it can scroll
+    assert page["lede"].startswith("Five stories today.") and page["spotlight"] == 5
+    assert page["ticker"] == 14 and page["dataLink"]
     assert page["feedUrl"] == f"{BASE}/feed.xml?threshold=strict"
+
+
+def test_category_names_are_title_case():
+    words = [w for name in TOPICS.values() for w in name.split() if w != "&"]
+    assert words and all(w[0].isupper() for w in words)
+
+
+def test_sample_note_sits_in_a_landmark(site):
+    html = (site / "index.html").read_text()
+    assert html.index('<header class="masthead">') < html.index('id="sample-note"') < html.index("</header>")
+
+
+@jsdom
+def test_headings_and_names_read_in_order(site):
+    page = open_page(site, f"{BASE}/")
+    assert page["leadHeading"] == "H2" and page["themePressed"] is None
+    assert page["themeColor"] and page["allSummary"].count(" backed by a government record.") == 1
+    assert all(link.startswith("#topic-") for link in page["topicLinks"]) and page["topicLinks"]
+    assert all(" " in name for name in page["topicNames"])
+    assert all("\u25b2" not in name and "\u25bc" not in name and name.endswith("(FRED)") for name in page["tickNames"])
+
+
+@jsdom
+def test_a_topic_link_opens_its_place_in_all_stories(site):
+    topic = open_page(site, f"{BASE}/")["topicLinks"][0]
+    page = open_page(site, f"{BASE}/{topic}")
+    assert page["errors"] == [] and page["scrolledTo"] == topic[1:] and not page["scrolledToHidden"]
+
+
+@jsdom
+def test_a_research_search_can_be_shared(site):
+    page = open_page(site, f"{BASE}/#research?lookup=water&q=river&uncovered=1")
+    assert page["errors"] == [] and page["researchLookup"] == "water"
+    assert page["researchQuery"] == "river" and page["researchUncovered"] is True
+    assert page["address"].endswith("#research?lookup=water&q=river&uncovered=1")
+    assert page["recCount"].endswith(" edition.") or page["recCount"].endswith(" editions.")
+
+
+@jsdom
+def test_reset_can_be_undone(site):
+    page = open_page(site, f"{BASE}/?weights=10,20,30,40")
+    assert page["undoOffered"] and page["undoGone"]
+    assert page["reset"]["sliders"] != page["undone"]["sliders"] and "weights=" in page["undone"]["feedUrl"]
+
+
+@jsdom
+def test_all_sliders_at_zero_stay_in_place(site):
+    page = open_page(site, f"{BASE}/")
+    assert page["sliderKept"] and page["allZero"]["sliders"] == [40, 25, 10, 25]
+
+
+@jsdom
+def test_a_settings_link_offers_the_way_back(site):
+    replacing = open_page(site, f"{BASE}/?threshold=broad", saved="threshold=strict")
+    assert any(n.startswith("This link replaced the settings") for n in replacing["notices"])
+    same = open_page(site, f"{BASE}/?threshold=strict", saved="threshold=strict")
+    fresh = open_page(site, f"{BASE}/?threshold=broad")
+    assert not any("replaced" in n for n in same["notices"] + fresh["notices"])
 
 
 @jsdom
@@ -170,7 +230,8 @@ def test_feed_links_open_the_visible_story(site):
     assert top
     page = open_page(site, f"{BASE}/#{top[0]}")
     assert page["errors"] == [] and page["duplicates"] == []
-    assert page["scrolledTo"] == top[0] and not page["scrolledToHidden"]
+    assert page["storyTitle"] and page["storyScore"] and page["storyTitle"] in page["title"]
+    assert page["sideColumns"] == ["Left", "Center", "Right"]
 
 
 @jsdom
@@ -236,7 +297,7 @@ def test_custom_weights_change_what_the_page_says(site):
 @jsdom
 def test_default_weights_say_nothing_new(site):
     seen = open_page(site, f"{BASE}/")["loaded"]
-    assert seen["sublede"].startswith("Ranked by how widely") and "weights" not in seen["showing"]
+    assert seen["sublede"] == "" and "weights" not in seen["showing"]
     assert seen["scoreLine"].startswith("Score ") and "with your weights" not in seen["scoreLine"]
     assert "weights" not in seen["chartLabel"] and seen["chartNote"] == "" and seen["weightsYours"] is None
     assert "weights" not in seen["thresholdHint"] and seen["sliders"] == [40, 25, 10, 25]
@@ -266,7 +327,7 @@ def test_a_recipe_is_a_named_link(site):
     named = page["named"]
     assert named["recipeLink"] == f"{BASE}/?threshold=strict&weights=40,25,10,100&recipe=My%20mix"
     assert named["feedUrl"].endswith("&recipe=My%20mix")
-    assert "My mix" in named["recipeNote"] and "not Boring News" in named["recipeNote"]
+    assert "My mix" in named["recipeNote"] and "not Standard Edition" in named["recipeNote"]
     assert page["savedQuery"].endswith("recipe=My%20mix")                     # kept in this browser
     assert page["copyStatus"]                                                 # jsdom has no clipboard, so it selects
     assert page["reset"]["recipeName"] == "" and page["reset"]["recipeNote"] is None
@@ -324,11 +385,169 @@ def test_earlier_days_say_so_when_the_index_is_unavailable(two_days, research):
     assert page["earlier"]["days"] == [] and "aren't available" in page["earlier"]["message"]
 
 
+def test_opening_sentence_names_a_side_the_reader_left_out(site):
+    left = "bay-chronicle,metro-ledger,northside-tribune"
+    lede = open_page(site, f"{BASE}/?exclude={left}")["lede"]
+    assert lede.endswith(" stories today. No left outlet you kept ran these.")
+
+
+@jsdom
+def test_a_link_to_a_story_outside_todays_edition(two_days):
+    data = json.loads((two_days / "research.json").read_text())
+    old = next(s for s in data["stories"] if s["date"] == "2026-11-03")
+    page = open_page(two_days, f"{BASE}/#story-{old['id']}")
+    assert page["errors"] == [] and page["storyTitle"] == old["headline"]
+    assert page["storyNote"] == "From the edition of Tuesday, November 3, 2026."
+
+
+@jsdom
+def test_a_link_to_a_story_we_no_longer_have(site):
+    page = open_page(site, f"{BASE}/#story-999999")
+    assert page["errors"] == [] and page["storyTitle"] == "This story isn't available"
+
+
+@jsdom
+def test_every_page_has_a_footer_and_a_link_preview(site):
+    page = open_page(site, f"{BASE}/")
+    assert page["footLinks"] == 6 and page["socialImage"] == f"{BASE}/brand/social.png"
+    assert (site / "brand" / "social.png").exists() and (site / "brand" / "favicon.png").exists()
+
+
+@jsdom
+def test_page_says_when_it_could_not_read_a_feed(tmp_path, site):
+    html = (site / "index.html").read_text()
+    copy = tmp_path / "site"
+    shutil.copytree(site, copy)
+    source = next(iter(json.loads((site / "edition.json").read_text())["sources"]))
+    (copy / "index.html").write_text(html.replace('"feeds_down": []', f'"feeds_down": ["{source}"]'))
+    assert "couldn't read" in open_page(copy, f"{BASE}/")["notices"][0]
+
+
+@jsdom
+def test_about_page_shows_a_contact_address_only_when_there_is_one(tmp_path, site):
+    assert open_page(site, f"{BASE}/")["contactEmail"] is None
+    copy = tmp_path / "site"
+    shutil.copytree(site, copy)
+    html = (site / "index.html").read_text()
+    (copy / "index.html").write_text(html.replace('"contact_email": ""', '"contact_email": "desk@example.org"'))
+    assert "desk@example.org" in open_page(copy, f"{BASE}/")["contactEmail"]
+
+
+def with_data(site, tmp_path, **changes):
+    """A copy of the site whose page data has `changes` applied."""
+    raw = (site / "edition.json").read_text()
+    copy = tmp_path / "site"
+    shutil.copytree(site, copy)
+    html = (site / "index.html").read_text()
+    assert raw.replace("</", "<\\/") in html
+    new = json.dumps({**json.loads(raw), **changes}, ensure_ascii=False).replace("</", "<\\/")
+    (copy / "index.html").write_text(html.replace(raw.replace("</", "<\\/"), new))
+    return copy
+
+
+@jsdom
+def test_page_says_when_the_edition_is_old(tmp_path, site):
+    page = open_page(with_data(site, tmp_path, edition="2026-10-01", sample=False), f"{BASE}/")
+    assert page["errors"] == [] and "A newer one hasn't been published yet." in page["notices"][0]
+
+
+@jsdom
+def test_page_with_no_stories_says_so(tmp_path, site):
+    page = open_page(with_data(site, tmp_path, stories=[]), f"{BASE}/")
+    assert page["errors"] == [] and page["lede"] == "No stories in this edition."
+
+
+@jsdom
+def test_every_top_story_has_a_summary_and_a_picture_of_its_coverage(site):
+    page = open_page(site, f"{BASE}/")
+    assert page["errors"] == [] and page["summaries"] == 5 and page["plates"] >= 5
+    assert page["leadRings"] == 3 and page["gapCircles"]
+
+
+@jsdom
+def test_story_page_shows_each_side_reposts_and_a_way_to_report_a_mistake(site):
+    data = json.loads((site / "edition.json").read_text())
+    storm = next(s for s in data["stories"] if "Port Avery" in s["headline"])
+    page = open_page(site, f"{BASE}/#story-{storm['id']}")
+    assert page["errors"] == [] and "What each side reported" in page["storyHeads"]
+    assert page["sideSaid"] == [" ".join(storm["sides"][side]) for side in ("left", "center", "right")]
+    assert any("same report as Capital Wire" in who for who in page["storySides"])
+    lines = " ".join(page["storyLines"])
+    assert "first outlet we read" in lines and "1 outlet repeated another's report, so this rests on 4 separate reports." in lines
+    assert "template=wrong-story.yml" in page["wrongLink"] and "story=" in page["wrongLink"]
+    assert "More on this topic" in page["storyHeads"] and page["relatedLinks"]
+
+
+@jsdom
+def test_a_side_alone_is_not_summarized(tmp_path, site):
+    data = json.loads((site / "edition.json").read_text())
+    storm = next(s for s in data["stories"] if "Port Avery" in s["headline"])
+    left = next(sid for sid, src in data["sources"].items() if src["lean"] == "right")
+    keep = [a["source_id"] for a in storm["articles"] if data["sources"][a["source_id"]]["lean"] == "center"]
+    off = ",".join(sid for sid in {a["source_id"] for a in storm["articles"]} if sid not in keep)
+    page = open_page(site, f"{BASE}/?exclude={off}#story-{storm['id']}")
+    assert page["errors"] == [] and page["sideSaid"] == [] and "Who covered it" in page["storyHeads"]
+
+
+@jsdom
+def test_ledger_is_on_the_site_and_adds_up_from_its_rows(site):
+    page = open_page(site, f"{BASE}/#ledger")
+    book = ledger.load()
+    assert page["errors"] == [] and page["ledgerLede"].endswith(" received.")
+    assert f"${book['spent']:.2f} spent so far" in page["ledgerLede"]
+    assert page["ledgerRows"] == len(book["money_out"]) and page["ledgerRules"] == len(book["rules"])
+    assert "No donations are accepted yet" in page["ledgerIn"]
+    assert page["title"] == "Public ledger | The Standard Edition" and page["tabCount"] == 7
+
+
+def test_ledger_file_totals_match_its_rows():
+    text = config.LEDGER_PATH.read_text()
+    book = ledger.load()
+    assert f"| Total spent | ${book['spent']:.2f} |" in text and f"| Total received | ${book['received']:.2f} |" in text
+
+
+@jsdom
+def test_a_market_value_that_lags_shows_its_own_date(tmp_path, site):
+    markets = json.loads((site / "edition.json").read_text())["markets"]
+    markets[-1]["date"] = "2026-10-30"
+    page = open_page(with_data(site, tmp_path, markets=markets), f"{BASE}/")
+    assert page["errors"] == [] and page["tickDates"] == ["Oct 30"]
+    assert page["tickerLabel"].endswith("Last close, Nov 3")
+
+
+@jsdom
+def test_market_values_on_one_day_show_no_extra_dates(site):
+    assert open_page(site, f"{BASE}/")["tickDates"] == []
+
+
+def test_every_tab_opens_a_view():
+    page = (config.ROOT / "web" / "index.html").read_text()
+    views = re.findall(r'<a href="#[\w-]+" data-view="([\w-]+)"', page)
+    assert "about" in views
+    app = (config.ROOT / "web" / "app.js").read_text()
+    for view in views:
+        assert f'id="view-{view}"' in page and f'"{view}"' in app
+
+
 def test_function_serves_custom_weights_and_a_named_feed(site, tmp_path):
     plain, weighted, same = serve(site, tmp_path, f"{BASE}/feed.xml", f"{BASE}/feed.xml?weights=0,0,0,100&recipe=Records",
                                   f"{BASE}/feed.xml?weights=40,25,10,25")
     assert same["body"] == plain["body"]
     root = ET.fromstring(weighted["body"]).find("channel")
-    assert root.findtext("title") == "Boring News (reader recipe: Records)"
+    assert root.findtext("title") == "The Standard Edition (reader recipe: Records)"
     assert [i.findtext("title") for i in root.findall("item")] != \
         [i.findtext("title") for i in ET.fromstring(plain["body"]).findall("./channel/item")]
+
+
+@jsdom
+def test_front_page_shows_what_each_side_ran_and_what_one_side_missed(site):
+    page = open_page(site, f"{BASE}/")
+    assert page["errors"] == [] and page["oneSide"] and page["gapSides"]
+    assert page["leadLink"].startswith("#story-")
+    assert all(link.startswith("#story-") and link[1:] in page["anchors"] for link in page["oneSide"])
+
+
+def test_page_is_a_real_document_that_fits_a_phone(site):
+    html = (site / "index.html").read_text()
+    assert html.lower().startswith("<!doctype html>")
+    assert 'name="viewport"' in html.split("<style>")[0]

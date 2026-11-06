@@ -28,6 +28,8 @@ from .render import load_corrections, render_page
 from .sources import load_sources
 from .topics import TOPICS
 
+BRAND = config.ROOT / "web" / "brand"
+
 
 def export(edition: Edition, research_index: dict, out: Path, base_url: str, sample: bool = False,
            cname: str | None = None, static_feed: bool = False, archive_dir: Path | None = None,
@@ -58,6 +60,12 @@ def export(edition: Edition, research_index: dict, out: Path, base_url: str, sam
     (out / "edition.json").write_text(json.dumps(data, ensure_ascii=False))
     written += [out / "index.html", out / "edition.json"]
 
+    # The favicon and the image a shared link previews with.
+    (out / "brand").mkdir(exist_ok=True)
+    for f in sorted(BRAND.glob("*.png")):
+        shutil.copy(f, out / "brand" / f.name)
+        written.append(out / "brand" / f.name)
+
     if cname:  # GitHub Pages custom domain
         (out / "CNAME").write_text(cname.strip() + "\n")
         written.append(out / "CNAME")
@@ -77,7 +85,7 @@ def main(argv=None):
     ap.add_argument("--db", default=str(config.DB_PATH))
     ap.add_argument("--sample", action="store_true", help="label the page as sample data")
     ap.add_argument("--base-url", default=config.BASE_URL)
-    ap.add_argument("--cname", help="custom domain for GitHub Pages, e.g. boringnews.org")
+    ap.add_argument("--cname", help="custom domain for GitHub Pages, e.g. standardedition.org")
     ap.add_argument("--archive", default=str(config.ARCHIVE_DIR), help="folder of edition files to publish")
     ap.add_argument("--inline-research", action="store_true",
                     help="embed the research index in the page (for a single-file preview)")

@@ -1,17 +1,18 @@
+import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
 import pytest
 
-from boringnews import config, rubric
+from boringnews import config, ingest, rubric
 from boringnews.cluster import cluster
-from boringnews.db import Article, connect, load_edition, editions
+from boringnews.db import connect, load_edition, editions
 from boringnews.edition import Edition
-from boringnews.ingest import load_fixtures, public_law_items
+from boringnews.ingest import load_fixtures
 from boringnews.pipeline import main as pipeline_main
 from boringnews.reader import feeds
 from boringnews.rewrite import fallback, lint, load_banned
-from boringnews.sources import load_sources
+from boringnews.sources import Source, load_sources
 
 from .core import select
 
@@ -41,7 +42,8 @@ def test_one_sided_story_is_symmetric_left_and_right():
 def test_thresholds_and_lanes():
     one_sided = rubric.score(src("heartland-post", "liberty-daily", "prairie-gazette"))
     assert rubric.lane(one_sided, "broad") == "main"
-    assert rubric.lane(one_sided, "standard") is None
+    assert rubric.lane(one_sided, "standard") == "blindspot"
+    assert rubric.lane(one_sided, "standard", blindspots=False) is None
     primary = rubric.score(src("rules-register"))
     assert rubric.lane(primary, "strict", official=True) == "official"
     assert rubric.lane(primary, "strict", official=False) is None
@@ -61,8 +63,8 @@ def test_duplicate_outlet_counts_once():
 def test_fixture_clusters_match_events():
     arts = load_fixtures(config.FIXTURE_ARTICLES_PATH)
     official = frozenset(sid for sid, s in SOURCES.items() if s.type == "primary")
-    sizes = sorted((len(c) for c in cluster(arts, config.CLUSTER_SIMILARITY, separate=official)), reverse=True)
-    assert sizes == [7, 4, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1, 1]
+    sizes = sorted((len(c) for c in cluster(arts, separate=official)), reverse=True)
+    assert sizes == [7, 5, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1, 1]
 
 
 # ---------------------------------------------------------------- linter and fallback writer
@@ -119,7 +121,7 @@ def test_prefs_filter_and_rescore(edition_db):
     assert "right" not in water["leans"]
 
     only_states = select(data, "topics=states")["items"]
-    assert {s["topic"] for s in only_states} == {"states"} and len(only_states) == 7
+    assert {s["topic"] for s in only_states} == {"states"} and len(only_states) == 8
 
 
 def test_prefs_query_round_trip(edition_db):
@@ -133,14 +135,15 @@ def test_bad_settings_fall_back_to_defaults(edition_db):
     data = page_data(edition_db)
     for q in ("threshold=constructor", "threshold=nonsense", "topics=constructor", "length=tiny"):
         assert select(data, q)["query"] == "", q
-        assert len(select(data, q)["items"]) == 15, q
+        assert len(select(data, q)["items"]) == 17, q
 
 
 def test_rss_is_valid_xml(edition_db):
     root = ET.fromstring(feeds(page_data(edition_db), [""])[0])
     items = root.findall("./channel/item")
-    assert len(items) == 15
+    assert len(items) == 17
     assert items[-1].find("title").text.startswith("Government ")
+    assert sum(i.find("title").text.startswith("One side only: ") for i in items) == 2
 
 
 def test_feeds_fail_loudly_without_node(monkeypatch):
@@ -160,11 +163,14 @@ def test_web_routes(tmp_path, monkeypatch):
     client = TestClient(web.app)
 
     page = client.get("/")
-    assert page.status_code == 200 and "Boring News" in page.text and "__DATA__" not in page.text
+    assert page.status_code == 200 and "Standard Edition" in page.text and "__DATA__" not in page.text
     feed = client.get("/feed.xml?topics=states&threshold=strict")
     assert feed.status_code == 200
-    assert len(ET.fromstring(feed.content).findall("./channel/item")) == 7
+    assert len(ET.fromstring(feed.content).findall("./channel/item")) == 8
     assert client.get("/feed.xml?date=1999-01-01").status_code == 404
+    missing = client.get("/?date=1999-01-01")
+    assert missing.status_code == 404 and "no edition for that date" in missing.text
+    assert client.get("/brand/favicon.png").status_code == 200
     assert "/mcp" in client.get("/api/docs.md").text
 
 
@@ -240,7 +246,7 @@ def test_spotlight_is_top_five_covered_stories(edition_db):
 
 def test_official_documents_from_one_source_stay_separate():
     arts = [a for a in load_fixtures(config.FIXTURE_ARTICLES_PATH) if a.source_id == "rules-register"]
-    assert len(cluster(arts, config.CLUSTER_SIMILARITY, separate=frozenset({"rules-register"}))) == 2
+    assert len(cluster(arts, separate=frozenset({"rules-register"}))) == 2
 
 
 # ---------------------------------------------------------------- v0.3: records vs statements
@@ -273,31 +279,78 @@ def test_official_sources_default_to_statement(tmp_path):
     assert load_sources(p)["agency"].role == "statement"
 
 
-# ---------------------------------------------------------------- public laws
+# ---------------------------------------------------------------- Congress.gov
 
-def law(number, title, posted, summary="Content Files PDF TEXT"):
-    return Article("public-laws", f"https://x/{number}", f"Public Law {number} - {title}", summary, posted)
-
-
-def test_only_laws_newer_than_those_already_posted_count():
-    since = datetime(2026, 11, 4, tzinfo=timezone.utc)
-    items = [
-        law("119 - 108", "Earlier law", "2026-10-30T12:00:00+00:00"),
-        law("119 - 111", "Latest law before the window", "2026-10-30T12:00:00+00:00"),
-        law("117 - 9", "Old law reposted", "2026-11-04T16:00:00+00:00"),
-        law("119 - 49", "Older law from this Congress reposted", "2026-11-04T16:00:00+00:00"),
-        law("119 - 112", "Really new", "2026-11-04T16:00:00+00:00"),
-        law("120 - 1", "First law of a new Congress", "2026-11-04T16:00:00+00:00"),
-    ]
-    assert [a.title for a in public_law_items(items, since)] == [
-        "Public Law 119 - 112 - Really new", "Public Law 120 - 1 - First law of a new Congress"]
+SIGNED = {"type": "HR", "number": "12", "congress": 119, "title": "A Test Act",
+          "latestAction": {"actionDate": "2026-11-04", "text": "Signed by President."}}
+BILL_SINCE = datetime(2026, 11, 3, tzinfo=timezone.utc)
 
 
-def test_public_law_summaries_are_dropped_because_the_feed_only_lists_files():
-    since = datetime(2026, 11, 4, tzinfo=timezone.utc)
-    assert public_law_items([law("119 - 1", "New", "2026-11-04T16:00:00+00:00")], since)[0].summary == ""
+def congress_api(monkeypatch, pages, summaries=None):
+    calls = []
+
+    def fake(url, params):
+        calls.append((url, params))
+        if url.endswith("/summaries"):
+            if isinstance(summaries, Exception):
+                raise summaries
+            return {"summaries": summaries or []}
+        return {"bills": pages[params["offset"] // 250]}
+
+    monkeypatch.setenv("CONGRESS_API_KEY", "x")
+    monkeypatch.setattr(ingest, "_get_json", fake)
+    return calls
 
 
-def test_real_source_list_treats_public_laws_this_way():
-    live = load_sources(config.SOURCES_PATH)
-    assert live["public-laws"].fetcher == "public_laws"
+def fetch(pages=None):
+    src = Source(id="congress", name="Congress.gov", url="x", lean="unrated", type="primary", fetcher="congress")
+    return ingest.fetch_congress(src, BILL_SINCE)
+
+
+def test_every_page_of_bills_is_read(monkeypatch):
+    noise = {**SIGNED, "latestAction": {"actionDate": "2026-11-04", "text": "Referred to committee."}}
+    calls = congress_api(monkeypatch, [[noise] * 250, [noise] * 250, [SIGNED]])
+    assert len(fetch()) == 1
+    assert [p["offset"] for u, p in calls if not u.endswith("/summaries")] == [0, 250, 500]
+
+
+def test_a_bill_carries_its_latest_nonpartisan_summary(monkeypatch):
+    congress_api(monkeypatch, [[SIGNED]], [
+        {"actionDesc": "Introduced in House", "updateDate": "2026-01-01T00:00:00Z", "text": "<p>Old text.</p>"},
+        {"actionDesc": "Passed House", "updateDate": "2026-06-01T00:00:00Z", "text": "<p>This bill does a thing.</p>"},
+    ])
+    summary = fetch()[0].summary
+    assert summary == ("Latest action on 2026-11-04: Signed by President. "
+                       "Congressional Research Service summary (Passed House): This bill does a thing.")
+
+
+def test_a_bill_without_a_summary_is_still_a_record(monkeypatch):
+    congress_api(monkeypatch, [[SIGNED]])
+    assert fetch()[0].summary == "Latest action on 2026-11-04: Signed by President."
+
+
+def test_a_failed_summary_call_keeps_the_bill(monkeypatch):
+    congress_api(monkeypatch, [[SIGNED]], OSError("no route"))
+    assert fetch()[0].summary == "Latest action on 2026-11-04: Signed by President."
+
+
+def test_only_kept_bills_cost_a_summary_call(monkeypatch):
+    noise = {**SIGNED, "number": "13", "latestAction": {"actionDate": "2026-11-04", "text": "Referred to committee."}}
+    calls = congress_api(monkeypatch, [[noise, SIGNED]])
+    fetch()
+    assert [u for u, _ in calls if u.endswith("/summaries")] == [ingest.CONGRESS_API + "/119/hr/12/summaries"]
+
+
+def test_public_laws_come_from_congress_gov_not_a_second_source():
+    assert "public-laws" not in load_sources(config.SOURCES_PATH)
+
+
+def test_feed_times_are_read_as_utc_on_any_machine(monkeypatch):
+    monkeypatch.setenv("TZ", "America/Los_Angeles")
+    time.tzset()
+    try:
+        entry = {"published_parsed": time.struct_time((2026, 11, 5, 3, 47, 0, 3, 309, 0))}
+        assert ingest._published(entry) == "2026-11-05T03:47:00+00:00"
+    finally:
+        monkeypatch.undo()
+        time.tzset()

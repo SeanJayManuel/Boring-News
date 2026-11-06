@@ -17,8 +17,17 @@ A story makes the edition with score >= threshold AND at least two outlets.
 Official items that no outlet covered are listed too, under their topic,
 because they matter whether or not anyone wrote about them.
 
+A story that doesn't reach the threshold but that at least two rated outlets ran,
+all on one side, is a blind spot: written up and listed apart, never in the main
+list. It counts outlets and ignores weights and the score, so the same rule holds
+for left, center and right. What one side alone ran is information in itself.
+
 The top SPOTLIGHT stories by score are the day's spotlight.
 
+Sports are left out, whatever their score: see `is_sports`. That rule decides
+what is written and not how anything scores, so it doesn't change VERSION.
+
+v0.5 (2026-11-05): added the blind-spot lane. Scores and the main list don't change.
 v0.4 (2026-11-04): coverage counts weighted outlets (each side counts equally).
 v0.3 (2026-11-04): only official records earn `record`; statements are listed
 but add nothing, so an administration's press releases can't lift a story.
@@ -30,16 +39,19 @@ v0.1 (2026-11-04): breadth 0.50, coverage 0.35, diversity 0.15.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, asdict
 from typing import Iterable
+from urllib.parse import urlsplit
 
 from .sources import Source
 
-VERSION = "0.4"
+VERSION = "0.5"
 WEIGHTS = {"breadth": 0.40, "coverage": 0.25, "diversity": 0.10, "record": 0.25}
 THRESHOLDS = {"broad": 0.30, "standard": 0.40, "strict": 0.55}
 COVERAGE_CAP = 10
 MIN_OUTLETS = 2
+BLINDSPOT_OUTLETS = 2
 SPOTLIGHT = 5
 SPECTRUM = ("left", "center", "right")
 OUTLET_TYPES = ("wire", "national", "regional", "international")
@@ -58,6 +70,7 @@ class Score:
     has_primary: bool
     has_record: bool = False
     has_statement: bool = False
+    rated_outlets: int = 0  # outlets with a lean; `outlets` also counts unrated ones
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -66,7 +79,8 @@ class Score:
 def score(sources: Iterable[Source]) -> Score:
     sources = list({s.id: s for s in sources}.values())  # one vote per outlet
     outlets = [s for s in sources if s.type != "primary"]
-    leans = sorted({s.lean for s in outlets if s.lean in SPECTRUM}, key=SPECTRUM.index)
+    rated = [s for s in outlets if s.lean in SPECTRUM]
+    leans = sorted({s.lean for s in rated}, key=SPECTRUM.index)
     types = sorted({s.type for s in outlets if s.type in OUTLET_TYPES}, key=OUTLET_TYPES.index)
     has_record = any(s.type == "primary" and s.role == "record" for s in sources)
     has_statement = any(s.type == "primary" and s.role != "record" for s in sources)
@@ -88,13 +102,21 @@ def score(sources: Iterable[Source]) -> Score:
         has_primary=has_primary,
         has_record=has_record,
         has_statement=has_statement,
+        rated_outlets=len(rated),
     )
 
 
-def lane(sc: Score, threshold: str = "standard", official: bool = True) -> str | None:
-    """'main' (covered across outlets), 'official' (on the record, little coverage), or None."""
+def is_blindspot(sc: Score) -> bool:
+    return len(sc.leans) == 1 and sc.rated_outlets >= BLINDSPOT_OUTLETS
+
+
+def lane(sc: Score, threshold: str = "standard", official: bool = True, blindspots: bool = True) -> str | None:
+    """'main' (covered across outlets), 'blindspot' (below that, but two or more outlets
+    on one side ran it), 'official' (on the record, little coverage), or None."""
     if sc.outlets >= MIN_OUTLETS and sc.total >= THRESHOLDS[threshold]:
         return "main"
+    if blindspots and is_blindspot(sc):
+        return "blindspot"
     if sc.has_primary and official:
         return "official"
     return None
@@ -103,3 +125,37 @@ def lane(sc: Score, threshold: str = "standard", official: bool = True) -> str |
 def is_candidate(sc: Score) -> bool:
     """Worth writing up at all: passes the loosest setting a reader could pick."""
     return lane(sc, threshold="broad", official=True) is not None
+
+
+# No sports in the edition, for now (roadmap D8). An article counts as sports when a
+# whole part of its URL path is one of these sections: outlets file sports there, and
+# guessing from words would catch real news (a sanctions story that mentions the NBA).
+SPORTS_SECTIONS = ("sport", "sports", "football")  # football: The Guardian's soccer section
+# A headline with one of these is news that happens to involve sports: a vote, a law, a
+# court, a crime. They can only keep a story, never drop one. Some are phrases because
+# sports pages use the bare word for something else ("ruled out", "Aaron Judge", "Barry Bonds").
+HARD_NEWS_WORDS = (
+    "antitrust", "appeals court", "arrested", "ballot", "bond measure", "bond vote", "charged", "charges",
+    "city council", "congress", "convicted", "federal court", "federal judge", "governor", "guilty", "indicted",
+    "law", "laws", "lawmakers", "lawsuit", "lawsuits", "legislation", "legislature", "mayor", "police",
+    "prosecutors", "referendum", "ruling", "senate", "sentenced", "sue", "sued", "sues", "supreme court",
+    "taxpayers", "voters",
+)
+_HARD_NEWS = re.compile(r"\b(?:" + "|".join(HARD_NEWS_WORDS) + r")\b", re.I)
+
+
+def in_sports_section(url: str) -> bool:
+    return any(part.lower() in SPORTS_SECTIONS for part in urlsplit(url).path.split("/"))
+
+
+def is_sports(group: list, sources: dict[str, Source]) -> bool:
+    """Leave this group of articles out? Only if more than half of its outlets filed it
+    only in sports sections, no official source is in it, and no headline is hard news.
+    A false drop silently loses real news, so every doubt keeps the group."""
+    if any(sources[a.source_id].type == "primary" for a in group):
+        return False
+    if any(_HARD_NEWS.search(a.title) for a in group):
+        return False
+    outlets = {a.source_id for a in group}
+    sports = {o for o in outlets if all(in_sports_section(a.url) for a in group if a.source_id == o)}
+    return len(sports) * 2 > len(outlets)

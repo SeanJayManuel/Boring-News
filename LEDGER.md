@@ -7,8 +7,8 @@ Every dollar in and every dollar out, in the open. This file is updated whenever
 | | Amount (USD) |
 | --- | --- |
 | Total received | $0.00 |
-| Total spent | $0.00 |
-| Balance | $0.00 |
+| Total spent | $8.50 |
+| Balance | −$8.50 (paid personally by the maintainer) |
 
 ## Money in
 
@@ -22,7 +22,7 @@ No donations are accepted yet. When they are, each one is listed here with its d
 
 | Date | What | Amount | Recurring | Receipt or note |
 | --- | --- | --- | --- | --- |
-| | | | | |
+| 2026-11-05 | Domain: standardedition.org | $8.50 | Yearly | Registered through Cloudflare. Paid personally |
 
 ## Running costs
 
@@ -30,10 +30,10 @@ Services the project depends on, and what they cost. "Paid personally" means the
 
 | Service | What it's for | Cost |
 | --- | --- | --- |
-| Domain (.org) | The site's address | Not registered yet |
-| Cloudflare Pages | Hosting the site and custom feeds | |
-| Anthropic API | Writing and fact-checking summaries | |
-| GitHub Actions | Nightly build | |
+| Domain (.org) | The site's address | $8.50 for the first year, paid personally |
+| Cloudflare Pages | Hosting the site and custom feeds | Not in use yet |
+| Anthropic API | Writing and fact-checking summaries | Not in use yet |
+| GitHub Actions | Nightly build | Not in use yet |
 | Congress.gov, FRED, Federal Register, GovInfo | Government data | Free |
 
 ## Rules

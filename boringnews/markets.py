@@ -1,4 +1,4 @@
-"""Yesterday's market closes for the ticker, from FRED (St. Louis Fed).
+"""The latest market closes for the ticker, from FRED (St. Louis Fed).
 
 Once a day, like everything else: each series' latest close and its change
 from the close before. No intraday prices, no streaming.
@@ -63,7 +63,7 @@ def fetch(series: list[dict], key: str | None = None) -> tuple[list[dict], list[
                   "sort_order": "desc", "limit": 10}
         try:
             req = urllib.request.Request(f"{FRED_API}?{urllib.parse.urlencode(params)}",
-                                         headers={"User-Agent": "BoringNewsBot/0.1"})
+                                         headers={"User-Agent": "StandardEditionBot/0.1"})
             with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
                 item = summarize(spec, parse_fred(json.loads(resp.read().decode("utf-8"))))
             if item:

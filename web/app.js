@@ -1,4 +1,4 @@
-// Boring News reader page. The rubric and settings it applies are in core.js.
+// The Standard Edition reader page. The rubric and settings it applies are in core.js.
 (function () {
   "use strict";
   var D = window.BORING_NEWS;
@@ -17,26 +17,35 @@
     standard: "Usually needs coverage from at least two of left, center and right.",
     strict: "Usually needs left, center and right, or two sides plus a government record."
   };
-  var VIEWS = ["today", "all-stories", "outlets", "research", "how-it-works", "your-feed"];
+  var VIEWS = ["today", "all-stories", "outlets", "research", "how-it-works", "your-feed", "ledger", "about", "story"];
+  var KEY_WORDS = "Each mark and ring is one outlet that ran the story. Stripes and dotted circles mean no outlet on that side ran it. A solid square means a government record backs it.";
 
   // Rubric and settings live in core.js, shared with the feed function.
   var lane = C.lane, scoreStory = C.scoreStory, select = C.select, spotlight = C.spotlight;
   var fromQuery = C.fromQuery, toQuery = C.toQuery;
 
+  // What a settings link replaced, so the reader can go back to it.
+  var replaced = null;
+
   function loadPrefs() {
-    var address = new URLSearchParams(location.search);
-    if (window.BoringCore.SETTINGS.some(function (x) { return address.has(x.name); })) return fromQuery(location.search);
-    try {
-      var saved = localStorage.getItem(STORE_KEY);
-      if (saved !== null) return fromQuery("?" + saved);
-    } catch (e) { /* storage unavailable */ }
+    var address = new URLSearchParams(location.search), saved = null;
+    try { saved = localStorage.getItem(STORE_KEY); } catch (e) { /* storage unavailable */ }
+    if (window.BoringCore.SETTINGS.some(function (x) { return address.has(x.name); })) {
+      var linked = fromQuery(location.search);
+      if (saved !== null && toQuery(fromQuery("?" + saved)) !== toQuery(linked)) replaced = saved;
+      return linked;
+    }
+    if (saved !== null) return fromQuery("?" + saved);
     return JSON.parse(JSON.stringify(DEFAULTS));
   }
   function savePrefs(p) {
     var q = toQuery(p);
     try { localStorage.setItem(STORE_KEY, q); } catch (e) { /* storage unavailable */ }
+    setAddress(location.pathname + (q ? "?" + q : "") + location.hash);
+  }
+  function setAddress(url) {
     if (window.self === window.top && /^https?:$/.test(location.protocol)) {
-      try { history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash); } catch (e) { /* ignore */ }
+      try { history.replaceState(null, "", url); } catch (e) { /* ignore */ }
     }
   }
 
@@ -53,6 +62,7 @@
     return n;
   }
   function $(id) { return document.getElementById(id); }
+  function say(text) { $("announce").textContent = text; }
   function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
   function listWords(arr) {
     return arr.length < 2 ? arr.join("") : arr.slice(0, -1).join(", ") + " and " + arr[arr.length - 1];
@@ -94,7 +104,7 @@
 
   // ---------- earlier days of a developing story
   // The index is a large file, so it's only fetched when a reader asks.
-  function earlierDays(s) {
+  function earlierDays(s, heading) {
     var label = "Earlier days of this story", done = false;
     var box = el("div", { className: "earlier", hidden: "", "aria-live": "polite" });
     var btn = el("button", { type: "button", className: "toggle earlier-toggle", "aria-expanded": "false", text: label });
@@ -108,7 +118,7 @@
       found.days.forEach(function (d) {
         box.appendChild(el("section", { className: "earlier-day" }, [
           el("p", { className: "topic", text: shortDate(d.date) + ", day " + d.day }),
-          el("h4", { text: d.headline }),
+          el(heading || "h4", { text: d.headline }),
           el("ul", { className: "bullets" }, d.bullets.map(function (b) { return el("li", { text: b }); })),
           sourceLine(d.articles)
         ]));
@@ -129,35 +139,182 @@
 
   // ---------- stories
   // A story appears twice (Today and All stories), so only one copy, in
-  // All stories, carries the #story-N anchor that feed links open.
-  function storyNode(item, headlinesOnly, anchored) {
-    var s = item.story, sc = item.score;
-    var topicLine = el("p", { className: "topic" }, [el("span", { className: "topic-name", text: D.topics[s.topic] || s.topic })]);
-    if (s.day > 1) topicLine.appendChild(el("span", { className: "badge day", text: "Day " + s.day }));
-    if (sc.hasRecord) topicLine.appendChild(el("span", { className: "badge", text: "Government record",
+  // All stories, carries the story-N id. A #story-N link opens the story page.
+  function outletsBySide(articles) {
+    var sides = {};
+    SPECTRUM.forEach(function (l) { sides[l] = []; });
+    articles.forEach(function (a) {
+      var src = D.sources[a.source_id];
+      if (!src || src.type === "primary" || !sides[src.lean]) return;
+      sides[src.lean].push(a);
+    });
+    return sides;
+  }
+
+  // The scale: one colored segment per side, one tick per outlet. A side that ran
+  // nothing is striped, so what wasn't covered is as visible as what was. A side
+  // we couldn't fully read is left blank, because it may have run the story.
+  function scale(item) {
+    var sides = outletsBySide(item.articles), gap = C.coverageGap(item.score, prefs);
+    var missing = gap.missing.filter(function (l) { return gap.unreadSides.indexOf(l) < 0; });
+    var words = "Covered by " + listWords(item.score.leans) + (missing.length ? ". Not covered by " + listWords(missing) : "") +
+      (gap.unreadSides.length ? ". Unknown for " + listWords(gap.unreadSides) : "");
+    return el("span", { className: "scale", role: "img", "aria-label": words }, SPECTRUM.map(function (l) {
+      var outlets = {};
+      sides[l].forEach(function (a) { outlets[a.source_id] = true; });
+      return el("span", { className: "side lean-" + l + " " + (sides[l].length ? "on" : gap.unreadSides.indexOf(l) >= 0 ? "unread" : "gap") },
+        Object.keys(outlets).map(function () { return el("i"); }));
+    }));
+  }
+  // The count under each segment, so the scale says what it shows.
+  function scaleCounts(item) {
+    var sides = outletsBySide(item.articles), gap = C.coverageGap(item.score, prefs);
+    return el("span", { className: "scale-counts", "aria-hidden": "true" }, SPECTRUM.map(function (l) {
+      var outlets = {};
+      sides[l].forEach(function (a) { outlets[a.source_id] = true; });
+      var n = Object.keys(outlets).length;
+      return el("span", { text: cap(l) + ": " + (!n && gap.unreadSides.indexOf(l) >= 0 ? "unknown" : n) });
+    }));
+  }
+  function coverage(item) {
+    return el("span", { className: "coverage" }, [scale(item), scaleCounts(item)]);
+  }
+  // The picture beside a story, drawn from its coverage so it can't frame the
+  // story: a circle per side, one ring per outlet, in the scale's order. It stays
+  // ink, because the scale beside it carries the color and the words. Amber marks
+  // a gap, here as everywhere.
+  function plate(item) {
+    var sides = outletsBySide(item.articles), gap = C.coverageGap(item.score, prefs), radius = 46;
+    var marks = SPECTRUM.map(function (l, i) {
+      var outlets = {}, at = 'cx="' + (62 + i * 38) + '" cy="72"';
+      sides[l].forEach(function (a) { outlets[a.source_id] = true; });
+      var n = Object.keys(outlets).length;
+      if (!n) return "<circle class=\"plate-" + (gap.unreadSides.indexOf(l) >= 0 ? "unread" : "gap") + "\" " + at + ' r="' + radius + '"/>';
+      var step = radius / n;
+      var out = '<circle class="plate-disc" ' + at + ' r="' + radius + '"/>';
+      for (var ring = 0; ring < n; ring++) {
+        out += '<circle class="plate-ring" ' + at + ' r="' + (radius - ring * step).toFixed(1) + '"/>';
+      }
+      return out;
+    }).join("");
+    var box = el("span", { className: "plate", "aria-hidden": "true" });
+    box.innerHTML = '<svg viewBox="0 0 200 150"><rect class="plate-ground" width="200" height="150"/>' + marks +
+      (item.score.hasRecord ? '<rect class="plate-record" x="168" y="120" width="16" height="16"/>' : "") + "</svg>";
+    return box;
+  }
+  // The checked sentences, read in order as one short account.
+  function summary(s) {
+    return el("p", { className: "what", text: s.bullets.join(" ") });
+  }
+  function gapWords(sc) {
+    var gap = C.coverageGap(sc, prefs);
+    if (gap.unread.length) return "We couldn't read " + listWords(gap.unread).replace(" and ", " or ") + " today.";
+    return "No " + listWords(gap.missing).replace(" and ", " or ") + " outlet " + (gap.ours ? "" : "you kept ") + "ran this.";
+  }
+
+  // What each side reported, for sides the reader kept. One side alone would only
+  // repeat the story's summary, so it takes two.
+  function sideSummaries(item) {
+    var sides = outletsBySide(item.articles), written = item.story.sides || {};
+    var kept = SPECTRUM.filter(function (l) { return sides[l].length && written[l]; });
+    return kept.length > 1 ? written : null;
+  }
+
+  // Who ran it first among the outlets we read, and how many reports it rests on.
+  function reportWords(item) {
+    var news = item.articles.filter(function (a) { var s = D.sources[a.source_id]; return s && s.type !== "primary"; });
+    var dated = news.filter(function (a) { return a.published_at; }).sort(function (a, b) {
+      return new Date(a.published_at) - new Date(b.published_at);
+    });
+    var copies = news.filter(function (a) { return a.copy_of; }).length, words = [];
+    if (dated.length > 1) {
+      words.push(D.sources[dated[0].source_id].name + " was the first outlet we read to run this, on " +
+        new Date(dated[0].published_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + ".");
+    }
+    if (copies) words.push(plural(copies, "outlet", "outlets") + " repeated another's report, so this rests on " +
+      plural(news.length - copies, "separate report", "separate reports") + ".");
+    return words.join(" ");
+  }
+
+  // A story's outlets, each side in its own column.
+  function sideColumns(item) {
+    var sides = outletsBySide(item.articles), said = sideSummaries(item);
+    function sourceName(id) { return D.sources[id] ? D.sources[id].name : id; }
+    return el("div", { className: "sides" }, SPECTRUM.map(function (l) {
+      var rows = sides[l];
+      return el("div", { className: "side-col lean-" + l }, [
+        el("h3", { text: cap(l) }),
+        said && said[l] ? el("p", { className: "side-said", text: said[l].join(" ") }) : null,
+        rows.length
+          ? el("ul", {}, rows.map(function (a) {
+              return el("li", {}, [el("span", { className: "who", text: D.sources[a.source_id].name +
+                  (a.copy_of ? ", same report as " + sourceName(a.copy_of) : "") }),
+                el("a", { href: a.url, target: "_blank", rel: "noopener", text: a.title })]);
+            }))
+          : el("p", { className: "none", text: C.coverageGap(item.score, prefs).unreadSides.indexOf(l) >= 0
+              ? "Unknown: a " + l + " feed couldn't be read." : "No " + l + " outlet ran this." })
+      ]);
+    }));
+  }
+
+  function topicLine(s, sc) {
+    var line = el("p", { className: "topic" }, [el("span", { className: "topic-name", text: D.topics[s.topic] || s.topic })]);
+    if (s.day > 1) line.appendChild(el("span", { className: "badge day", text: "Day " + s.day }));
+    if (sc.hasRecord) line.appendChild(el("span", { className: "badge", text: "Government record",
       title: "Backed by a law, rule, court ruling, vote or official statistics" }));
-    else if (sc.hasStatement) topicLine.appendChild(el("span", { className: "badge statement", text: "Government statement",
+    else if (sc.hasStatement) line.appendChild(el("span", { className: "badge statement", text: "Government statement",
       title: "A government press release or announcement. It doesn't add to the score." }));
-    var node = el("article", { className: "story", id: anchored ? "story-" + s.id : null }, [topicLine, el("h3", { className: "headline", text: s.headline })]);
-    var days = s.day > 1 ? earlierDays(s) : null;
+    return line;
+  }
+  function scoreRow(sc) {
+    return el("li", { className: "score", text: scoreWords(sc) + ": " +
+      PARTS.map(function (p) { return p[1].toLowerCase() + " " + sc.points[p[0]].toFixed(2); }).join(", ") +
+      ". Your setting needs " + R.thresholds[prefs.threshold].toFixed(2) + "." });
+  }
+  function checksRow(s) {
+    var ck = s.checks || {};
+    if (!ck.method) return null;
+    var dropped = ck.dropped || [];
+    var note = el("li", { className: "checks" }, ["Fact check (" + ck.method + "): " +
+      plural(ck.checked || 0, "statement", "statements") + " checked against the sources. " +
+      (dropped.length ? dropped.length + (dropped.length === 1 ? " was" : " were") + " removed:" : "Nothing removed.")]);
+    if (dropped.length) {
+      note.appendChild(el("ul", {}, dropped.map(function (d) {
+        return el("li", {}, [el("s", { text: d.text }), " (" + d.reason + ")"]);
+      })));
+    }
+    return note;
+  }
+
+  function storyNode(item, headlinesOnly, anchored, lead) {
+    var s = item.story, sc = item.score;
+    var node = el("article", { className: "story", id: anchored ? "story-" + s.id : null }, [topicLine(s, sc),
+      el(lead ? "h2" : "h3", { className: "headline" }, [el("a", { href: "#story-" + s.id, text: s.headline })])]);
+    var days = s.day > 1 && !lead ? earlierDays(s) : null;
     if (headlinesOnly) {
       if (days) { node.appendChild(el("div", { className: "meta" }, [days.button])); node.appendChild(days.box); }
       return node;
     }
 
-    node.appendChild(el("ul", { className: "bullets" }, s.bullets.map(function (b) { return el("li", { text: b }); })));
-    if (s.whats_next) node.appendChild(el("p", { className: "next" }, [el("b", { text: "Next: " }), s.whats_next]));
+    if (lead && sc.outlets) node.appendChild(coverage(item));
+    node.appendChild(lead ? summary(s) : el("ul", { className: "bullets" }, s.bullets.map(function (b) { return el("li", { text: b }); })));
+    if (s.whats_next) node.appendChild(el("p", { className: "next" }, [el("b", { text: "What's next: " }), s.whats_next]));
 
     var meta = el("div", { className: "meta" });
     if (sc.outlets) {
-      var meter = el("span", { className: "meter", role: "img", "aria-label": "Covered by " + listWords(sc.leans) },
-        SPECTRUM.map(function (l) { return el("i", { className: sc.leans.indexOf(l) >= 0 ? "on" : "" }); }));
-      meta.appendChild(el("span", { className: "coverage" }, [meter,
-        el("span", { text: plural(sc.outlets, "outlet", "outlets") + " across " + listWords(sc.leans) })]));
+      if (!lead) meta.appendChild(coverage(item));
+      if (sc.leans.length < 3) meta.appendChild(el("span", { className: "coverage", text: gapWords(sc) }));
     } else {
       meta.appendChild(el("span", { text: "From " + listWords(item.articles.map(function (a) { return D.sources[a.source_id].name; })) + ". No news coverage yet." }));
     }
 
+    // The lead sends readers to the story page, which has every outlet and check.
+    if (lead) {
+      meta.appendChild(el("a", { href: "#story-" + s.id,
+        text: sc.outlets ? "See all " + plural(sc.outlets, "outlet", "outlets") + " and their headlines" : "See the sources" }));
+      node.appendChild(meta);
+      return node;
+    }
     var list = el("ul", { className: "sources", hidden: "" }, item.articles.map(function (a) {
       var src = D.sources[a.source_id];
       var who = src.type !== "primary" ? src.name + ", " + src.lean
@@ -165,23 +322,9 @@
       return el("li", {}, [el("span", { className: "who", text: who }),
         el("a", { href: a.url, target: "_blank", rel: "noopener", text: a.title })]);
     }));
-    list.appendChild(el("li", { className: "score", text: scoreWords(sc) + ": " +
-      PARTS.map(function (p) { return p[1].toLowerCase() + " " + sc.points[p[0]].toFixed(2); }).join(", ") +
-      ". Your setting needs " + R.thresholds[prefs.threshold].toFixed(2) + "." }));
-
-    var ck = s.checks || {};
-    if (ck.method) {
-      var dropped = ck.dropped || [];
-      var note = el("li", { className: "checks" }, ["Fact check (" + ck.method + "): " +
-        plural(ck.checked || 0, "statement", "statements") + " checked against the sources. " +
-        (dropped.length ? dropped.length + (dropped.length === 1 ? " was" : " were") + " removed:" : "Nothing removed.")]);
-      if (dropped.length) {
-        note.appendChild(el("ul", {}, dropped.map(function (d) {
-          return el("li", {}, [el("s", { text: d.text }), " (" + d.reason + ")"]);
-        })));
-      }
-      list.appendChild(note);
-    }
+    list.appendChild(scoreRow(sc));
+    var checks = checksRow(s);
+    if (checks) list.appendChild(checks);
 
     var label = sc.outlets ? "How each outlet headlined it" : "Read the original";
     var btn = el("button", { type: "button", className: "toggle", "aria-expanded": "false", text: label });
@@ -196,6 +339,27 @@
     node.appendChild(meta);
     node.appendChild(list);
     if (days) node.appendChild(days.box);
+    return node;
+  }
+
+  // A story beside the lead: its headline, its scale and at most one note. The
+  // full story is a link away on its own page.
+  function storyRow(item, headlinesOnly) {
+    var s = item.story, sc = item.score;
+    var text = el("div", { className: "row-text" }, [
+      el("h3", { className: "headline" }, [el("a", { href: "#story-" + s.id, text: s.headline })])
+    ]);
+    var node = el("article", { className: "story row-story" }, [text]);
+    if (headlinesOnly) return node;
+    if (sc.outlets) { node.insertBefore(plate(item), text); text.appendChild(coverage(item)); }
+    var notes = [];
+    if (s.day > 1) notes.push("Day " + s.day + ".");
+    if (sc.hasRecord) notes.push("Backed by a government record.");
+    else if (sc.hasStatement) notes.push("Includes a government statement.");
+    if (sc.outlets && sc.leans.length < 3) notes.push(gapWords(sc));
+    if (notes.length) text.appendChild(el("p", { className: "row-note", text: notes.join(" ") }));
+    text.appendChild(summary(s));
+    if (s.whats_next) text.appendChild(el("p", { className: "next" }, [el("b", { text: "What's next: " }), s.whats_next]));
     return node;
   }
 
@@ -248,21 +412,70 @@
     ]));
   }
 
+  // The page's opening: how many stories, and what the day's coverage shows.
+  // Written from what this reader sees, so it stays true for any settings.
+  function openingWords(top) {
+    var n = top.length, count = countWord(n) + (n === 1 ? " story today." : " stories today.");
+    var others = top.filter(function (x) { return x.score.leans.length < 3; });
+    var all = n - others.length;
+    if (!others.length) return count + (n === 1 ? " Left, center and right all covered it." : " Left, center and right covered all of them.");
+    var text = count + (all ? " Left, center and right covered " + countWord(all).toLowerCase() + " of them." : "");
+    var word = countWord(others.length).toLowerCase();
+    var those = all ? (others.length === 1 ? "the other one" : "the other " + word) : (n === 1 ? "it" : "these");
+    var gaps = others.map(function (x) { return C.coverageGap(x.score, prefs); });
+    if (gaps.some(function (g) { return g.unreadSides.length; })) return text + " We couldn't read every side for " + those + ".";
+    var side = gaps[0].missing.length === 1 ? gaps[0].missing[0] : null;
+    var same = side && gaps.every(function (g) { return g.missing.length === 1 && g.missing[0] === side; });
+    if (same) return text + " No " + side + " outlet " + (gaps[0].ours ? "we read" : "you kept") + " ran " + those + ".";
+    return text + (all ? " At least one side is missing from " + those + "." : " At least one side is missing from each.");
+  }
+
+  // Plain notes above the day's stories, stating what the reader should know.
+  function renderNotices() {
+    var box = $("notices"), sayNote = function (children) { box.appendChild(el("p", { className: "notice" }, children)); };
+    box.innerHTML = "";
+    var age = Math.floor((Date.now() - new Date(D.edition + "T12:00:00Z").getTime()) / 86400000);
+    if (!D.sample && age >= 2) sayNote(["This is the edition of " + longDate(D.edition) + ". A newer one hasn't been published yet."]);
+    var down = (D.feeds_down || []).map(function (id) { return D.sources[id] ? D.sources[id].name : id; });
+    if (down.length) sayNote(["We couldn't read " + listWords(down) + " today, so some coverage may be missing."]);
+    if ((D.corrections || []).some(function (c) { return c.edition === D.edition; })) {
+      sayNote(["A story in this edition was corrected. ", el("a", { href: "#how-it-works", text: "See what changed" })]);
+    }
+    if (replaced !== null) {
+      var undo = el("button", { type: "button", className: "toggle", text: "Go back to my settings" });
+      undo.addEventListener("click", function () {
+        restore(replaced);
+        say("Your settings are back.");
+        $("lede").setAttribute("tabindex", "-1");
+        $("lede").focus();
+      });
+      sayNote(["This link replaced the settings saved in this browser. ", undo]);
+    }
+  }
+
   function renderToday(res) {
     var top = spotlight(res.shown);
     var rest = res.shown.length - top.length;
-    var hl = prefs.length === "headlines";
-    $("lede").textContent = top.length
-      ? countWord(top.length) + (top.length === 1 ? " story today." : " stories today.")
-      : "Nothing matches your settings.";
+    var hl = prefs.length === "headlines", none = !D.stories.length;
+    $("lede").textContent = top.length ? openingWords(top) : none ? "No stories in this edition." : "Nothing matches your settings.";
     $("sublede").textContent = top.length
-      ? (prefs.weights ? "Ranked by your own weights: " + weightWords() + "."
-        : "Ranked by how widely left, center and right outlets covered them. Stories backed by a government record, like a new law or a court ruling, rank higher.")
-      : "Try needing less agreement, or turn on more categories.";
+      ? (prefs.weights ? "Ranked by your own weights: " + weightWords() + "." : "")
+      : none ? "No story met the published rule. The next edition comes out tomorrow." : "Try needing less agreement, or turn on more categories.";
     var box = $("spotlight");
     box.innerHTML = "";
     box.className = hl ? "headlines-only" : "";
-    if (top.length) box.appendChild(sheet("Spotlight", "Highest scores today", top, hl));
+    if (top.length) box.appendChild(el("div", { className: "lead" }, [storyNode(top[0], hl, false, true),
+      !hl && top[0].score.outlets ? plate(top[0]) : null]));
+    var restBox = $("spot-rest");
+    restBox.innerHTML = "";
+    restBox.className = hl ? "headlines-only" : "";
+    if (top.length > 1) {
+      restBox.appendChild(el("section", { className: "sheet", "aria-label": "Also today" }, [
+        el("div", { className: "sheet-head" }, [el("h2", { text: "Also today" }), hl ? null : el("p", { text: KEY_WORDS })]),
+        el("div", { className: "also-grid" }, top.slice(1).map(function (x) { return storyRow(x, hl); }))
+      ]));
+    }
+    renderOneSide(res, top);
     var unc = $("uncovered");
     unc.innerHTML = "";
     var records = res.shown.filter(function (x) { return x.lane === "official" && x.score.hasRecord; });
@@ -278,14 +491,29 @@
       })));
       unc.appendChild(sh);
     }
-    unc.style.marginTop = "20px";
+    var more = $("see-all");
+    more.innerHTML = "";
     if (rest > 0) {
-      unc.appendChild(el("div", { className: "more" }, [el("a", { href: "#all-stories",
-        text: "See all " + res.shown.length + " stories, by category" })]));
-      unc.lastChild.style.marginTop = "20px";
+      more.appendChild(el("a", { href: "#all-stories", text: "See all " + res.shown.length + " stories" }));
     }
     showingLine("showing", res);
     leftOut("left-out", res);
+  }
+
+  // Which stories only one side ran. The thesis in one list: what gets told at all.
+  function renderOneSide(res, top) {
+    var box = $("one-side");
+    box.innerHTML = "";
+    var rows = res.shown.filter(function (x) { return C.isBlindspot(x.score) && top.indexOf(x) < 0; });
+    if (!rows.length) return;
+    box.appendChild(el("section", { className: "sheet", "aria-label": "Only one side covered" }, [
+      el("div", { className: "sheet-head" }, [el("h2", { text: "Only one side covered" }),
+        el("p", { text: "A gap isn't proof of anything. It's worth a second look." })]),
+      el("ul", { className: "quick" }, rows.map(function (x) {
+        return el("li", {}, [plate(x), el("div", {}, [el("a", { href: "#story-" + x.story.id, text: x.story.headline }),
+          coverage(x), el("span", { text: C.blindspotWords(x.score, prefs) })])]);
+      }))
+    ]));
   }
 
   function renderAll(res) {
@@ -300,22 +528,19 @@
     var official = res.shown.filter(function (x) { return x.score.hasRecord; }).length;
     $("all-summary").textContent = res.shown.length
       ? plural(res.shown.length, "story", "stories") + " in " + plural(order.length, "category", "categories") +
-        ", highest score first in each. " + official + " are backed by a government record."
-      : "Nothing matches your settings.";
+        ", highest score first in each. " + plural(official, "is", "are") + " backed by a government record."
+      : D.stories.length ? "Nothing matches your settings." : "No stories in this edition.";
+    $("all-key").hidden = hl || !res.shown.length;
 
     var jump = $("topic-jump");
     jump.innerHTML = "";
     order.forEach(function (t) {
-      var a = el("a", { href: "#all-stories" }, [D.topics[t] || t, el("span", { className: "n", text: String(groups[t].length) })]);
-      a.addEventListener("click", function (e) { e.preventDefault(); var h = $("topic-" + t); if (h) h.scrollIntoView({ block: "start" }); });
-      jump.appendChild(a);
+      jump.appendChild(el("a", { href: "#topic-" + t }, [(D.topics[t] || t) + " ", el("span", { className: "n", text: String(groups[t].length) })]));
     });
 
     var box = $("all");
     box.innerHTML = "";
     box.className = "view-stack" + (hl ? " headlines-only" : "");
-    box.style.display = "grid";
-    box.style.gap = "20px";
     order.forEach(function (t) {
       box.appendChild(sheet(D.topics[t] || t, plural(groups[t].length, "story", "stories"), groups[t], hl, "topic-" + t));
     });
@@ -347,10 +572,10 @@
         var row = el("div", { className: "outlet" }, [
           el("div", { className: "outlet-head" }, [el("h3", { text: D.sources[id].name }),
             el("span", { text: plural(total, "story", "stories") + " in today's edition" })]),
-          el("div", { className: "ratio" }, [
-            el("span", { className: "track", role: "img", "aria-label": pct + " percent" }, [el("i", { style: "width:" + pct + "%" })]),
+          wide.length ? el("div", { className: "ratio" }, [
+            el("span", { className: "track lean-" + g[1], role: "img", "aria-label": pct + " percent" }, [el("i", { style: "width:" + pct + "%" })]),
             el("span", { text: "Covered " + covered.length + " of " + wide.length + " stories that every side covered" })
-          ])
+          ]) : el("p", { className: "label", text: "No story today was covered by every side." })
         ]);
         if (missed.length) {
           row.appendChild(el("p", { className: "label", text: "Didn't run:" }));
@@ -363,8 +588,6 @@
         sh.appendChild(row);
       });
       box.appendChild(sh);
-      box.style.display = "grid";
-      box.style.gap = "20px";
     });
   }
 
@@ -375,7 +598,7 @@
       var v = R.weights[p[0]];
       w.appendChild(el("div", { className: "weight" }, [
         el("span", { text: p[1] }),
-        el("span", { className: "bar" }, [el("i", { style: "width:" + (v * 100) + "%;background:var(--c-" + p[0] + ")" })]),
+        el("span", { className: "bar" }, [el("i", { className: "part-" + p[0], style: "width:" + (v * 100) + "%;background:var(--c-" + p[0] + ")" })]),
         el("span", { className: "pct", text: Math.round(v * 100) + "%" })
       ]));
     });
@@ -387,18 +610,22 @@
     $("cap").textContent = R.coverage_cap + " outlets";
     $("threshold-text").textContent = "A story makes the edition when its score reaches your threshold (broad " +
       R.thresholds.broad.toFixed(2) + ", standard " + R.thresholds.standard.toFixed(2) + ", strict " +
-      R.thresholds.strict.toFixed(2) + ") and at least " + R.min_outlets + " outlets covered it. The top " + R.spotlight +
+      R.thresholds.strict.toFixed(2) + ") and at least " + R.min_outlets + " outlets covered it. A story below that which at least " + R.blindspot_outlets + " outlets ran, all on one side, is listed apart under Only one side covered. The top " + R.spotlight +
       " make Today's spotlight. Government records and statements that no outlet covered are listed under their category.";
 
     var lg = $("legend");
     lg.innerHTML = "";
-    PARTS.forEach(function (p) { lg.appendChild(el("span", {}, [el("i", { style: "background:var(--c-" + p[0] + ")" }), p[1]])); });
+    PARTS.forEach(function (p) { lg.appendChild(el("span", {}, [el("i", { className: "part-" + p[0], style: "background:var(--c-" + p[0] + ")" }), p[1]])); });
 
     var thr = R.thresholds[prefs.threshold];
     $("chart-threshold").textContent = THRESHOLD_LABELS[prefs.threshold].toLowerCase() + " (" + thr.toFixed(2) + ")";
     var rows = D.stories.map(function (s) { return scoreStory(s, C.excluded(prefs), C.weightsFor(prefs)); })
       .filter(function (x) { return x.articles.length; })
       .sort(function (a, b) { return b.score.total - a.score.total; });
+    var keyPlate = $("key-plate"), covered = rows.filter(function (x) { return x.score.outlets; })[0];
+    keyPlate.innerHTML = "";
+    keyPlate.parentNode.hidden = !covered;
+    if (covered) keyPlate.appendChild(plate(covered));
     var chart = $("score-chart");
     chart.innerHTML = "";
     rows.forEach(function (x) {
@@ -408,7 +635,7 @@
           return p[1] + " " + x.score.points[p[0]].toFixed(2); }).join(", ") });
       PARTS.forEach(function (p) {
         var v = x.score.points[p[0]];
-        if (v > 0) stack.appendChild(el("i", { style: "width:" + (v * 100) + "%;background:var(--c-" + p[0] + ")" }));
+        if (v > 0) stack.appendChild(el("i", { className: "part-" + p[0], style: "width:" + (v * 100) + "%;background:var(--c-" + p[0] + ")" }));
       });
       stack.appendChild(el("span", { className: "cut", style: "left:calc(" + (thr * 100) + "% - 1px)" }));
       chart.appendChild(el("div", { className: "row" + (inEdition ? "" : " out") }, [
@@ -435,7 +662,7 @@
     cbox.innerHTML = "";
     if (D.corrections && D.corrections.length) {
       cbox.appendChild(el("ul", { className: "corrections" }, D.corrections.map(function (c) {
-        return el("li", {}, [el("span", { className: "when", text: c.date + ", edition of " + c.edition }),
+        return el("li", {}, [el("span", { className: "when", text: shortDate(c.date) + ", edition of " + shortDate(c.edition) }),
           el("b", { text: c.story }), el("span", { text: c.correction })]);
       })));
     } else {
@@ -477,6 +704,9 @@
     var off = $("official");
     off.checked = prefs.official;
     off.onchange = function () { prefs.official = off.checked; update(); };
+    var bs = $("blindspots");
+    bs.checked = prefs.blindspots;
+    bs.onchange = function () { prefs.blindspots = bs.checked; update(); };
     var st = $("statements");
     st.checked = prefs.statements;
     st.onchange = function () { prefs.statements = st.checked; update(); };
@@ -498,7 +728,7 @@
       var ids = Object.keys(D.sources).filter(function (id) { return b[1](D.sources[id]); })
         .sort(function (x, y) { return D.sources[x].name.localeCompare(D.sources[y].name); });
       if (!ids.length) return;
-      var g = el("div", {}, [el("h3", { text: b[0] })]);
+      var g = el("div", {}, [el("h2", { text: b[0] })]);
       ids.forEach(function (id) {
         g.appendChild(checkbox("src-" + id, D.sources[id].name, prefs.exclude.indexOf(id) < 0, function (on) {
           prefs.exclude = toggleIn(prefs.exclude, id, !on); update();
@@ -512,19 +742,23 @@
     var w = C.weightsFor(prefs);
     WEIGHT_PARTS.forEach(function (k) { $("weight-share-" + k).textContent = Math.round(w[k] * 100) + "%"; });
   }
+  function sliderValue(k, i) { return String(prefs.weights ? prefs.weights[i] : Math.round(R.weights[k] * 100)); }
   function renderWeights() {
-    var box = $("weight-controls"), v = prefs.weights;
+    var box = $("weight-controls");
     box.innerHTML = "";
     WEIGHT_PARTS.forEach(function (k, i) {
       var input = el("input", { type: "range", id: "weight-" + k, min: "0", max: "100", step: "1" });
-      input.value = String(v ? v[i] : Math.round(R.weights[k] * 100));
+      input.value = sliderValue(k, i);
       input.addEventListener("input", function () {
         var values = WEIGHT_PARTS.map(function (part) { return Number($("weight-" + part).value); });
         prefs.weights = C.cleanWeights(values);
-        // All four at zero means nothing to rank by, so go back to the published rule.
-        if (!values.some(function (n) { return n > 0; })) renderWeights();
+        // All four at zero means nothing to rank by, so go back to the published
+        // rule. The sliders stay in place, because one of them is in use.
+        if (!values.some(function (n) { return n > 0; })) {
+          WEIGHT_PARTS.forEach(function (part, n) { $("weight-" + part).value = sliderValue(part, n); });
+        }
         renderShares();
-        update();
+        updateSoon();
       });
       box.appendChild(el("div", { className: "weight" }, [
         el("label", { for: "weight-" + k, text: partLabel(k) }), input,
@@ -542,6 +776,7 @@
       ["threshold=strict", "How much agreement a story needs: broad, standard (default) or strict."],
       ["weights=60,20,10,10", "Your own weights for " + WEIGHT_PARTS.join(", ") + ": four whole numbers from 0 to 100, in that order. Each counts as its share of their total. This re-ranks stories that were written; it can't bring back one the published rule dropped."],
       ["official=0", "Leave out government records and statements that no outlet has covered yet."],
+      ["blindspots=0", "Leave out stories that only one side ran and that didn't reach your threshold."],
       ["statements=0", "Leave out government statements, such as White House and agency press releases. Records still count."],
       ["spotlight=1", "Only the top " + R.spotlight + " stories each day."],
       ["length=headlines", "Headlines without the bullet points."],
@@ -549,7 +784,7 @@
     ];
     var tb = $("param-table");
     tb.innerHTML = "";
-    rows.forEach(function (r) { tb.appendChild(el("tr", {}, [el("td", {}, [el("code", { text: r[0] })]), el("td", { text: r[1] })])); });
+    rows.forEach(function (r) { tb.appendChild(el("tr", {}, [el("td", {}, [el("code", { translate: "no", text: r[0] })]), el("td", { text: r[1] })])); });
 
     var base = D.base_url + "/feed.xml";
     var ex = [
@@ -559,7 +794,7 @@
     ];
     var ul = $("examples");
     ul.innerHTML = "";
-    ex.forEach(function (e) { ul.appendChild(el("li", {}, [el("span", { text: e[0] }), el("code", { text: e[1] })])); });
+    ex.forEach(function (e) { ul.appendChild(el("li", {}, [el("span", { text: e[0] }), el("code", { translate: "no", text: e[1] })])); });
     var recipes = $("recipe-list");
     recipes.innerHTML = "";
     C.recipes().forEach(function (r) {
@@ -574,6 +809,7 @@
     bits.push(prefs.topics.length ? prefs.topics.map(function (t) { return D.topics[t]; }).join(", ") : "all categories");
     if (prefs.exclude.length) bits.push(plural(prefs.exclude.length, "source", "sources") + " off");
     if (!prefs.official) bits.push("no uncovered government items");
+    if (!prefs.blindspots) bits.push("no one-sided stories");
     if (!prefs.statements) bits.push("no government statements");
     if (prefs.weights) bits.push("your own weights");
     if (prefs.length === "headlines") bits.push("headlines only");
@@ -587,7 +823,7 @@
     note.hidden = !prefs.recipe;
     note.innerHTML = "";
     if (prefs.recipe) {
-      note.appendChild(document.createTextNode("Using the recipe \u201c" + prefs.recipe + "\u201d. Whoever made the link chose that name, not Boring News. "));
+      note.appendChild(document.createTextNode("Using the recipe \u201c" + prefs.recipe + "\u201d. Whoever made the link chose that name, not Standard Edition. "));
       note.appendChild(el("a", { href: "#your-feed", text: "See its settings" }));
     }
   }
@@ -617,19 +853,27 @@
   function citation(st) {
     var parts = st.articles.map(function (a) {
       var src = D.sources[a.source_id];
-      return (src ? src.name : a.source_id) + ', "' + a.title + '," ' + a.url;
+      return (src ? src.name : a.source_id) + ", \u201c" + a.title + ",\u201d " + a.url;
     });
-    return '"' + st.headline + '." Boring News, ' + shortDate(st.date) + ". Sources: " + parts.join("; ") + ".";
+    return "\u201c" + st.headline + ".\u201d The Standard Edition, " + shortDate(st.date) + ". Sources: " + parts.join("; ") + ".";
   }
 
   function copyText(text, button, fallbackBox) {
+    var label = button.getAttribute("data-label") || button.textContent;
+    button.setAttribute("data-label", label);
     function fallback() {
       fallbackBox.hidden = false;
       fallbackBox.textContent = text;
       button.textContent = "Select the text below to copy";
+      say("Couldn't copy. Select the text below the button.");
+    }
+    function copied() {
+      button.textContent = "Copied";
+      say("Copied.");
+      setTimeout(function () { button.textContent = label; }, 2000);
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () { button.textContent = "Copied"; }, fallback);
+      navigator.clipboard.writeText(text).then(copied, fallback);
     } else fallback();
   }
 
@@ -644,7 +888,7 @@
     box.appendChild(el("h3", { text: st.headline }));
 
     var meter = el("span", { className: "meter", role: "img", "aria-label": "Covered by " + (listWords(sc.leans) || "no rated outlets") },
-      SPECTRUM.map(function (l) { return el("i", { className: sc.leans.indexOf(l) >= 0 ? "on" : "" }); }));
+      SPECTRUM.map(function (l) { return el("i", { className: "lean-" + l + (sc.leans.indexOf(l) >= 0 ? " on" : "") }); }));
     box.appendChild(el("div", { className: "meta" }, [el("span", { className: "coverage" }, [meter,
       el("span", { text: sc.outlets ? plural(sc.outlets, "outlet", "outlets") + " across " + listWords(sc.leans) : "No news coverage" })])]));
 
@@ -681,10 +925,32 @@
     return box;
   }
 
+  // The research tools keep their state after the #, so a search can be shared
+  // and bookmarked and the server never sees what anyone looked up.
+  var wantSource = "";
+  function researchAddress() {
+    if ($("view-research").hidden) return;  // a slow load can finish after the reader has left
+    var a = new URLSearchParams();
+    [["lookup", $("lookup-q").value.trim()], ["q", $("rec-q").value.trim()],
+     ["source", wantSource || $("rec-source").value], ["role", $("rec-role").value],
+     ["uncovered", $("rec-uncovered").checked ? "1" : ""]].forEach(function (p) { if (p[1]) a.set(p[0], p[1]); });
+    var state = a.toString();
+    setAddress(location.pathname + location.search + "#research" + (state ? "?" + state : ""));
+  }
+  function readResearch(state) {
+    var a = new URLSearchParams(state);
+    $("lookup-q").value = a.get("lookup") || "";
+    $("rec-q").value = a.get("q") || "";
+    wantSource = a.get("source") || "";
+    $("rec-role").value = a.get("role") || "";
+    $("rec-uncovered").checked = a.get("uncovered") === "1";
+  }
+
   function runLookup() {
     var q = $("lookup-q").value;
     var out = $("lookup-results");
     out.innerHTML = "";
+    researchAddress();
     if (!q.trim()) return;
     out.appendChild(el("p", { className: "empty-note", text: "Searching…" }));
     loadResearch().then(function (idx) {
@@ -703,6 +969,7 @@
     });
   }
 
+  var RECORD_LIMIT = 100;
   function renderRecords() {
     var list = $("rec-list"), count = $("rec-count");
     loadResearch().then(function (idx) {
@@ -714,10 +981,14 @@
         Object.keys(ids).sort(function (a, b) { return (D.sources[a] || {}).name > (D.sources[b] || {}).name ? 1 : -1; })
           .forEach(function (id) { sel.appendChild(el("option", { value: id, text: D.sources[id] ? D.sources[id].name : id })); });
       }
+      if (wantSource) { sel.value = wantSource; wantSource = ""; }
+      researchAddress();
       var rows = RS.searchRecords(idx, { q: $("rec-q").value, source: sel.value, role: $("rec-role").value, uncovered: $("rec-uncovered").checked });
-      count.textContent = plural(rows.length, "item", "items") + " from the last " + plural(idx.days.length, "edition", "editions") + ".";
+      count.textContent = (rows.length > RECORD_LIMIT ? "The newest " + RECORD_LIMIT + " of " + rows.length + " items" : plural(rows.length, "item", "items")) +
+        " from " + (idx.days.length === 1 ? "the latest edition" : "the last " + idx.days.length + " editions") + ".";
       list.innerHTML = "";
-      rows.slice(0, 100).forEach(function (r) {
+      if (!rows.length) list.appendChild(el("li", { className: "empty-note", text: "Nothing matches. Try fewer words, or clear a filter." }));
+      rows.slice(0, RECORD_LIMIT).forEach(function (r) {
         var src = D.sources[r.source_id];
         var summary = r.summary.length > 240 ? r.summary.slice(0, 237).replace(/\s+\S*$/, "") + "…" : r.summary;
         list.appendChild(el("li", {}, [
@@ -732,12 +1003,156 @@
     }, function () { count.textContent = "The records didn't load. Check your connection and try again."; });
   }
 
-  // ---------- market ticker (yesterday's closes)
+  // ---------- the story page
+  // Today's stories come from the edition. A link from an earlier day falls back
+  // to the research index, so a shared link keeps working for 30 days.
+  function storyPage(item, older) {
+    var s = item.story, sc = item.score, body = $("story-page");
+    var when = older ? s.date : D.edition;
+    $("story-title").textContent = s.headline;
+    document.title = s.headline + " | The Standard Edition";
+    var topic = $("story-topic");
+    topic.innerHTML = "";
+    Array.prototype.slice.call(topicLine(s, sc).childNodes).forEach(function (n) { topic.appendChild(n); });
+    var today = select(prefs).shown;
+    var shown = today.some(function (x) { return x.story.id === s.id; });
+    $("story-note").textContent = older ? "From the edition of " + longDate(when) + "."
+      : shown ? "" : "Your settings leave this story out of Today.";
+    body.innerHTML = "";
+
+    var main = el("div", { className: "story-main" });
+    if (sc.outlets) main.appendChild(coverage(item));
+    if (sc.outlets) main.appendChild(el("p", { className: "hint story-key", text: KEY_WORDS + (sc.leans.length < 3 ? " " + gapWords(sc) : "") }));
+    main.appendChild(el("ul", { className: "bullets" }, s.bullets.map(function (b) { return el("li", { text: b }); })));
+    if (s.whats_next) main.appendChild(el("p", { className: "next" }, [el("b", { text: "What's next: " }), s.whats_next]));
+
+    var side = el("div", { className: "story-side" }, [sc.outlets ? plate(item) : null, el("h2", { text: "How it was scored" })]);
+    if (!older) {
+      var list = el("ul", { className: "sources" }, [scoreRow(sc)]);
+      var checks = checksRow(s);
+      if (checks) list.appendChild(checks);
+      side.appendChild(list);
+    } else side.appendChild(el("p", { className: "hint", text: "The score and fact check are in that day's edition file." }));
+    var citeBox = el("pre", { className: "formula", hidden: "" });
+    var link = D.base_url + "/#story-" + s.id;
+    var copyLink = el("button", { type: "button", text: "Copy link" });
+    copyLink.addEventListener("click", function () { copyText(link, copyLink, citeBox); });
+    var cite = el("button", { type: "button", text: "Copy citation" });
+    cite.addEventListener("click", function () { copyText(citation({ headline: s.headline, date: when, articles: item.articles }), cite, citeBox); });
+    side.appendChild(el("div", { className: "story-actions" }, [copyLink, cite]));
+    side.appendChild(citeBox);
+    side.appendChild(el("p", { className: "story-wrong" }, [el("a", { target: "_blank", rel: "noopener",
+      href: D.repo_url + "/issues/new?template=wrong-story.yml&title=" + encodeURIComponent("Wrong story: " + s.headline) +
+        "&edition=" + when + "&story=" + encodeURIComponent(link), text: "Does this summary seem wrong?" })]));
+    if (s.day > 1 && !older) {
+      var days = earlierDays(s, "h3");
+      side.appendChild(el("div", { className: "meta" }, [days.button]));
+      side.appendChild(days.box);
+    }
+    body.appendChild(el("div", { className: "front story-top" }, [main, side]));
+
+    var said = sideSummaries(item), lines = reportWords(item);
+    var who = el("section", { className: "sheet" }, [el("div", { className: "sheet-head" }, [
+      el("h2", { text: said ? "What each side reported" : "Who covered it" }),
+      said ? el("p", { text: "Each summary is written only from that side's outlets and checked against them." }) : null,
+      lines ? el("p", { text: lines }) : null])]);
+    if (sc.outlets) who.appendChild(sideColumns(item));
+    else who.appendChild(el("p", { className: "empty", text: item.articles.length ? "No news outlet has covered this yet." : "You turned off every source for this story." }));
+    var sides = outletsBySide(item.articles), inSide = [];
+    SPECTRUM.forEach(function (l) { inSide = inSide.concat(sides[l]); });
+    var others = item.articles.filter(function (a) { return inSide.indexOf(a) < 0; });
+    if (others.length) {
+      who.appendChild(el("h3", { className: "story-others", text: "Government and other sources" }));
+      who.appendChild(el("ul", { className: "sources" }, others.map(function (a) {
+        var src = D.sources[a.source_id] || {};
+        var what = src.type !== "primary" ? "unrated" : src.role === "record" ? "government record" : "government statement";
+        return el("li", {}, [el("span", { className: "who", text: (src.name || a.source_id) + ", " + what }),
+          el("a", { href: a.url, target: "_blank", rel: "noopener", text: a.title })]);
+      })));
+    }
+    body.appendChild(who);
+
+    var related = older ? [] : today.filter(function (x) { return x.story.topic === s.topic && x.story.id !== s.id; }).slice(0, 3);
+    if (related.length) {
+      body.appendChild(el("section", { className: "sheet" }, [
+        el("div", { className: "sheet-head" }, [el("h2", { text: "More on this topic" })]),
+        el("ul", { className: "quick related" }, related.map(function (x) {
+          return el("li", {}, [el("a", { href: "#story-" + x.story.id, text: x.story.headline })]);
+        }))
+      ]));
+    }
+  }
+
+  function renderStory(id) {
+    var s = D.stories.filter(function (x) { return x.id === id; })[0];
+    if (s) { storyPage(scoreStory(s, C.excluded(prefs), C.weightsFor(prefs))); return; }
+    var body = $("story-page");
+    // The reader may have moved on while this loaded.
+    function stillHere() { return location.hash === "#story-" + id; }
+    function missing() {
+      if (!stillHere()) return;
+      $("story-title").textContent = "This story isn't available";
+      $("story-note").textContent = "It may be older than the last 30 days of editions.";
+      document.title = $("story-title").textContent + " | The Standard Edition";
+      say($("story-title").textContent + ". " + $("story-note").textContent);
+    }
+    $("story-topic").innerHTML = "";
+    $("story-title").textContent = "Loading the story…";
+    $("story-note").textContent = "";
+    body.innerHTML = "";
+    loadResearch().then(function (idx) {
+      var old = idx && idx.stories.filter(function (x) { return x.id === id; })[0];
+      if (!old) { missing(); return; }
+      if (!stillHere()) return;
+      var known = old.articles.filter(function (a) { return D.sources[a.source_id]; });
+      storyPage({ story: old, articles: known, score: C.score(known.map(function (a) { return a.source_id; })) }, true);
+      say(old.headline);
+    }, missing);
+  }
+
+  // ---------- the ledger
+  var USD = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+  function dollars(n) { return USD.format(n); }
+  function ledgerTable(rows, columns, label) {
+    return el("div", { className: "table-wrap", tabindex: "0", role: "region", "aria-label": label }, [el("table", {}, [
+      el("thead", {}, [el("tr", {}, columns.map(function (c) { return el("th", { text: c }); }))]),
+      el("tbody", {}, rows.map(function (r) {
+        return el("tr", {}, columns.map(function (c) {
+          var when = c === "Date" && /^\d{4}-\d{2}-\d{2}$/.test(r[c] || "");
+          return el("td", { className: when ? "date" : null, text: when ? shortDate(r[c]) : r[c] || "" });
+        }));
+      }))
+    ])]);
+  }
+  function renderLedger() {
+    var L = D.ledger;
+    $("ledger-lede").textContent = dollars(L.spent) + " spent so far, and " + dollars(L.received) + " received.";
+    $("ledger-gap").textContent = L.spent > L.received ? "The person running the project pays the difference personally." : "";
+    var out = $("ledger-out"), into = $("ledger-in");
+    out.innerHTML = "";
+    into.innerHTML = "";
+    if (L.money_out.length) out.appendChild(ledgerTable(L.money_out, ["Date", "What", "Amount", "Recurring", "Receipt or note"], "Money out"));
+    else out.appendChild(el("p", { text: "Nothing has been spent yet." }));
+    if (L.money_in.length) into.appendChild(ledgerTable(L.money_in, ["Date", "From", "Amount", "Note"], "Money in"));
+    else into.appendChild(el("p", { text: "No donations are accepted yet, so nothing has come in." }));
+    var costs = $("ledger-costs");
+    costs.innerHTML = "";
+    if (L.running_costs.length) costs.appendChild(ledgerTable(L.running_costs, ["Service", "What it's for", "Cost"], "Running costs"));
+    else costs.appendChild(el("p", { text: "No running costs are listed yet." }));
+    var rules = $("ledger-rules");
+    rules.innerHTML = "";
+    rules.parentNode.hidden = !L.rules.length;
+    L.rules.forEach(function (r) { rules.appendChild(el("li", { text: r })); });
+  }
+
+  // ---------- market closes (FRED's latest values)
   function renderTicker() {
     var items = D.markets || [];
     var box = $("ticker");
     if (!items.length) { box.hidden = true; return; }
     function fmt(v, d) { return v.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); }
+    function monthDay(day) { return new Date(day + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }); }
+    var newest = items.map(function (m) { return m.date; }).sort().pop();
     function tick(m) {
       var dir = m.change > 0 ? "up" : m.change < 0 ? "down" : "flat";
       var arrow = dir === "up" ? "\u25B2" : dir === "down" ? "\u25BC" : "";
@@ -746,10 +1161,14 @@
       var sign = dir === "up" ? "+" : dir === "down" ? "\u2212" : "";
       var words = m.label + " " + m.prefix + fmt(m.value, m.decimals) + m.suffix + ", " +
         (dir === "flat" ? "unchanged" : (dir === "up" ? "up " : "down ") + change);
-      return el("a", { className: "tick", href: m.source_url, target: "_blank", rel: "noopener", title: words + " (FRED)" }, [
+      // FRED posts each series on its own schedule, so one that lags says its own date.
+      var late = m.date !== newest ? monthDay(m.date) : "";
+      var name = words + (late ? ", as of " + late : "") + " (FRED)";
+      return el("a", { className: "tick", href: m.source_url, target: "_blank", rel: "noopener", title: name, "aria-label": name }, [
         el("b", { text: m.label }),
         el("span", { text: m.prefix + fmt(m.value, m.decimals) + m.suffix }),
-        el("span", { className: dir, text: dir === "flat" ? "unch" : arrow + " " + sign + change })
+        el("span", { className: dir, text: dir === "flat" ? "unch" : arrow + " " + sign + change }),
+        late ? el("span", { className: "tick-date", text: late }) : null
       ]);
     }
     var track = $("ticker-track");
@@ -759,28 +1178,50 @@
     Array.prototype.forEach.call(copy.querySelectorAll("a"), function (a) { a.setAttribute("tabindex", "-1"); });
     track.appendChild(copy);
     track.style.setProperty("--tick-duration", Math.max(30, items.length * 7) + "s");
-    var day = items[0].date;
-    var label = new Date(day + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-    $("ticker-label").textContent = (D.sample ? "Sample. " : "") + "Close, " + label;
-    $("ticker-label").setAttribute("title", "End-of-day values from FRED, the St. Louis Fed's data service");
+    var label = monthDay(newest);
+    $("ticker-label").textContent = (D.sample ? "Sample. " : "") + "Last close, " + label;
+    $("ticker-label").setAttribute("title", "The latest end-of-day values from FRED, the St. Louis Fed's data service");
     $("ticker-label").href = "#how-it-works";
+    box.setAttribute("role", "group");
     box.setAttribute("aria-label", "Market closes for " + label);
+    // The row stops moving once a link has focus, so bring the link into view after that.
+    box.addEventListener("focusin", function (e) {
+      if (e.target.matches(".tick:focus-visible")) e.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
+    box.addEventListener("focusout", function () { box.querySelector(".ticker-window").scrollLeft = 0; });
     box.hidden = false;
   }
 
   // ---------- routing
-  function route() {
-    var h = (location.hash || "").replace("#", "");
-    var target = null;
-    if (/^story-\d+$/.test(h)) { target = h; h = "all-stories"; }
+  // Moving focus to the new view's heading tells keyboard and screen-reader users
+  // the page changed. The first load keeps the browser's own starting point.
+  // Back and Forward return to where the reader was on that page.
+  function route(moved, returning) {
+    var parts = (location.hash || "").replace("#", "").split("?"), h = parts[0];
+    var story = /^story-(\d+)$/.exec(h), target = null;
+    if (story) h = "story";
+    if (h === "contact") { target = h; h = "about"; }
+    else if (/^topic-/.test(h) && $(h)) { target = h; h = "all-stories"; }
     if (VIEWS.indexOf(h) < 0) h = "today";
     VIEWS.forEach(function (v) { $("view-" + v).hidden = v !== h; });
-    if (h === "research") renderRecords();
+    if (h === "research") {
+      if (parts[1]) readResearch(parts[1]);
+      renderRecords();
+      if (parts[1] && $("lookup-q").value) runLookup();
+    }
+    var name = document.querySelector('a[data-view="' + h + '"]');
+    document.title = h === "today" || !name ? "The Standard Edition" : name.textContent + " | The Standard Edition";
+    if (story) renderStory(Number(story[1]));
     Array.prototype.forEach.call(document.querySelectorAll(".tabs a"), function (a) {
       if (a.getAttribute("data-view") === h) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });
-    if (target && $(target)) $(target).scrollIntoView({ block: "start" });
-    else window.scrollTo(0, 0);
+    if (target) $(target).scrollIntoView({ block: "start" });
+    else window.scrollTo(0, returning ? places[location.hash || "#"] || 0 : 0);
+    if (moved) {
+      var heading = (target ? $(target) : $("view-" + h)).querySelector("h1, h2");
+      heading.setAttribute("tabindex", "-1");
+      heading.focus({ preventScroll: true });
+    }
   }
 
   // ---------- theme (light by default)
@@ -788,12 +1229,22 @@
     document.documentElement.classList.toggle("bn-dark", dark);
     var t = $("theme-toggle");
     t.textContent = dark ? "Light" : "Dark";
-    t.setAttribute("aria-pressed", String(dark));
     t.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+    var desk = getComputedStyle(document.documentElement).getPropertyValue("--desk").trim();
+    if (desk) document.querySelector('meta[name="theme-color"]').setAttribute("content", desk);
     if (remember) { try { localStorage.setItem("boringnews.theme", dark ? "dark" : "light"); } catch (e) {} }
   }
 
+  // Sliders and typing change settings many times a second, and every view has to
+  // be rebuilt for each change, so those wait until the reader pauses.
+  var updateTimer = null;
+  function updateSoon() {
+    clearTimeout(updateTimer);
+    updateTimer = setTimeout(update, 120);
+  }
   function update() {
+    clearTimeout(updateTimer);
+    $("undo-reset").hidden = true;
     savePrefs(prefs);
     var res = select(prefs);
     renderToday(res);
@@ -801,22 +1252,41 @@
     renderHow();
     renderSettingsSummary();
   }
+  function restore(query) {
+    prefs = fromQuery("?" + query);
+    replaced = null;
+    renderControls();
+    update();
+    renderNotices();
+  }
 
   setTheme(document.documentElement.classList.contains("bn-dark"), false);
   $("theme-toggle").addEventListener("click", function () {
     setTheme(!document.documentElement.classList.contains("bn-dark"), true);
   });
+  var beforeReset = "";
   $("reset").addEventListener("click", function () {
+    beforeReset = toQuery(prefs);
     prefs = JSON.parse(JSON.stringify(DEFAULTS));
     renderControls();
     update();
+    $("undo-reset").hidden = false;
+    say("Settings reset.");
+  });
+  $("undo-reset").addEventListener("click", function () {
+    restore(beforeReset);
+    $("reset").focus();
+    say("Your settings are back.");
   });
   function copyField(buttonId, inputId, statusId) {
     $(buttonId).addEventListener("click", function () {
       var input = $(inputId), status = $(statusId);
       function fallback() { input.focus(); input.select(); status.textContent = "Selected. Press Ctrl+C or Cmd+C to copy."; }
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(input.value).then(function () { status.textContent = "Copied."; }, fallback);
+        navigator.clipboard.writeText(input.value).then(function () {
+          status.textContent = "Copied.";
+          setTimeout(function () { status.textContent = ""; }, 3000);
+        }, fallback);
       } else fallback();
     });
   }
@@ -824,17 +1294,44 @@
   copyField("copy-recipe", "recipe-link", "recipe-status");
   $("recipe-name").addEventListener("input", function () {
     prefs.recipe = C.cleanName(this.value);
-    update();
+    updateSoon();
   });
-  window.addEventListener("hashchange", route);
+  var places = {}, followedLink = false;
+  if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+  document.addEventListener("click", function (e) {
+    if (e.target.closest && e.target.closest('a[href^="#"]:not(#skip)')) followedLink = true;
+  });
+  window.addEventListener("hashchange", function (e) {
+    places["#" + (e.oldURL.split("#")[1] || "")] = window.scrollY;
+    route(true, !followedLink);
+    followedLink = false;
+  });
+  $("skip").addEventListener("click", function (e) {
+    e.preventDefault();
+    $("main").focus();
+  });
   $("lookup-form").addEventListener("submit", function (e) { e.preventDefault(); runLookup(); });
-  ["rec-q", "rec-source", "rec-role", "rec-uncovered"].forEach(function (id) {
-    $(id).addEventListener(id === "rec-q" ? "input" : "change", renderRecords);
+  var recordTimer = null;
+  $("rec-q").addEventListener("input", function () {
+    clearTimeout(recordTimer);
+    recordTimer = setTimeout(renderRecords, 150);
+  });
+  ["rec-source", "rec-role", "rec-uncovered"].forEach(function (id) {
+    $(id).addEventListener("change", renderRecords);
   });
   if (D.research_url) $("research-file").href = D.research_url;
 
   $("dateline").textContent = longDate(D.edition);
   $("sample-note").hidden = !D.sample;
+  if (D.contact_email) {
+    var mail = $("contact-email");
+    mail.appendChild(document.createTextNode("For anything private, like a takedown request, email "));
+    mail.appendChild(el("a", { href: "mailto:" + D.contact_email, text: D.contact_email }));
+    mail.appendChild(document.createTextNode("."));
+    mail.hidden = false;
+  }
+  renderNotices();
+  renderLedger();
   renderTicker();
   renderControls();
   renderDocs();

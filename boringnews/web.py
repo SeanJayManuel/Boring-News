@@ -16,6 +16,7 @@ import os
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from . import config, research
 from .db import connect
@@ -25,7 +26,8 @@ from .render import load_corrections, render_page
 from .sources import load_sources
 
 SAMPLE = os.environ.get("BN_SAMPLE") == "1"
-app = FastAPI(title="Boring News", docs_url=None, redoc_url=None)
+app = FastAPI(title="Standard Edition", docs_url=None, redoc_url=None)
+app.mount("/brand", StaticFiles(directory=config.ROOT / "web" / "brand"), name="brand")
 
 
 def _edition(date: str | None) -> Edition:
@@ -45,7 +47,12 @@ def _page_data(date: str | None, research_url: str | None = None) -> dict:
 
 @app.get("/", response_class=HTMLResponse)
 def index(date: str | None = Query(None)):
-    return render_page(_page_data(date, research_url="research.json"))
+    try:
+        return render_page(_page_data(date, research_url="research.json"))
+    except HTTPException:
+        latest = '<a href="/">See the latest edition</a>.' if date else "Check back after the next run."
+        return HTMLResponse(f"<!doctype html><title>The Standard Edition</title>"
+                            f"<p>There's no edition {'for that date' if date else 'yet'}. {latest}</p>", status_code=404)
 
 
 @app.get("/api/edition.json")

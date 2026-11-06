@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS stories (
     created_at   TEXT NOT NULL,
     checks       TEXT NOT NULL DEFAULT '{}',  -- JSON: fact-check method and anything dropped
     thread_id    TEXT,                        -- same id for a story followed across days
-    day          INTEGER NOT NULL DEFAULT 1   -- which day of that thread this is
+    day          INTEGER NOT NULL DEFAULT 1,  -- which day of that thread this is
+    sides        TEXT NOT NULL DEFAULT '{}'   -- JSON: what each side's outlets reported
 );
 CREATE INDEX IF NOT EXISTS idx_stories_edition ON stories(edition_date);
 
@@ -75,6 +76,7 @@ MIGRATIONS = {
     "checks": "ALTER TABLE stories ADD COLUMN checks TEXT NOT NULL DEFAULT '{}'",
     "thread_id": "ALTER TABLE stories ADD COLUMN thread_id TEXT",
     "day": "ALTER TABLE stories ADD COLUMN day INTEGER NOT NULL DEFAULT 1",
+    "sides": "ALTER TABLE stories ADD COLUMN sides TEXT NOT NULL DEFAULT '{}'",
 }
 
 
@@ -92,6 +94,7 @@ class Story:
     checks: dict = field(default_factory=dict)
     thread_id: str | None = None
     day: int = 1
+    sides: dict = field(default_factory=dict)
 
 
 def now_iso() -> str:
@@ -146,9 +149,9 @@ def replace_edition(conn: sqlite3.Connection, edition_date: str, stories: list[S
         for s in stories:
             cur = conn.execute(
                 "INSERT INTO stories (id, edition_date, headline, bullets, whats_next, topic, region, written_by, "
-                "created_at, checks, thread_id, day) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "created_at, checks, thread_id, day, sides) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (s.id, s.edition_date, s.headline, json.dumps(s.bullets), s.whats_next, s.topic, s.region,
-                 s.written_by, now_iso(), json.dumps(s.checks), s.thread_id, s.day),
+                 s.written_by, now_iso(), json.dumps(s.checks), s.thread_id, s.day, json.dumps(s.sides)),
             )
             s.id = cur.lastrowid
             conn.executemany(
@@ -201,6 +204,7 @@ def load_edition(conn: sqlite3.Connection, edition_date: str) -> list[Story]:
                 checks=json.loads(r["checks"] or "{}"),
                 thread_id=r["thread_id"],
                 day=r["day"] or 1,
+                sides=json.loads(r["sides"] or "{}"),
             )
         )
     return stories

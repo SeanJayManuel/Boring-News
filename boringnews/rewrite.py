@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .db import Article
+from .reposts import reposts
 from .sources import Source
 from .topics import TOPIC_DESCRIPTIONS, guess_region, guess_topic, normalize
 
@@ -36,6 +37,7 @@ QUOTE_RE = re.compile(r"\"[^\"]*\"|“[^”]*”")
 SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 TYPE_PRIORITY = {"wire": 0, "primary": 1, "national": 2, "international": 3, "regional": 4}
 LEAN_PRIORITY = {"center": 0, "unrated": 1, "left": 2, "right": 2}
+SPECTRUM = ("left", "center", "right")
 
 
 @dataclass
@@ -47,6 +49,7 @@ class Draft:
     region: str
     written_by: str
     checks: dict = field(default_factory=dict)
+    sides: dict = field(default_factory=dict)  # what each side's outlets reported
 
 
 # ---------------------------------------------------------------- linter
@@ -71,7 +74,8 @@ def lint(text: str, banned: list[str]) -> list[str]:
 
 
 def lint_draft(d: Draft, banned: list[str]) -> list[str]:
-    text = " ".join([d.headline, *d.bullets, d.whats_next or ""])
+    side_text = [line for lines in d.sides.values() for line in lines]
+    text = " ".join([d.headline, *d.bullets, d.whats_next or "", *side_text])
     return lint(text, banned)
 
 
@@ -80,20 +84,30 @@ def lint_draft(d: Draft, banned: list[str]) -> list[str]:
 OUTPUT_CONTRACT = """
 Return ONLY a JSON object, no prose, with these keys:
   "headline":   string, under 12 words
-  "bullets":    array of 3 to 5 strings, one fact each
+  "bullets":    array of 3 to 5 full sentences, one fact each, that read in order as a short account
   "whats_next": string or null (a scheduled vote, ruling, deadline or effective date only)
+  "sides":      object with the keys "left", "center" and "right", each an array of 1 or 2 full sentences
+                written only from that side's articles. Leave out a side with no articles. Use {} if
+                fewer than two sides have articles.
   "topic":      the one category that fits best:
 """ + "".join(f"                {k}: {v}\n" for k, v in TOPIC_DESCRIPTIONS.items())
 
 
 def build_prompt(articles: list[Article], sources: dict[str, Source]) -> str:
     parts = ["Here are news articles about the same event, from outlets across the political spectrum.\n"]
+    copies = reposts(articles)
+
+    def name(a: Article) -> str:
+        src = sources.get(a.source_id)
+        return src.name if src else a.source_id
+
     for i, a in enumerate(articles, 1):
         src = sources.get(a.source_id)
-        name = src.name if src else a.source_id
-        parts.append(f"[{i}] {name}\nTitle: {a.title}\nSummary: {a.summary}\n")
+        lean = f", {src.lean}" if src and src.type != "primary" else ""
+        same = f" (repeats the {name(copies[a.url])} report)" if a.url in copies else ""
+        parts.append(f"[{i}] {name(a)}{lean}{same}\nTitle: {a.title}\nSummary: {a.summary}\n")
     parts.append(
-        "Write one Boring News story from these articles, following the style guide exactly. "
+        "Write one Standard Edition story from these articles, following the style guide exactly. "
         "Use only facts found in the articles. Do not copy the outlets' wording."
     )
     return "\n".join(parts)
@@ -110,6 +124,7 @@ def _parse(text: str) -> dict:
     return {
         "headline": str(data["headline"]).strip(),
         "bullets": bullets[:5],
+        "sides": data.get("sides"),
         "whats_next": (str(data["whats_next"]).strip() or None) if data.get("whats_next") else None,
         "topic": normalize(data.get("topic")),
         "region": None,
@@ -303,7 +318,17 @@ def _to_draft(data: dict, articles: list[Article], sources: dict[str, Source], w
         topic=normalize(data.get("topic")) or normalize(hint) or guess_topic(text),
         region=data.get("region") or guess_region(text, types),
         written_by=written_by,
+        sides=_clean_sides(data.get("sides"), srcs),
     )
+
+
+def _clean_sides(sides, srcs: list[Source]) -> dict:
+    """Keep only sides that have articles, at two sentences each."""
+    if not isinstance(sides, dict):
+        return {}
+    covered = {s.lean for s in srcs if s.type != "primary"} & set(SPECTRUM)
+    return {lean: [str(x).strip() for x in lines if str(x).strip()][:2]
+            for lean, lines in sides.items() if lean in covered and isinstance(lines, list)}
 
 
 # ---------------------------------------------------------------- fact check
@@ -339,6 +364,37 @@ supported if the article reports that X said it.
 
 Return ONLY a JSON array, one object per statement: {"n": <number>, "supported": true|false, "reason": "<short>"}.
 """
+
+
+def _check_sides(draft: Draft, articles: list[Article], sources: dict[str, Source], writer, dropped: list[dict]) -> dict:
+    """Each side's sentences are checked only against that side's own articles.
+    One side alone adds nothing to the story's summary, so it isn't kept."""
+    kept = {}
+    for lean, lines in draft.sides.items():
+        theirs = [a for a in articles if a.source_id in sources and sources[a.source_id].lean == lean]
+        text = " ".join(a.title + " " + a.summary for a in theirs)
+        good = []
+        for line in lines:
+            bad = unsupported_numbers(line, text)
+            if bad:
+                dropped.append({"text": line, "reason": f"{lean}: numbers not in that side's sources: " + ", ".join(sorted(bad))})
+            else:
+                good.append(line)
+        if writer is not None and writer.checks_facts and good:
+            try:
+                verdicts = _verify_with_model(writer, good, theirs, sources)
+            except Exception as exc:  # unchecked side sentences aren't published
+                dropped += [{"text": line, "reason": f"{lean}: model check failed ({exc.__class__.__name__})"} for line in good]
+                good = []
+            else:
+                for i, line in enumerate(list(good), 1):
+                    v = verdicts.get(i, {"supported": True})
+                    if not v.get("supported", True):
+                        good.remove(line)
+                        dropped.append({"text": line, "reason": f"{lean}: model: " + str(v.get("reason", "not supported"))})
+        if good:
+            kept[lean] = good
+    return kept if len(kept) > 1 else {}
 
 
 def check_facts(draft: Draft, articles: list[Article], sources: dict[str, Source], writer=None) -> Draft:
@@ -377,9 +433,12 @@ def check_facts(draft: Draft, articles: list[Article], sources: dict[str, Source
     if not headline_ok:
         dropped.append({"text": draft.headline, "reason": "headline: numbers not in sources"})
 
+    sides = _check_sides(draft, articles, sources, writer, dropped)
     draft.bullets = kept
     draft.whats_next = whats_next
-    draft.checks = {"method": method, "checked": len(kept) + len(dropped), "dropped": dropped,
+    draft.sides = sides
+    side_lines = sum(len(lines) for lines in sides.values())
+    draft.checks = {"method": method, "checked": len(kept) + side_lines + len(dropped), "dropped": dropped,
                     "headline_ok": headline_ok}
     return draft
 

@@ -1,6 +1,6 @@
 # Using the data
 
-Boring News publishes its data for anyone to use, including students, researchers and journalists. There are no accounts, keys or tracking.
+Standard Edition publishes its data for anyone to use, including students, researchers and journalists. There are no accounts, keys or tracking.
 
 There are two ways in:
 
@@ -63,6 +63,9 @@ An edition file is the full public record of one day:
 - `sources`: every source that day, by id
 - `articles`: every article read, with its outlet, link, title, summary and time
 - `clusters`: how articles were grouped
+- `feeds_down`: ids of sources that couldn't be read that day. Editions from before this field don't have it.
+- `editorial.grouping`: how articles were grouped, as `method`, `model` and `threshold`. Editions from before this field don't have it.
+- `left_out`: what the rules kept out of the edition. `left_out.sports` has the `rule` in force and `groups`, each with its `titles`, `articles`, the links `from_sports_sections` and the `score` it would have had. Editions from before this rule don't have it.
 - `markets`: market closes
 - `stories`: each story, with `headline`, `bullets`, `whats_next`, `topic`, `region`, `day`, `thread_id`, `checks` (the fact-check log), `score`, and `articles`, a list of links into the `articles` list
 
@@ -79,7 +82,7 @@ MCP is how AI assistants connect to outside tools. The server is at `https://exa
 With Claude Code:
 
 ```sh
-claude mcp add --transport http boring-news https://example.org/mcp
+claude mcp add --transport http standard-edition https://example.org/mcp
 ```
 
 Or in a config file such as `.mcp.json`:
@@ -87,7 +90,7 @@ Or in a config file such as `.mcp.json`:
 ```json
 {
   "mcpServers": {
-    "boring-news": { "type": "http", "url": "https://example.org/mcp" }
+    "standard-edition": { "type": "http", "url": "https://example.org/mcp" }
   }
 }
 ```
@@ -182,4 +185,4 @@ There are no accounts or cookies. Our code doesn't store or log what you search 
 
 Use the data for anything. A link back is appreciated.
 
-To cite a story, give its headline, "Boring News", the date, and the sources listed with it.
+To cite a story, give its headline, "Standard Edition", the date, and the sources listed with it.
