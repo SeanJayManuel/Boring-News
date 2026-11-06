@@ -194,8 +194,8 @@
     return box;
   }
   // The checked sentences, read in order as one short account.
-  function whatHappened(s) {
-    return el("p", { className: "what" }, [el("b", { text: "What happened: " }), s.bullets.join(" ")]);
+  function summary(s) {
+    return el("p", { className: "what", text: s.bullets.join(" ") });
   }
   function gapWords(sc) {
     var gap = C.coverageGap(sc, prefs);
@@ -288,7 +288,7 @@
     }
 
     if (lead && sc.outlets) node.appendChild(coverage(item));
-    node.appendChild(lead ? whatHappened(s) : el("ul", { className: "bullets" }, s.bullets.map(function (b) { return el("li", { text: b }); })));
+    node.appendChild(lead ? summary(s) : el("ul", { className: "bullets" }, s.bullets.map(function (b) { return el("li", { text: b }); })));
     if (s.whats_next) node.appendChild(el("p", { className: "next" }, [el("b", { text: "What's next: " }), s.whats_next]));
 
     var meta = el("div", { className: "meta" });
@@ -349,7 +349,7 @@
     else if (sc.hasStatement) notes.push("Includes a government statement.");
     if (sc.outlets && sc.leans.length < 3) notes.push(gapWords(sc));
     if (notes.length) text.appendChild(el("p", { className: "row-note", text: notes.join(" ") }));
-    text.appendChild(whatHappened(s));
+    text.appendChild(summary(s));
     if (s.whats_next) text.appendChild(el("p", { className: "next" }, [el("b", { text: "What's next: " }), s.whats_next]));
     return node;
   }

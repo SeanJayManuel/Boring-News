@@ -350,13 +350,13 @@ One to three plain sentences that sum up the day from real data: how many storie
 
 ### Lead story
 
-Headline, coverage scale with counts, "What happened," "What's next" when there is one, then a link to the outlets and their headlines. The coverage picture sits beside it.
+Headline, coverage scale with counts, the summary, "What's next" when there is one, then a link to the outlets and their headlines. The coverage picture sits beside it.
 
 The headlines appear plain and unmarked. No highlighting, underlining or scoring of outlets' words, here or anywhere.
 
 ### Story row
 
-Coverage picture on the left. Beside it: headline, compact scale, one note if needed ("Backed by a government record," or the gap sentence), "What happened" and "What's next." No topic label unless it's the page's way of grouping. "What happened" is the story's checked sentences joined in order, so every top story reads as a short account.
+Coverage picture on the left. Beside it: headline, compact scale, one note if needed ("Backed by a government record," or the gap sentence), the summary and "What's next." No topic label unless it's the page's way of grouping. The summary is the story's checked sentences joined in order, with no label, so every top story reads as a short account.
 
 ### Coverage picture
 
@@ -413,7 +413,7 @@ On every page, after a 1px `--ink` rule: the tagline, centered, in the opening-s
 
 ### Story page
 
-Every headline opens its own page at `#story-N`: the scale with its key, the bullets, what's next, how it was scored, a link to report a mistake, then every outlet in a column for its side, followed by more stories on the topic. When two or more sides have summaries, each column opens with what that side reported, and the page says who ran the story first and which outlets repeated another's report. These summaries state facts only. Never describe an outlet's tone, framing or motive, for the same reason we don't highlight words. Links keep working for 30 days, because a story that has left the edition is read from the research file.
+Every headline opens its own page at `#story-N`: the scale with its key, the bullets, what's next, how it was scored, a link to report a mistake, then every outlet in a column for its side, followed by more stories on the topic, set small enough that they don't compete with the section heading. When two or more sides have summaries, each column opens with what that side reported, and the page says who ran the story first and which outlets repeated another's report. These summaries state facts only. Never describe an outlet's tone, framing or motive, for the same reason we don't highlight words. Links keep working for 30 days, because a story that has left the edition is read from the research file.
 
 ### Buttons and links
 
@@ -596,7 +596,7 @@ Before merging any change a reader can see:
 | 2026-11-05 | No photos | No rights from RSS, and a chosen photo frames a story |
 | 2026-11-05 | Coverage pictures as the site's imagery | The page needs something visual, and a picture drawn from the data can't frame a story |
 | 2026-11-05 | Coverage pictures in ink, on one neutral ground | Colored rings beside a colored scale said the same thing twice, and topic tints meant nothing to readers |
-| 2026-11-05 | "What happened" on every top story | Headlines alone gave readers too little. The format comes from Ground News's Daily Briefing |
+| 2026-11-05 | A short summary on every top story | Headlines alone gave readers too little. The format comes from Ground News's Daily Briefing |
 | 2026-11-05 | Launch with the font S | It reads well at small sizes, so a hand-drawn S can wait |
 | 2026-11-05 | Softer dark mode | The first background was close to black and hard on the eyes |
 | 2026-11-05 | Amber only for gaps | Keeps the one loud thing meaningful |
