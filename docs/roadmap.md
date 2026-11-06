@@ -13,7 +13,7 @@ The product is built but has never been published.
 
 - `archive/` holds no editions, and the nightly workflow has never run.
 - Claude writing has only been tested with stand-ins. Feeds and grouping have had one local check on real news (see below).
-- The domain isn't registered, the site isn't deployed, and no repo secrets are set.
+- The domain is registered (standardedition.org, through Cloudflare), but the site isn't deployed and no repo secrets are set.
 - Grouping and ranking are still set from invented sample data.
 
 So everything below is ordered around one question: **does this work on real news?** Phase 0 answers that. Until it does, later features would be built on untested assumptions.
@@ -54,12 +54,13 @@ With the Congress key added, the same check found no bills with a significant ac
 | 6 | **4. State and local** | The biggest job. Start once the national edition is reliable |
 | 7 | **5. Open data** | Most useful once there's a history to download |
 | Later | **Beyond the US** | Only once US coverage is solid |
+| Later | **Signals beyond the press** | Only once the edition is trusted, and it depends on D11. Social trends (X1) are on hold |
 
 Phase numbers match the README. Phase 0 and Trust are new here, and the README's Phase 1 (the national edition) is built, so it isn't repeated.
 
 ## Name
 
-**Standard Edition**, planned at standardedition.org, which isn't registered yet. The site, feeds, docs and MCP server use the name. The GitHub repo, the Python package (`boringnews`) and `BN_` settings keep the old name for now.
+**The Standard Edition**, at standardedition.org, registered 2026-11-05. The site still says "Standard Edition" until the [design guide](../DESIGN.md) is applied. The site, feeds, docs and MCP server use the name. The GitHub repo, the Python package (`boringnews`) and `BN_` settings keep the old name for now.
 
 ## Open decisions
 
@@ -73,6 +74,8 @@ These block or shape work, and only the maintainer can make them.
 | D5 | **What does Boring News do on a day the pipeline fails?** Show yesterday's edition with a notice, or nothing? | L8 |
 | D6 | **Monthly spending limit** for the Claude API, and who pays | L5, B1 |
 | D7 | **How much AI writing is disclosed** on each story, beyond the "written by" field in edition files | T5 |
+| D10 | **How to reach readers under censorship.** The goal is set: the same access a US reader has, with everything in their area aggregated. Still open: which routes to run first (mirrors, Tor, email), and what we can honestly promise about their safety | I5, I6 |
+| D11 | **Can anything outside the press and public records affect a story's score?** Recommended: no. Social trends and market odds stay in their own labeled lists. Not urgent while X1 is on hold | X1, X2 |
 
 ---
 
@@ -83,8 +86,8 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 ### L1. Accounts, hosting and secrets ⬜ S
 
 - **Exists:** the nightly workflow and Cloudflare deploy step.
-- **Gaps:** no domain, Cloudflare project or repo secrets. The workflow expects `ANTHROPIC_API_KEY`, `CONGRESS_API_KEY`, `FRED_API_KEY`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
-- **Needs a person:** register the domain, create the accounts, add the secrets. Decision D1.
+- **Gaps:** no Cloudflare project or repo secrets. The domain is registered. The workflow expects `ANTHROPIC_API_KEY`, `CONGRESS_API_KEY`, `FRED_API_KEY`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+- **Needs a person:** create the accounts, add the secrets. Decision D1.
 - **Done when:** the workflow deploys a page to the domain.
 
 ### L2. Safe nightly job ✅ S
@@ -145,6 +148,16 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 - **Exists:** the reader page, RSS, and a local demo.
 - **Gaps:** no social preview tags or favicon. No outside reader has tried it, and accessibility hasn't been audited.
 - **Done when:** a link previews properly when shared, and the page passes a keyboard and screen-reader check.
+
+### L11. About page ⬜ S
+
+A new About tab: why this exists, in plain language, for someone who has never heard of it. How it works stays the method. About is the reason, and the people behind it.
+
+- **Exists:** the principles in the README ("What we believe"), the method in How it works, and the ledger.
+- **The thesis to state:** gather enough reporting from across the spectrum, and what the sources have in common points toward what's true. The page should also say where this falls short: outlets repeating one wire report count as one source, and every outlet can miss the same thing.
+- **Gaps:** the mission, who runs it, how it's paid for, and an FAQ. The FAQ should answer the hard questions directly: Is this written by AI? Who pays for it? Are you biased? Why is this outlet labeled that way? Why was a story left out? How do I challenge a decision? Does this tell me what's true? Some answers depend on D6 and D7.
+- **Needs a person:** the words on who runs it and why. "Organization, not a company" should only appear once the legal form is settled. A `.org` address doesn't show that by itself.
+- **Done when:** the tab is live, every FAQ answer links to its evidence (ledger, source list, code), and an outside reader can explain the project after reading it.
 
 ---
 
@@ -214,6 +227,14 @@ So today a three-outlet story on the left is dropped and the same story on the r
 - **Exists:** grouping recorded in each edition file.
 - **Gaps:** it's only readable as raw JSON. Readers can't see stories that didn't make it, or which articles went unused.
 - **Done when:** the site can show everything read that day and what happened to it.
+
+### T7. Independent agreement ⬜ M
+
+The thesis rests on sources agreeing independently, so agreement should only count when the sources are separate.
+
+- **Exists:** a fact is stated plainly when two outlets agree, and the outlets' leans are counted across the spectrum.
+- **Gaps:** two outlets running the same wire report count as two agreeing sources, and outlets with the same owner count separately. We need to detect shared wire copy and record who owns each outlet.
+- **Done when:** a fact repeated from one wire report counts as one source, and the page says so.
 
 ---
 
@@ -413,3 +434,83 @@ Goal: journalists and researchers can use the data without asking.
 ## Later: Beyond the US
 
 Starts only once US coverage is solid. Each country gets its own spectrum, sources and government feeds rather than inheriting American labels. The work in S5, on ranking without a national spectrum, should inform this.
+
+Goal: anyone, in their own language, can see what each country's outlets and records said, including people whose local news is restricted. Location and language are separate choices: someone in Texas may want the US edition in Spanish, and someone in Toronto may want the Mexico edition in English.
+
+### I1. Location picker ⬜ S to M
+
+A small flag and country code in the corner of the masthead (US, Canada, Mexico) that sets whose news the page follows.
+
+- **Exists:** reader settings that travel in the page and feed address, declared in `SETTINGS` in `web/core.js`. A stored `region` field that nothing reads (see S2).
+- **Gaps:** an `edition` setting, and a page and feeds that follow it. Depends on S2 and on a second edition existing (I4). Before then, a country that isn't ready can only be shown as planned.
+- **Rules:** the choice stays in the browser and feed address, like every other setting. No location detection from the reader's IP address. Flags appear only here, never on the language picker.
+- **Done when:** a reader can switch editions, and the page, feeds and API follow.
+
+### I2. Interface language ⬜ M
+
+The site's own words: navigation, settings, How it works, Research.
+
+- **Exists:** English only, written directly into `web/index.html` and `web/app.js`. Dates are fixed to `en-US`.
+- **Gaps:** a `lang` setting, words moved into per-language files, right-to-left layout for Arabic and Hebrew, and fonts for each script. Blackletter is used only in the logo, which stays the same in every language. The political scale keeps left, center and right in the same order in every language, including right-to-left ones.
+- **Needs a person:** which languages come first, and a fluent reader for each.
+- **Done when:** the whole site works in one left-to-right and one right-to-left language, chosen in a language's own name (Español, العربية), and the first visit follows the browser's language.
+
+### I3. Translated stories ⬜ L
+
+The day's headlines and summaries in each language. Separate from I2, because this is editorial work and not just interface work.
+
+- **Exists:** English summaries, checked by the banned-word linter and the number and fact checks.
+- **Gaps:** the banned-word list and checks are English only, so a translation could bring back loaded language or change a number with nothing to catch it. Translating once at build time keeps it cheap and the same for every reader. Edition files, RSS and the API need to carry each language. Costs go in the ledger (D6), and translated text falls under D7's AI disclosure question.
+- **Needs a person:** a loaded-word list and a review by a fluent reader for each language before it launches.
+- **Done when:** one language publishes daily with its own checks, and a reader can compare any translated story with the English.
+
+### I4. Editions for other countries ⬜ L each
+
+- **Exists:** nothing outside the US. S5 will show how ranking works without a national left, center and right.
+- **Gaps:** for each country, a source list, a spectrum that fits its politics, its government records and a feed audit like L4. Canada and Mexico are the first candidates.
+- **Needs a person:** someone who knows each country's media to review the labels.
+- **Done when:** one non-US edition passes the same checks as the US edition (L5, L6), read by a person from that country.
+
+### I5. Reach where news is restricted ⬜ M
+
+The goal: a reader under censorship has the same access as a reader in the US. Standard Edition shows who covered what and what the records say, so a reader can get as close to the truth as the evidence allows. It doesn't declare what's true.
+
+- **Exists:** a helpful base. The site is static, needs no account and sets no tracking, and it has RSS, downloadable edition files and a public API.
+- **Gaps:** mirrors on other domains, a Tor address, a low-bandwidth page, and email delivery. Blocking one domain shouldn't cut anyone off. Also a written risk review, because reading a blocked site can put a reader in danger, so equal access doesn't mean equal safety.
+- **Needs a person:** the open part of D10, and advice from people who work on censorship and reader safety.
+- **Done when:** the chosen routes are live, and a plain-language page explains what they do and don't protect against.
+
+### I6. Editions where the press isn't free ⬜ L each
+
+The aggregated view for places like these needs a different method, not just more sources. The US rubric would mislead here.
+
+- **Exists:** nothing. The rubric assumes a free domestic press split across left, center and right, and it gives extra score to government records.
+- **Gaps:** in a censored country, most domestic outlets repeat one line, so several of them agreeing proves little, and a score boost for government records would reward the censor. Each edition needs its own groups instead, such as state-aligned, independent, exile and international outlets. Silence means something different too: a story missing from domestic outlets may have been suppressed. Government sources should appear as claims and earn no score.
+- **First step:** an outside view of one country, from international and exile outlets alone. It needs no sources inside the country and already gives readers something they can't get locally.
+- **Needs a person:** a reviewer who knows that country's media. Their safety matters as much as a reader's.
+- **Done when:** one edition runs on its own published rubric, and the rule for government sources is explained on the page.
+
+## Later: Signals beyond the press
+
+The idea: prediction markets get close to the truth by pooling what many people know. These two features test how far that idea can help, without letting attention decide what's news. README principle 7 rules out engagement metrics deciding what you see, so both stay outside the score (D11).
+
+### X1. Social trends ⬜ L (on hold)
+
+On hold as of 2026-11-05, by the maintainer's decision. Nothing here should start until it's lifted.
+
+A separate list of what people are talking about that the outlets we read aren't covering. It's a place to look closer, and never evidence that something is true.
+
+- **Why it needs care:** a market works because people lose money when they're wrong, and it settles on a real outcome. A trend has neither. It rewards attention, and bots and coordinated campaigns can buy it, especially in the censored countries where it would matter most.
+- **Why it's still worth doing:** where the press is restricted, people often post what outlets can't print, so a gap between social talk and coverage can be a real signal (I6).
+- **Gaps:** a research spike comes first: what each platform allows and costs, and how to spot coordinated activity. Wikipedia page views are a free, harder-to-fake place to start. Bluesky and Mastodon are open. X and Reddit APIs are paid or restricted, and Telegram matters in many restricted countries.
+- **Rules:** a labeled list of its own, no effect on any score, topics rather than named private people, more than one platform before anything appears, and an off switch in reader settings.
+- **Done when:** the list has run privately for a month, and we've published how often its topics later proved real.
+
+### X2. Prediction market odds ⬜ M
+
+Where a story has an open question ("Will the bill be signed?"), show the market's odds beside it, like the market ticker.
+
+- **Gaps:** which markets, and whether their terms allow it. Thin markets are easy to push around, so each needs a minimum amount of trading before it's shown. Showing odds could look like an endorsement of betting, or of the outcome.
+- **Rules:** the odds are always labeled as a market's price, with a link to the market and no effect on any score.
+- **Needs a person:** a legal check, and D11.
+- **Done when:** odds appear on matching stories with their source and trading volume, and past odds can be checked against what happened.

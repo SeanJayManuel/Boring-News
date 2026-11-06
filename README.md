@@ -105,6 +105,7 @@ United States first. International coverage starts only once US coverage is soli
 
 **Later: Beyond the US**
 - Only once US coverage is solid. Each country gets its own spectrum, sources and government feeds rather than inheriting American labels.
+- Readers choose a location and a reading language separately, and the site stays reachable where news is restricted.
 
 ## The money
 
@@ -239,6 +240,7 @@ sources.yaml ──► ingest (RSS) ──► SQLite ──► cluster (TF-IDF) 
 | --- | --- |
 | `sources.yaml` | Outlets, each with a lean (left / center / right / unrated) and a type |
 | `editorial/style_guide.md` | The writing rules, sent to the model as its instructions |
+| `DESIGN.md` | Brand, voice and visual rules for everything a reader sees |
 | `editorial/banned_words.txt` | Loaded words the linter rejects outside quotes |
 | `boringnews/rubric.py` | Selection rule: breadth, coverage, diversity, thresholds |
 | `boringnews/cluster.py` | Groups articles about the same event |
