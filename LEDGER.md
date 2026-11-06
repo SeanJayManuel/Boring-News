@@ -31,9 +31,9 @@ Services the project depends on, and what they cost. "Paid personally" means the
 | Service | What it's for | Cost |
 | --- | --- | --- |
 | Domain (.org) | The site's address | $8.50 for the first year, paid personally |
-| Cloudflare Pages | Hosting the site and custom feeds | |
-| Anthropic API | Writing and fact-checking summaries | |
-| GitHub Actions | Nightly build | |
+| Cloudflare Pages | Hosting the site and custom feeds | Not in use yet |
+| Anthropic API | Writing and fact-checking summaries | Not in use yet |
+| GitHub Actions | Nightly build | Not in use yet |
 | Congress.gov, FRED, Federal Register, GovInfo | Government data | Free |
 
 ## Rules

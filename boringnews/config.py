@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.environ.get("BN_DB", ROOT / "data" / "boringnews.db"))
 ARCHIVE_DIR = Path(os.environ.get("BN_ARCHIVE", ROOT / "archive"))
 CORRECTIONS_PATH = ROOT / "corrections.yaml"
+LEDGER_PATH = ROOT / "LEDGER.md"
 MARKETS_PATH = ROOT / "markets.yaml"
 FIXTURE_MARKETS_PATH = ROOT / "fixtures" / "markets.json"
 SOURCES_PATH = Path(os.environ.get("BN_SOURCES", ROOT / "sources.yaml"))

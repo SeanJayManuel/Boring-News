@@ -32,7 +32,7 @@ Standard Edition takes the opposite position. A news feed is a set of decisions,
 
 7. **Boring on purpose.** Once a day. No outrage optimization, no infinite scroll, no engagement metrics deciding what you see. Plain language, clear sourcing, done.
 
-8. **Open books.** Every dollar in and every dollar out is published in [`LEDGER.md`](LEDGER.md). If donations ever exist, they exist only to keep the servers running, and the ledger shows it.
+8. **Open books.** Every dollar in and every dollar out is published on the site and in [`LEDGER.md`](LEDGER.md). If donations ever exist, they exist only to keep the servers running, and the ledger shows it.
 
 9. **No tracking.** No third-party analytics, no ad pixels, no profiles. Your settings live in your browser and your feed address.
 

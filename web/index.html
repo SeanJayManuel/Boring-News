@@ -62,7 +62,6 @@
       <div class="ticker-window">
         <div class="ticker-track" id="ticker-track"></div>
       </div>
-      <button type="button" class="ticker-pause" id="ticker-pause" aria-pressed="false">Pause</button>
     </div>
   </div>
 </header>
@@ -226,7 +225,7 @@
           <tbody id="source-table"></tbody>
         </table>
       </div>
-      <p>The market closes at the top show the previous trading day's closing values from FRED, the St. Louis Fed's free data service. They update once a day with the edition, and each value links to its source.</p>
+      <p>The market closes at the top show the latest closing values from FRED, the St. Louis Fed's free data service. They update once a day with the edition, so they aren't live. FRED posts each series on its own schedule, so a value that lags shows its own date, and each one links to its source.</p>
       <p class="fine" id="rubric-version"></p>
     </div>
   </section>
@@ -329,6 +328,31 @@
       <p>Think we got something wrong? <a href="__REPO_URL__/issues/new/choose">Challenge a label, report a wrong story, or propose a source or rubric change.</a></p>
     </div>
   </section>
+  <!-- The ledger, read from LEDGER.md -->
+  <section class="view" id="view-ledger" data-view="ledger" hidden>
+    <div class="intro">
+      <h1 class="lede" id="ledger-lede"></h1>
+      <p class="sublede"><span id="ledger-gap"></span> Every dollar in and out is listed here, and every change is <a href="__REPO_URL__/commits/main/LEDGER.md">a public commit</a>, so you can see when any line changed.</p>
+    </div>
+    <div class="sheet prose">
+      <h2>Money out</h2>
+      <div id="ledger-out"></div>
+    </div>
+    <div class="sheet prose">
+      <h2>Money in</h2>
+      <div id="ledger-in"></div>
+    </div>
+    <div class="sheet prose">
+      <h2>The rules</h2>
+      <ol class="steps" id="ledger-rules"></ol>
+    </div>
+    <div class="sheet prose">
+      <h2>Running costs</h2>
+      <p>What the project depends on, and what it costs. Anything the maintainer pays personally is still listed, so the true cost is visible.</p>
+      <div id="ledger-costs"></div>
+    </div>
+  </section>
+
   <!-- About us -->
   <section class="view" id="view-about" data-view="about" hidden>
     <div class="intro about-open">
@@ -367,7 +391,7 @@
     <div class="sheet prose">
       <h2>Who runs it and who pays</h2>
       <p>The Standard Edition is an open-source project run by Sean Manuel, not a business. It has no growth target, no exit and nothing to sell. It has no ads and no investors, and it doesn't take donations yet.</p>
-      <p>Every cost is listed in the <a href="__REPO_URL__/blob/main/LEDGER.md">public ledger</a>, and every change to the rules is a <a href="__REPO_URL__">public commit</a>.</p>
+      <p>Every cost is listed in the <a href="#ledger">public ledger</a>, and every change to the rules is a <a href="__REPO_URL__">public commit</a>.</p>
     </div>
 
     <div class="sheet prose" id="contact">
@@ -416,7 +440,7 @@
       <a href="#about">About us</a>
       <a href="#how-it-works">How it works</a>
       <a href="#your-feed">Your feed</a>
-      <a href="__REPO_URL__/blob/main/LEDGER.md">Public ledger</a>
+      <a href="#ledger" data-view="ledger">Public ledger</a>
       <a href="__REPO_URL__">Source code</a>
       <a href="#contact">Contact us</a>
     </nav>

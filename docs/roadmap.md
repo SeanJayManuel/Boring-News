@@ -125,7 +125,7 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 
 ### L7. Market ticker permissions ⬜ S
 
-- **Exists:** the ticker, which is hidden if FRED can't be reached.
+- **Exists:** the ticker, which is hidden if FRED can't be reached. It shows the latest close FRED has, and a series that lags shows its own date. FRED has no live prices, and the edition is built before markets open, so the newest close is usually the prior trading day's. Decided (2026-11-05): stay with FRED's free closes, not live prices.
 - **Gaps:** FRED's S&P 500 and Dow series are copyrighted and say reproduction needs the owner's permission.
 - **Needs a person:** check the terms, then keep, replace or remove those series.
 - **Done when:** every series on the ticker has been checked.
@@ -148,7 +148,7 @@ Goal: a real edition, published every day, that the maintainer would be happy fo
 
 - **Exists:** the reader page, RSS, and a local demo.
 - **Built (2026-11-05):** a footer, story pages, a favicon, social preview tags, a skip link, focus and page titles that follow each tab, notes for failed feeds and old editions, and tested empty states. Checked by keyboard at desktop width, and at 320px, 375px and 1440px wide.
-- **Gaps:** nobody has tested it with a real screen reader, no outside reader has tried it, and link previews can't be tested until the site is live.
+- **Gaps:** nobody has tested it with a real screen reader, the ticker has no way to stop on a phone (accessibility rules ask for one on moving content), no outside reader has tried it, and link previews can't be tested until the site is live.
 - **Done when:** a link previews properly when shared, and the page passes a real screen-reader check.
 
 ### L11. About page 🟡 S
@@ -435,10 +435,10 @@ Goal: journalists and researchers can use the data without asking.
 
 ## Phase 6: Open books
 
-### B1. A true ledger ⬜ S
+### B1. A true ledger 🟡 S
 
-- **Exists:** `LEDGER.md`, with $0 and empty running costs.
-- **Gaps:** real costs appear from L1 and L5 onward. The ledger's rule is to record every transaction within a week.
+- **Exists:** `LEDGER.md`, with the domain recorded, and a Ledger page on the site, linked from the footer, that reads the same file, so readers don't need GitHub. Totals are added up from the rows.
+- **Gaps:** hosting and API costs appear from L1 and L5 onward. The ledger's rule is to record every transaction within a week.
 - **Done when:** the domain, API and hosting costs are listed, and updated as a routine.
 
 ### B2. Donations ⬜ M

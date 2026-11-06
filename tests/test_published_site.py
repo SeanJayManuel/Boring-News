@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from boringnews import config
+from boringnews import config, ledger
 from boringnews.export_static import main as export_main
 from boringnews.pipeline import main as pipeline_main
 from boringnews.topics import TOPICS
@@ -163,7 +163,6 @@ def test_page_renders_the_edition(site):
     assert page["errors"] == []
     assert page["lede"].startswith("Five stories today.") and page["spotlight"] == 5
     assert page["ticker"] == 14 and page["dataLink"]
-    assert page["tickerPause"] == {"paused": True, "label": "Play", "pressed": "true"}
     assert page["feedUrl"] == f"{BASE}/feed.xml?threshold=strict"
 
 
@@ -430,6 +429,37 @@ def test_a_side_alone_is_not_summarized(tmp_path, site):
     off = ",".join(sid for sid in {a["source_id"] for a in storm["articles"]} if sid not in keep)
     page = open_page(site, f"{BASE}/?exclude={off}#story-{storm['id']}")
     assert page["errors"] == [] and page["sideSaid"] == [] and "Who covered it" in page["storyHeads"]
+
+
+@jsdom
+def test_ledger_is_on_the_site_and_adds_up_from_its_rows(site):
+    page = open_page(site, f"{BASE}/#ledger")
+    book = ledger.load()
+    assert page["errors"] == [] and page["ledgerLede"].endswith(" received.")
+    assert f"${book['spent']:.2f} spent so far" in page["ledgerLede"]
+    assert page["ledgerRows"] == len(book["money_out"]) and page["ledgerRules"] == len(book["rules"])
+    assert "No donations are accepted yet" in page["ledgerIn"]
+    assert page["title"] == "Public ledger | The Standard Edition" and page["tabCount"] == 7
+
+
+def test_ledger_file_totals_match_its_rows():
+    text = config.LEDGER_PATH.read_text()
+    book = ledger.load()
+    assert f"| Total spent | ${book['spent']:.2f} |" in text and f"| Total received | ${book['received']:.2f} |" in text
+
+
+@jsdom
+def test_a_market_value_that_lags_shows_its_own_date(tmp_path, site):
+    markets = json.loads((site / "edition.json").read_text())["markets"]
+    markets[-1]["date"] = "2026-10-30"
+    page = open_page(with_data(site, tmp_path, markets=markets), f"{BASE}/")
+    assert page["errors"] == [] and page["tickDates"] == ["Oct 30"]
+    assert page["tickerLabel"].endswith("Last close, Nov 3")
+
+
+@jsdom
+def test_market_values_on_one_day_show_no_extra_dates(site):
+    assert open_page(site, f"{BASE}/")["tickDates"] == []
 
 
 def test_every_tab_opens_a_view():

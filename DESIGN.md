@@ -44,7 +44,7 @@ Agreement only counts when sources are independent, and every outlet can miss th
 
 1. **Show, don't rule.** The site shows evidence. It doesn't decide for the reader. This is why we never highlight or mark words in outlets' text.
 2. **The gap is the signal.** Who didn't cover a story is the most distinctive thing on the page, and it gets the only stripes.
-3. **Calm is a feature.** Nothing flashes or competes for attention, and the one thing that moves, the market ticker, is slow and can be paused. The edition has an end.
+3. **Calm is a feature.** Nothing flashes or competes for attention, and the one thing that moves, the market ticker, is slow and stops under the cursor. The edition has an end.
 4. **Classic in the masthead, open everywhere else.** The newspaper tradition earns trust at the top. Below it, the page is spacious and speaks plainly.
 5. **Nothing hidden.** Any claim the site makes links to its proof.
 6. **Built for every reader.** Each decision has to survive other languages, slow connections, screen readers and blocked domains.
@@ -150,11 +150,11 @@ Keep the existing names from `web/style.css` where they still apply, so the chan
 
 | Token | Role | Light | Dark |
 | --- | --- | --- | --- |
-| `--desk` | Page background | `#ffffff` | `#141518` |
-| `--sheet` | Tinted bands and panels | `#f3f3f0` | `#1e1f23` |
+| `--desk` | Page background | `#ffffff` | `#212226` |
+| `--sheet` | Tinted bands and panels | `#f3f3f0` | `#2b2c31` |
 | `--ink` | Text, ticks, buttons, rules | `#17181c` | `#ecebe6` |
 | `--muted` | Secondary text | `#4c4d53` | `#b0afa9` |
-| `--line` | Dividers (decorative only) | `#dedcd6` | `#35363b` |
+| `--line` | Dividers (decorative only) | `#dedcd6` | `#44454b` |
 | `--control` | Borders of inputs and buttons | `#8a8b91` | `#7d7e84` |
 | `--gap` | Coverage gap stripes | `#b57a00` | `#e9b23a` |
 | `--left` | Left outlets on the scale | `#2a5db0` | `#7ea6ec` |
@@ -168,19 +168,20 @@ Keep the existing names from `web/style.css` where they still apply, so the chan
 
 | Pair | Light | Dark |
 | --- | --- | --- |
-| Ink on desk | 17.7:1 | 15.3:1 |
-| Ink on sheet | 16.0:1 | 13.8:1 |
-| Muted on desk | 8.4:1 | 8.3:1 |
-| Muted on sheet | 7.6:1 | 7.5:1 |
-| Gap on desk | 3.7:1 | 9.5:1 |
-| Gap on sheet | 3.3:1 | 8.5:1 |
-| Left on desk | 6.4:1 | 7.4:1 |
-| Left on sheet | 5.7:1 | 6.7:1 |
-| Center on desk | 4.9:1 | 7.3:1 |
-| Center on sheet | 4.4:1 | 6.5:1 |
-| Right on desk | 5.4:1 | 7.4:1 |
-| Right on sheet | 4.9:1 | 6.7:1 |
-| Control on desk | 3.4:1 | 4.5:1 |
+| Ink on desk | 17.7:1 | 13.3:1 |
+| Ink on sheet | 16.0:1 | 11.7:1 |
+| Muted on desk | 8.4:1 | 7.2:1 |
+| Muted on sheet | 7.6:1 | 6.3:1 |
+| Gap on desk | 3.7:1 | 8.2:1 |
+| Gap on sheet | 3.3:1 | 7.2:1 |
+| Left on desk | 6.4:1 | 6.5:1 |
+| Left on sheet | 5.7:1 | 5.7:1 |
+| Center on desk | 4.9:1 | 6.3:1 |
+| Center on sheet | 4.4:1 | 5.5:1 |
+| Right on desk | 5.4:1 | 6.5:1 |
+| Right on sheet | 4.9:1 | 5.7:1 |
+| Control on desk | 3.4:1 | 3.9:1 |
+| Control on sheet | 3.1:1 | 3.4:1 |
 
 `--gap` and `--control` are for shapes and borders, never text. `--line` is too faint to be a control's only outline.
 
@@ -438,7 +439,7 @@ Flat segments with direct labels where possible. Follow the score chart colors a
 
 ### Market closes
 
-A slow scrolling ticker of yesterday's closes under the navigation, in Source Sans 3 at 15px. It pauses on hover or focus and has a Pause button. With `prefers-reduced-motion` it holds still and the reader swipes it instead. Each value links to its source, and rises or falls are shown with words or signs as well as color.
+A slow scrolling ticker of the latest closes under the navigation, in Source Sans 3 at 15px. FRED posts each series on its own schedule, so the label gives the newest date and any value that lags shows its own. It's the latest close, not a live price, and that's on purpose: FRED is free and the site updates once a day. It stops on hover or keyboard focus. With `prefers-reduced-motion` it holds still and the reader swipes it instead. Each value links to its source, and rises or falls are shown with words or signs as well as color.
 
 ### Notices
 
@@ -509,6 +510,7 @@ Planned in roadmap items I1 to I6. New work should stay ready for them.
 | --- | --- | --- |
 | **Today** | Read the day, then stop | As specified above |
 | **All stories** | See everything, by topic | Story rows under topic headings |
+| **Ledger** (from the footer) | See every dollar in and out | An opening sentence with the totals, then tables read from `LEDGER.md` |
 | **Outlets** | Compare what each outlet ran | Table first, plain definitions |
 | **Research** | Check a claim or record | Search leads the page. The site never says whether a claim is true |
 | **How it works** | Prove the method | Plain steps, then the formula, then live numbers |
@@ -562,7 +564,7 @@ Do these in order, in small changes. Nothing here changes the rubric or the data
 3. **Coverage scale:** ticks and stripes as specified, keeping the existing three states and screen-reader labels.
 4. **Today page:** the opening sentence, the lead and list layout, the one-sided band and the closing.
 5. **Other tabs:** apply the type and spacing, then remove the old card styles.
-6. **Market closes:** restyle the scrolling ticker and add its Pause button.
+6. **Market closes:** restyle the scrolling ticker.
 7. **About page:** build it once its words are written (L11).
 8. **Before launch:** the favicon and the social preview (L10). Both are built.
 
@@ -596,11 +598,15 @@ Before merging any change a reader can see:
 | 2026-11-05 | Coverage pictures in ink, on one neutral ground | Colored rings beside a colored scale said the same thing twice, and topic tints meant nothing to readers |
 | 2026-11-05 | "What happened" on every top story | Headlines alone gave readers too little. The format comes from Ground News's Daily Briefing |
 | 2026-11-05 | Launch with the font S | It reads well at small sizes, so a hand-drawn S can wait |
+| 2026-11-05 | Softer dark mode | The first background was close to black and hard on the eyes |
 | 2026-11-05 | Amber only for gaps | Keeps the one loud thing meaningful |
 | 2026-11-05 | Blue, gray and red for left, center and right | Replaces black ticks, which didn't say what they showed. US readers already know these colors |
 | 2026-11-05 | Tagline in the footer of every page | Replaces a closing line on Today alone |
 | 2026-11-05 | Tagline: "100% transparent. 100% free. Always." | Replaces "The rest is up to you." It says plainly what the site promises |
-| 2026-11-05 | Keep the scrolling ticker | Replaces the still row. It gives the masthead some life, stays slow, and can be paused |
+| 2026-11-05 | Keep the scrolling ticker | Replaces the still row. It gives the masthead some life and stays slow |
+| 2026-11-05 | No Pause button on the ticker | Keeps the row clean. It still stops on hover or focus, and holds still with reduced motion. Phone readers can't stop it, which needs review in the accessibility audit (L10) |
+| 2026-11-05 | Latest closes from FRED, not live prices | Free, and it fits a once-a-day edition |
+| 2026-11-05 | Ledger in the footer, not the top navigation | Readers should be able to find it, but it isn't a daily destination |
 
 ### What we took from the references
 

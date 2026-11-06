@@ -17,7 +17,7 @@
     standard: "Usually needs coverage from at least two of left, center and right.",
     strict: "Usually needs left, center and right, or two sides plus a government record."
   };
-  var VIEWS = ["today", "all-stories", "outlets", "research", "how-it-works", "your-feed", "about", "story"];
+  var VIEWS = ["today", "all-stories", "outlets", "research", "how-it-works", "your-feed", "ledger", "about", "story"];
   var KEY_WORDS = "Each mark and ring is one outlet that ran the story. Stripes and dotted circles mean no outlet on that side ran it. A black square means a government record backs it.";
 
   // Rubric and settings live in core.js, shared with the feed function.
@@ -1048,12 +1048,43 @@
     }, missing);
   }
 
-  // ---------- market closes (yesterday's values)
+  // ---------- the ledger
+  function dollars(n) { return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function ledgerTable(rows, columns) {
+    return el("div", { className: "table-wrap" }, [el("table", {}, [
+      el("thead", {}, [el("tr", {}, columns.map(function (c) { return el("th", { text: c }); }))]),
+      el("tbody", {}, rows.map(function (r) {
+        return el("tr", {}, columns.map(function (c) { return el("td", { text: r[c] || "" }); }));
+      }))
+    ])]);
+  }
+  function renderLedger() {
+    var L = D.ledger;
+    $("ledger-lede").textContent = dollars(L.spent) + " spent so far, and " + dollars(L.received) + " received.";
+    $("ledger-gap").textContent = L.spent > L.received ? "The person running the project pays the difference personally." : "";
+    var out = $("ledger-out"), into = $("ledger-in");
+    out.innerHTML = "";
+    into.innerHTML = "";
+    if (L.money_out.length) out.appendChild(ledgerTable(L.money_out, ["Date", "What", "Amount", "Recurring", "Receipt or note"]));
+    else out.appendChild(el("p", { text: "Nothing has been spent yet." }));
+    if (L.money_in.length) into.appendChild(ledgerTable(L.money_in, ["Date", "From", "Amount", "Note"]));
+    else into.appendChild(el("p", { text: "No donations are accepted yet, so nothing has come in." }));
+    var costs = $("ledger-costs");
+    costs.innerHTML = "";
+    costs.appendChild(ledgerTable(L.running_costs, ["Service", "What it's for", "Cost"]));
+    var rules = $("ledger-rules");
+    rules.innerHTML = "";
+    L.rules.forEach(function (r) { rules.appendChild(el("li", { text: r })); });
+  }
+
+  // ---------- market closes (FRED's latest values)
   function renderTicker() {
     var items = D.markets || [];
     var box = $("ticker");
     if (!items.length) { box.hidden = true; return; }
     function fmt(v, d) { return v.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); }
+    function monthDay(day) { return new Date(day + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }); }
+    var newest = items.map(function (m) { return m.date; }).sort().pop();
     function tick(m) {
       var dir = m.change > 0 ? "up" : m.change < 0 ? "down" : "flat";
       var arrow = dir === "up" ? "\u25B2" : dir === "down" ? "\u25BC" : "";
@@ -1062,10 +1093,14 @@
       var sign = dir === "up" ? "+" : dir === "down" ? "\u2212" : "";
       var words = m.label + " " + m.prefix + fmt(m.value, m.decimals) + m.suffix + ", " +
         (dir === "flat" ? "unchanged" : (dir === "up" ? "up " : "down ") + change);
-      return el("a", { className: "tick", href: m.source_url, target: "_blank", rel: "noopener", title: words + " (FRED)" }, [
+      // FRED posts each series on its own schedule, so one that lags says its own date.
+      var late = m.date !== newest ? monthDay(m.date) : "";
+      return el("a", { className: "tick", href: m.source_url, target: "_blank", rel: "noopener",
+        title: words + (late ? ", as of " + late : "") + " (FRED)" }, [
         el("b", { text: m.label }),
         el("span", { text: m.prefix + fmt(m.value, m.decimals) + m.suffix }),
-        el("span", { className: dir, text: dir === "flat" ? "unch" : arrow + " " + sign + change })
+        el("span", { className: dir, text: dir === "flat" ? "unch" : arrow + " " + sign + change }),
+        late ? el("span", { className: "tick-date", text: late }) : null
       ]);
     }
     var track = $("ticker-track");
@@ -1075,15 +1110,9 @@
     Array.prototype.forEach.call(copy.querySelectorAll("a"), function (a) { a.setAttribute("tabindex", "-1"); });
     track.appendChild(copy);
     track.style.setProperty("--tick-duration", Math.max(30, items.length * 7) + "s");
-    $("ticker-pause").onclick = function () {
-      var paused = box.classList.toggle("paused");
-      this.textContent = paused ? "Play" : "Pause";
-      this.setAttribute("aria-pressed", String(paused));
-    };
-    var day = items[0].date;
-    var label = new Date(day + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-    $("ticker-label").textContent = (D.sample ? "Sample. " : "") + "Close, " + label;
-    $("ticker-label").setAttribute("title", "End-of-day values from FRED, the St. Louis Fed's data service");
+    var label = monthDay(newest);
+    $("ticker-label").textContent = (D.sample ? "Sample. " : "") + "Last close, " + label;
+    $("ticker-label").setAttribute("title", "The latest end-of-day values from FRED, the St. Louis Fed's data service");
     $("ticker-label").href = "#how-it-works";
     box.setAttribute("role", "group");
     box.setAttribute("aria-label", "Market closes for " + label);
@@ -1101,7 +1130,7 @@
     if (VIEWS.indexOf(h) < 0) h = "today";
     VIEWS.forEach(function (v) { $("view-" + v).hidden = v !== h; });
     if (h === "research") renderRecords();
-    var name = document.querySelector('.tabs a[data-view="' + h + '"]');
+    var name = document.querySelector('a[data-view="' + h + '"]');
     document.title = h === "today" || !name ? "The Standard Edition" : name.textContent + " | The Standard Edition";
     if (story) renderStory(Number(story[1]));
     Array.prototype.forEach.call(document.querySelectorAll(".tabs a"), function (a) {
@@ -1180,6 +1209,7 @@
     mail.hidden = false;
   }
   renderNotices();
+  renderLedger();
   renderTicker();
   renderControls();
   renderDocs();

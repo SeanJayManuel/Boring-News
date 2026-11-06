@@ -76,9 +76,6 @@ async function main() {
   threshold.checked = true;
   threshold.dispatchEvent(new Event("change"));
   const strict = see();
-  const pause = byId("ticker-pause");
-  pause.click();
-  const tickerPause = { paused: byId("ticker").classList.contains("paused"), label: pause.textContent, pressed: pause.getAttribute("aria-pressed") };
 
   const report = {
     errors,
@@ -89,7 +86,12 @@ async function main() {
     scrolledTo: scrolledTo && scrolledTo.id,
     scrolledToHidden: !!(scrolledTo && scrolledTo.closest("[hidden]")),
     ticker: document.querySelectorAll("#ticker-track .tick").length,
-    tickerPause,
+    tickerLabel: text(byId("ticker-label")),
+    tickDates: texts("#ticker-track .tick-set:first-child .tick-date"),
+    ledgerLede: text(byId("ledger-lede")),
+    ledgerRows: document.querySelectorAll("#ledger-out tbody tr").length,
+    ledgerIn: text(byId("ledger-in")),
+    ledgerRules: document.querySelectorAll("#ledger-rules li").length,
     dataLink: !!document.querySelector("#data-line a"),
     feedUrl: byId("feed-url").value,
     docs,

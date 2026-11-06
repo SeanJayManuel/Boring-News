@@ -25,7 +25,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import config, db, rubric
+from . import config, db, ledger, rubric
 from .db import Article, Story
 from .reposts import reposts
 from .sources import Source
@@ -98,6 +98,7 @@ class Edition:
             "contact_email": config.CONTACT_EMAIL,
             "data_url": data_url,
             "corrections": corrections or [],
+            "ledger": ledger.load(),
             "markets": self.markets,
             "feeds_down": self.feeds_down,
             "research_url": research_url,

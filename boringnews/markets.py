@@ -1,4 +1,4 @@
-"""Yesterday's market closes for the ticker, from FRED (St. Louis Fed).
+"""The latest market closes for the ticker, from FRED (St. Louis Fed).
 
 Once a day, like everything else: each series' latest close and its change
 from the close before. No intraday prices, no streaming.
