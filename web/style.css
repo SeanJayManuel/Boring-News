@@ -246,7 +246,7 @@ code { font: 400 0.88em/1 var(--code); background: var(--sheet); padding: 2px 5p
 .row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; min-width: 0; }
 .chart, .prose, .sheet { min-width: 0; }
 .row-head { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; }
-.row-head span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-head span:first-child { min-width: 0; }
 .row-head span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
 .stack { position: relative; display: flex; height: 12px; background: var(--line); }
 .stack i { display: block; height: 100%; }
@@ -258,7 +258,7 @@ code { font: 400 0.88em/1 var(--code); background: var(--sheet); padding: 2px 5p
 .settings-body { padding: 24px; display: grid; gap: 24px; }
 /* Not a grid: Safari gives a grid fieldset's legend almost no width. */
 fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
-fieldset > :not(legend) + :not(legend) { margin-top: 8px; }
+fieldset > :is(.hint, .options, .weights, .outlets-grid) + :is(.hint, .options, .weights, .outlets-grid) { margin-top: 8px; }
 legend { font-size: 16px; font-weight: 600; padding: 0; margin-bottom: 8px; }
 .options { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 16px; }
 .options.cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px 22px; }
