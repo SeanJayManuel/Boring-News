@@ -18,7 +18,7 @@
     strict: "Usually needs left, center and right, or two sides plus a government record."
   };
   var VIEWS = ["today", "all-stories", "outlets", "research", "how-it-works", "your-feed", "about", "story"];
-  var KEY_WORDS = "Each mark is one outlet that ran the story. Stripes mean no outlet on that side ran it.";
+  var KEY_WORDS = "Each mark and ring is one outlet that ran the story. Stripes and dotted circles mean no outlet on that side ran it. A black square means a government record backs it.";
 
   // Rubric and settings live in core.js, shared with the feed function.
   var lane = C.lane, scoreStory = C.scoreStory, select = C.select, spotlight = C.spotlight;
@@ -170,22 +170,76 @@
   function coverage(item) {
     return el("span", { className: "coverage" }, [scale(item), scaleCounts(item)]);
   }
+  // The picture beside a story, drawn from its coverage so it can't frame the
+  // story: a circle per side, one ring per outlet, in the scale's order. It stays
+  // ink, because the scale beside it carries the color and the words. Amber marks
+  // a gap, here as everywhere.
+  function plate(item) {
+    var sides = outletsBySide(item.articles), gap = C.coverageGap(item.score, prefs), radius = 46;
+    var marks = SPECTRUM.map(function (l, i) {
+      var outlets = {}, at = 'cx="' + (62 + i * 38) + '" cy="72"';
+      sides[l].forEach(function (a) { outlets[a.source_id] = true; });
+      var n = Object.keys(outlets).length;
+      if (!n) return "<circle class=\"plate-" + (gap.unreadSides.indexOf(l) >= 0 ? "unread" : "gap") + "\" " + at + ' r="' + radius + '"/>';
+      var step = radius / n;
+      var out = '<circle class="plate-disc" ' + at + ' r="' + radius + '"/>';
+      for (var ring = 0; ring < n; ring++) {
+        out += '<circle class="plate-ring" ' + at + ' r="' + (radius - ring * step).toFixed(1) + '"/>';
+      }
+      return out;
+    }).join("");
+    var box = el("span", { className: "plate", "aria-hidden": "true" });
+    box.innerHTML = '<svg viewBox="0 0 200 150"><rect class="plate-ground" width="200" height="150"/>' + marks +
+      (item.score.hasRecord ? '<rect class="plate-record" x="168" y="120" width="16" height="16"/>' : "") + "</svg>";
+    return box;
+  }
+  // The checked sentences, read in order as one short account.
+  function whatHappened(s) {
+    return el("p", { className: "what" }, [el("b", { text: "What happened: " }), s.bullets.join(" ")]);
+  }
   function gapWords(sc) {
     var gap = C.coverageGap(sc, prefs);
     if (gap.unread.length) return "We couldn't read " + listWords(gap.unread).replace(" and ", " or ") + " today.";
     return "No " + listWords(gap.missing).replace(" and ", " or ") + " outlet " + (gap.ours ? "" : "you kept ") + "ran this.";
   }
 
+  // What each side reported, for sides the reader kept. One side alone would only
+  // repeat the story's summary, so it takes two.
+  function sideSummaries(item) {
+    var sides = outletsBySide(item.articles), written = item.story.sides || {};
+    var kept = SPECTRUM.filter(function (l) { return sides[l].length && written[l]; });
+    return kept.length > 1 ? written : null;
+  }
+
+  // Who ran it first among the outlets we read, and how many reports it rests on.
+  function reportWords(item) {
+    var news = item.articles.filter(function (a) { var s = D.sources[a.source_id]; return s && s.type !== "primary"; });
+    var dated = news.filter(function (a) { return a.published_at; }).sort(function (a, b) {
+      return new Date(a.published_at) - new Date(b.published_at);
+    });
+    var copies = news.filter(function (a) { return a.copy_of; }).length, words = [];
+    if (dated.length > 1) {
+      words.push(D.sources[dated[0].source_id].name + " was the first outlet we read to run this, on " +
+        new Date(dated[0].published_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + ".");
+    }
+    if (copies) words.push(plural(copies, "outlet", "outlets") + " repeated another's report, so this rests on " +
+      plural(news.length - copies, "separate report", "separate reports") + ".");
+    return words.join(" ");
+  }
+
   // A story's outlets, each side in its own column.
   function sideColumns(item) {
-    var sides = outletsBySide(item.articles);
+    var sides = outletsBySide(item.articles), said = sideSummaries(item);
+    function sourceName(id) { return D.sources[id] ? D.sources[id].name : id; }
     return el("div", { className: "sides" }, SPECTRUM.map(function (l) {
       var rows = sides[l];
       return el("div", { className: "side-col lean-" + l }, [
         el("h4", { text: cap(l) }),
+        said && said[l] ? el("p", { className: "side-said", text: said[l].join(" ") }) : null,
         rows.length
           ? el("ul", {}, rows.map(function (a) {
-              return el("li", {}, [el("span", { className: "who", text: D.sources[a.source_id].name }),
+              return el("li", {}, [el("span", { className: "who", text: D.sources[a.source_id].name +
+                  (a.copy_of ? ", same report as " + sourceName(a.copy_of) : "") }),
                 el("a", { href: a.url, target: "_blank", rel: "noopener", text: a.title })]);
             }))
           : el("p", { className: "none", text: C.coverageGap(item.score, prefs).unreadSides.indexOf(l) >= 0
@@ -234,7 +288,7 @@
     }
 
     if (lead && sc.outlets) node.appendChild(coverage(item));
-    node.appendChild(el("ul", { className: "bullets" }, s.bullets.map(function (b) { return el("li", { text: b }); })));
+    node.appendChild(lead ? whatHappened(s) : el("ul", { className: "bullets" }, s.bullets.map(function (b) { return el("li", { text: b }); })));
     if (s.whats_next) node.appendChild(el("p", { className: "next" }, [el("b", { text: "What's next: " }), s.whats_next]));
 
     var meta = el("div", { className: "meta" });
@@ -283,17 +337,20 @@
   // full story is a link away on its own page.
   function storyRow(item, headlinesOnly) {
     var s = item.story, sc = item.score;
-    var node = el("article", { className: "story row-story" }, [
+    var text = el("div", { className: "row-text" }, [
       el("h3", { className: "headline" }, [el("a", { href: "#story-" + s.id, text: s.headline })])
     ]);
+    var node = el("article", { className: "story row-story" }, [text]);
     if (headlinesOnly) return node;
-    if (sc.outlets) node.appendChild(coverage(item));
+    if (sc.outlets) { node.insertBefore(plate(item), text); text.appendChild(coverage(item)); }
     var notes = [];
     if (s.day > 1) notes.push("Day " + s.day + ".");
     if (sc.hasRecord) notes.push("Backed by a government record.");
     else if (sc.hasStatement) notes.push("Includes a government statement.");
     if (sc.outlets && sc.leans.length < 3) notes.push(gapWords(sc));
-    if (notes.length) node.appendChild(el("p", { className: "row-note", text: notes.join(" ") }));
+    if (notes.length) text.appendChild(el("p", { className: "row-note", text: notes.join(" ") }));
+    text.appendChild(whatHappened(s));
+    if (s.whats_next) text.appendChild(el("p", { className: "next" }, [el("b", { text: "What's next: " }), s.whats_next]));
     return node;
   }
 
@@ -388,14 +445,16 @@
     var box = $("spotlight");
     box.innerHTML = "";
     box.className = hl ? "headlines-only" : "";
-    if (top.length) box.appendChild(el("div", { className: "lead" }, [storyNode(top[0], hl, false, true)]));
+    if (top.length) box.appendChild(el("div", { className: "lead" }, [storyNode(top[0], hl, false, true),
+      !hl && top[0].score.outlets ? plate(top[0]) : null]));
     var restBox = $("spot-rest");
     restBox.innerHTML = "";
     restBox.className = hl ? "headlines-only" : "";
     if (top.length > 1) {
       restBox.appendChild(el("section", { className: "sheet", "aria-label": "Also today" }, [
-        el("div", { className: "sheet-head" }, [el("h2", { text: "Also today" }), hl ? null : el("p", { text: KEY_WORDS })])
-      ].concat(top.slice(1).map(function (x) { return storyRow(x, hl); }))));
+        el("div", { className: "sheet-head" }, [el("h2", { text: "Also today" }), hl ? null : el("p", { text: KEY_WORDS })]),
+        el("div", { className: "also-grid" }, top.slice(1).map(function (x) { return storyRow(x, hl); }))
+      ]));
     }
     renderOneSide(res, top);
     var unc = $("uncovered");
@@ -432,8 +491,8 @@
       el("div", { className: "sheet-head" }, [el("h2", { text: "Only one side covered" }),
         el("p", { text: "A gap isn't proof of anything. It's worth a second look." })]),
       el("ul", { className: "quick" }, rows.map(function (x) {
-        return el("li", {}, [el("a", { href: "#story-" + x.story.id, text: x.story.headline }),
-          coverage(x), el("span", { text: C.blindspotWords(x.score, prefs) })]);
+        return el("li", {}, [plate(x), el("div", {}, [el("a", { href: "#story-" + x.story.id, text: x.story.headline }),
+          coverage(x), el("span", { text: C.blindspotWords(x.score, prefs) })])]);
       }))
     ]));
   }
@@ -546,6 +605,9 @@
     var rows = D.stories.map(function (s) { return scoreStory(s, C.excluded(prefs), C.weightsFor(prefs)); })
       .filter(function (x) { return x.articles.length; })
       .sort(function (a, b) { return b.score.total - a.score.total; });
+    var keyPlate = $("key-plate"), covered = rows.filter(function (x) { return x.score.outlets; })[0];
+    keyPlate.innerHTML = "";
+    if (covered) keyPlate.appendChild(plate(covered));
     var chart = $("score-chart");
     chart.innerHTML = "";
     rows.forEach(function (x) {
@@ -896,7 +958,8 @@
     var topic = $("story-topic");
     topic.innerHTML = "";
     Array.prototype.slice.call(topicLine(s, sc).childNodes).forEach(function (n) { topic.appendChild(n); });
-    var shown = select(prefs).shown.some(function (x) { return x.story.id === s.id; });
+    var today = select(prefs).shown;
+    var shown = today.some(function (x) { return x.story.id === s.id; });
     $("story-note").textContent = older ? "From the edition of " + longDate(when) + "."
       : shown ? "" : "Your settings leave this story out of Today.";
     body.innerHTML = "";
@@ -907,7 +970,7 @@
     main.appendChild(el("ul", { className: "bullets" }, s.bullets.map(function (b) { return el("li", { text: b }); })));
     if (s.whats_next) main.appendChild(el("p", { className: "next" }, [el("b", { text: "What's next: " }), s.whats_next]));
 
-    var side = el("div", { className: "story-side sheet" }, [el("h2", { text: "How it was scored" })]);
+    var side = el("div", { className: "story-side" }, [sc.outlets ? plate(item) : null, el("h2", { text: "How it was scored" })]);
     if (!older) {
       var list = el("ul", { className: "sources" }, [scoreRow(sc)]);
       var checks = checksRow(s);
@@ -922,6 +985,9 @@
     cite.addEventListener("click", function () { copyText(citation({ headline: s.headline, date: when, articles: item.articles }), cite, citeBox); });
     side.appendChild(el("div", { className: "story-actions" }, [copyLink, cite]));
     side.appendChild(citeBox);
+    side.appendChild(el("p", { className: "story-wrong" }, [el("a", { target: "_blank", rel: "noopener",
+      href: D.repo_url + "/issues/new?template=wrong-story.yml&title=" + encodeURIComponent("Wrong story: " + s.headline) +
+        "&edition=" + when + "&story=" + encodeURIComponent(link), text: "Does this summary seem wrong?" })]));
     if (s.day > 1 && !older) {
       var days = earlierDays(s);
       side.appendChild(el("div", { className: "meta" }, [days.button]));
@@ -929,7 +995,11 @@
     }
     body.appendChild(el("div", { className: "front story-top" }, [main, side]));
 
-    var who = el("section", { className: "sheet" }, [el("div", { className: "sheet-head" }, [el("h2", { text: "Who covered it" })])]);
+    var said = sideSummaries(item), lines = reportWords(item);
+    var who = el("section", { className: "sheet" }, [el("div", { className: "sheet-head" }, [
+      el("h2", { text: said ? "What each side reported" : "Who covered it" }),
+      said ? el("p", { text: "Each summary is written only from that side's outlets and checked against them." }) : null,
+      lines ? el("p", { text: lines }) : null])]);
     if (sc.outlets) who.appendChild(sideColumns(item));
     else who.appendChild(el("p", { className: "empty", text: item.articles.length ? "No news outlet has covered this yet." : "You turned off every source for this story." }));
     var sides = outletsBySide(item.articles), inSide = [];
@@ -945,6 +1015,16 @@
       })));
     }
     body.appendChild(who);
+
+    var related = older ? [] : today.filter(function (x) { return x.story.topic === s.topic && x.story.id !== s.id; }).slice(0, 3);
+    if (related.length) {
+      body.appendChild(el("section", { className: "sheet" }, [
+        el("div", { className: "sheet-head" }, [el("h2", { text: "More on this topic" })]),
+        el("ul", { className: "quick related" }, related.map(function (x) {
+          return el("li", {}, [el("a", { href: "#story-" + x.story.id, text: x.story.headline })]);
+        }))
+      ]));
+    }
   }
 
   function renderStory(id) {

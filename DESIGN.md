@@ -349,13 +349,29 @@ One to three plain sentences that sum up the day from real data: how many storie
 
 ### Lead story
 
-Headline, full-width coverage scale with counts, bullets, "What's next" when there is one, then a link to the outlets and their headlines.
+Headline, coverage scale with counts, "What happened," "What's next" when there is one, then a link to the outlets and their headlines. The coverage picture sits beside it.
 
 The headlines appear plain and unmarked. No highlighting, underlining or scoring of outlets' words, here or anywhere.
 
 ### Story row
 
-Headline, compact scale, then one note if needed ("Backed by a government record," or the gap sentence). No topic label unless it's the page's way of grouping.
+Coverage picture on the left. Beside it: headline, compact scale, one note if needed ("Backed by a government record," or the gap sentence), "What happened" and "What's next." No topic label unless it's the page's way of grouping. "What happened" is the story's checked sentences joined in order, so every top story reads as a short account.
+
+### Coverage picture
+
+The site's only imagery, generated for each story from its coverage. Three overlapping circles in fixed order, left, center and right, with one ring per outlet. Circles overlap to show sides covering the same story.
+
+| Part | Look | Meaning |
+| --- | --- | --- |
+| **Ring** | Solid `--ink` | One outlet ran it |
+| **Dotted circle** | `--gap` | We read that side, and nothing ran |
+| **Dashed circle** | `--control` | That side's feeds failed, so we don't know |
+| **Square** | `--ink`, bottom right | A government record backs it |
+| **Ground** | `--sheet`, or `--desk` on the one-sided band | Nothing. It's only a surface |
+
+The picture stays ink. The scale beside it already shows the same coverage in color, and two colored versions side by side read as noise, so color belongs to the scale and amber to the gap. Don't tint the ground by topic: a color nobody can decode is decoration.
+
+Hidden from screen readers, because the scale beside it says the same thing in words. Never replace the scale with the picture.
 
 ### Coverage scale
 
@@ -396,7 +412,7 @@ On every page, after a 1px `--ink` rule: the tagline, centered, in the opening-s
 
 ### Story page
 
-Every headline opens its own page at `#story-N`: the scale with its key, the bullets, what's next, how it was scored, then every outlet in a column for its side. Links keep working for 30 days, because a story that has left the edition is read from the research file.
+Every headline opens its own page at `#story-N`: the scale with its key, the bullets, what's next, how it was scored, a link to report a mistake, then every outlet in a column for its side, followed by more stories on the topic. When two or more sides have summaries, each column opens with what that side reported, and the page says who ran the story first and which outlets repeated another's report. These summaries state facts only. Never describe an outlet's tone, framing or motive, for the same reason we don't highlight words. Links keep working for 30 days, because a story that has left the edition is read from the research file.
 
 ### Buttons and links
 
@@ -437,7 +453,7 @@ Say what happened and what to do next, with no apology, illustration or joke.
 
 ## 8. Imagery and icons
 
-**No photos in the edition.** RSS gives us no rights to them, and a photo chosen by us would frame the story. Type and the scale do this job.
+**No photos in the edition.** RSS gives us no rights to them, and a photo chosen by us would frame the story. Each story's [coverage picture](#coverage-picture) gives the page its imagery instead, and it's evidence, not decoration.
 
 If an image is ever needed outside the edition, like a social preview, use the logo on `--desk` or `--ink` with one line of text. No stock photos, AI images, illustrations of people, or gradients.
 
@@ -576,6 +592,9 @@ Before merging any change a reader can see:
 | 2026-11-05 | Name: The Standard Edition, with standardedition.org beneath | A publication's name, and the .org stays visible |
 | 2026-11-05 | No highlighting of words | The site shows evidence and doesn't judge language for the reader |
 | 2026-11-05 | No photos | No rights from RSS, and a chosen photo frames a story |
+| 2026-11-05 | Coverage pictures as the site's imagery | The page needs something visual, and a picture drawn from the data can't frame a story |
+| 2026-11-05 | Coverage pictures in ink, on one neutral ground | Colored rings beside a colored scale said the same thing twice, and topic tints meant nothing to readers |
+| 2026-11-05 | "What happened" on every top story | Headlines alone gave readers too little. The format comes from Ground News's Daily Briefing |
 | 2026-11-05 | Launch with the font S | It reads well at small sizes, so a hand-drawn S can wait |
 | 2026-11-05 | Amber only for gaps | Keeps the one loud thing meaningful |
 | 2026-11-05 | Blue, gray and red for left, center and right | Replaces black ticks, which didn't say what they showed. US readers already know these colors |

@@ -27,6 +27,7 @@ from pathlib import Path
 
 from . import config, db, rubric
 from .db import Article, Story
+from .reposts import reposts
 from .sources import Source
 from .topics import LEGACY, TOPIC_DESCRIPTIONS, TOPICS
 
@@ -47,6 +48,12 @@ def _rubric() -> dict:
         "coverage_cap": rubric.COVERAGE_CAP, "min_outlets": rubric.MIN_OUTLETS, "spotlight": rubric.SPOTLIGHT,
         "blindspot_outlets": rubric.BLINDSPOT_OUTLETS,
     }
+
+
+def _page_articles(articles: list[Article]) -> list[dict]:
+    copies = reposts(articles)
+    return [{"source_id": a.source_id, "title": a.title, "url": a.url, "published_at": a.published_at,
+             "copy_of": copies[a.url].source_id if a.url in copies else None} for a in articles]
 
 
 def _sources(sources: dict[str, Source]) -> dict:
@@ -109,7 +116,8 @@ class Edition:
                     "topic": s.topic,
                     "checks": s.checks,
                     "day": s.day,
-                    "articles": [{"source_id": a.source_id, "title": a.title, "url": a.url} for a in s.articles],
+                    "sides": s.sides,
+                    "articles": _page_articles(s.articles),
                 }
                 for s in self.stories
             ],
@@ -162,8 +170,9 @@ class Edition:
                     "id": s.id,
                     "headline": s.headline, "bullets": s.bullets, "whats_next": s.whats_next,
                     "topic": s.topic, "region": s.region, "written_by": s.written_by,
-                    "checks": s.checks, "thread_id": s.thread_id, "day": s.day,
+                    "checks": s.checks, "thread_id": s.thread_id, "day": s.day, "sides": s.sides,
                     "articles": [a.url for a in s.articles],
+                    "reposts": {url: first.url for url, first in reposts(s.articles).items()},
                     "score": rubric.score(self.sources[a.source_id] for a in s.articles
                                           if a.source_id in self.sources).to_dict(),
                 }
@@ -202,6 +211,7 @@ def _restore_file(conn, data: dict) -> None:
             checks=s.get("checks", {}),
             thread_id=s.get("thread_id"),
             day=s.get("day", 1),
+            sides=s.get("sides", {}),
         )
         for s in data["stories"]
     ]

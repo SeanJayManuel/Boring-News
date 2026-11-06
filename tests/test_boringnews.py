@@ -64,7 +64,7 @@ def test_fixture_clusters_match_events():
     arts = load_fixtures(config.FIXTURE_ARTICLES_PATH)
     official = frozenset(sid for sid, s in SOURCES.items() if s.type == "primary")
     sizes = sorted((len(c) for c in cluster(arts, separate=official)), reverse=True)
-    assert sizes == [7, 4, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1, 1]
+    assert sizes == [7, 5, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1, 1]
 
 
 # ---------------------------------------------------------------- linter and fallback writer

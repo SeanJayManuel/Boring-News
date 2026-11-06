@@ -400,6 +400,38 @@ def test_page_with_no_stories_says_so(tmp_path, site):
     assert page["errors"] == [] and page["lede"] == "No stories in this edition."
 
 
+@jsdom
+def test_every_top_story_has_a_summary_and_a_picture_of_its_coverage(site):
+    page = open_page(site, f"{BASE}/")
+    assert page["errors"] == [] and page["summaries"] == 5 and page["plates"] >= 5
+    assert page["leadRings"] == 3 and page["gapCircles"]
+
+
+@jsdom
+def test_story_page_shows_each_side_reposts_and_a_way_to_report_a_mistake(site):
+    data = json.loads((site / "edition.json").read_text())
+    storm = next(s for s in data["stories"] if "Port Avery" in s["headline"])
+    page = open_page(site, f"{BASE}/#story-{storm['id']}")
+    assert page["errors"] == [] and "What each side reported" in page["storyHeads"]
+    assert page["sideSaid"] == [" ".join(storm["sides"][side]) for side in ("left", "center", "right")]
+    assert any("same report as Capital Wire" in who for who in page["storySides"])
+    lines = " ".join(page["storyLines"])
+    assert "first outlet we read" in lines and "1 outlet repeated another's report, so this rests on 4 separate reports." in lines
+    assert "template=wrong-story.yml" in page["wrongLink"] and "story=" in page["wrongLink"]
+    assert "More on this topic" in page["storyHeads"] and page["relatedLinks"]
+
+
+@jsdom
+def test_a_side_alone_is_not_summarized(tmp_path, site):
+    data = json.loads((site / "edition.json").read_text())
+    storm = next(s for s in data["stories"] if "Port Avery" in s["headline"])
+    left = next(sid for sid, src in data["sources"].items() if src["lean"] == "right")
+    keep = [a["source_id"] for a in storm["articles"] if data["sources"][a["source_id"]]["lean"] == "center"]
+    off = ",".join(sid for sid in {a["source_id"] for a in storm["articles"]} if sid not in keep)
+    page = open_page(site, f"{BASE}/?exclude={off}#story-{storm['id']}")
+    assert page["errors"] == [] and page["sideSaid"] == [] and "Who covered it" in page["storyHeads"]
+
+
 def test_every_tab_opens_a_view():
     page = (config.ROOT / "web" / "index.html").read_text()
     views = re.findall(r'<a href="#[\w-]+" data-view="([\w-]+)"', page)

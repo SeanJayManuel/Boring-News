@@ -111,6 +111,7 @@ def run(inputs, writer, db_path, edition_date: str, archive_dir=None, require_wr
                 written_by=draft.written_by,
                 articles=group,
                 checks=draft.checks,
+                sides=draft.sides,
             )
         )
         dropped = len(draft.checks.get("dropped", []))

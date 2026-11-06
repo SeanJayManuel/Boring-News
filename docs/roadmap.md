@@ -231,13 +231,14 @@ So today a three-outlet story on the left is dropped and the same story on the r
 - **Gaps:** it's only readable as raw JSON. Readers can't see stories that didn't make it, or which articles went unused.
 - **Done when:** the site can show everything read that day and what happened to it.
 
-### T7. Independent agreement ⬜ M
+### T7. Independent agreement 🟡 M
 
 The thesis rests on sources agreeing independently, so agreement should only count when the sources are separate.
 
 - **Exists:** a fact is stated plainly when two outlets agree, and the outlets' leans are counted across the spectrum.
-- **Gaps:** two outlets running the same wire report count as two agreeing sources, and outlets with the same owner count separately. We need to detect shared wire copy and record who owns each outlet.
-- **Done when:** a fact repeated from one wire report counts as one source, and the page says so.
+- **Built (2026-11-05):** `boringnews/reposts.py` finds articles that repeat another outlet's report. The story page says so, each edition file records it, and the writer is told a repeat isn't a second source.
+- **Gaps:** repeats still count toward a story's score, because changing that is a rubric change. Detection only compares headlines and feed snippets, and it hasn't been measured on real wire copy. Outlets with the same owner still count separately.
+- **Done when:** a fact repeated from one wire report counts as one source in the score too.
 
 ---
 
@@ -272,6 +273,13 @@ Stories covered heavily by one side and barely by the other.
 
 - **Built:** Day 2+ stories have an "Earlier days of this story" button, which loads the research index on click.
 - **Limit:** it reaches back 30 days, older editions have no page of their own, and RSS items don't link to earlier days.
+
+### R7. What each side reported 🟡 M
+
+- **Built (2026-11-05):** when two or more sides covered a story, the writer adds one or two sentences per side, using only that side's outlets. Each is fact-checked against those outlets alone, and the story page shows them above each side's headlines.
+- **Gaps:** the real model has never written these, so the sample text is hand-written. Each side adds a fact-check call, so an edition costs more. Few stories will qualify until the source list grows (T3).
+- **Rule:** facts and who said them only. No framing comparison, for the same reason we don't highlight words.
+- **Done when:** a person has read a week of them against their sources and found them fair.
 
 ### R6. Past editions ⬜ M
 

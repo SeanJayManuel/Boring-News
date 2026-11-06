@@ -166,12 +166,13 @@ code { font: 400 0.88em/1 var(--code); background: var(--sheet); padding: 2px 5p
 .corrections li { display: grid; gap: 2px; }
 .corrections .when { font-size: 14px; color: var(--muted); }
 .headline { font-family: var(--read); font-size: 20px; line-height: 1.3; font-weight: 500; margin: 0; text-wrap: pretty; }
+.what, .next { font-family: var(--read); font-size: 17px; line-height: 1.55; max-width: 34em; margin: 10px 0 0; text-wrap: pretty; }
+.what b, .next b { font-weight: 500; }
 .headlines-only .story { padding-block: 16px 18px; }
 .headlines-only .headline { font-size: 19px; }
 .bullets { margin: 12px 0 0; padding-left: 20px; font-family: var(--read); font-size: 17px; line-height: 1.55; max-width: 34em; }
 .bullets li { padding-left: 2px; }
 .bullets li + li { margin-top: 6px; }
-.next { margin: 12px 0 0; }
 .meta { margin: 12px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 15px; color: var(--muted); }
 .coverage { display: grid; gap: 8px; width: 100%; }
 .meta .toggle {
@@ -338,17 +339,29 @@ button.primary:hover, .search button:hover { background: var(--ink); opacity: .8
 .key { margin: 4px 0 0; display: grid; gap: 14px; }
 .key div { display: grid; grid-template-columns: 9.5em 1fr; gap: 16px; align-items: start; }
 .key dt { padding-top: 8px; }
+#key-plate { padding-top: 0; }
 .key dd { margin: 0; font-family: var(--read); font-size: 17px; line-height: 1.5; }
 
 /* ---------- Today */
+/* The picture beside a story, drawn from its coverage. */
+.plate { display: block; min-width: 0; }
+.plate svg { display: block; width: 100%; height: auto; }
+.plate-ground { fill: var(--sheet); }
+.below .plate-ground { fill: var(--desk); }
+.plate-disc { fill: var(--ink); fill-opacity: 0.07; }
+.plate-ring { fill: none; stroke: var(--ink); stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.plate-gap { fill: none; stroke: var(--gap); stroke-width: 3; stroke-dasharray: 3 5; }
+.plate-unread { fill: none; stroke: var(--control); stroke-width: 1.5; stroke-dasharray: 6 6; }
+.plate-record { fill: var(--ink); }
 .notices { display: grid; gap: 8px; }
 .notices:empty { display: none; }
 .notice { font-size: 15px; margin: 0; padding: 10px 14px; background: var(--sheet); }
 .closing { text-align: center; }
 .closing:empty { display: none; }
 .front { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 48px; align-items: start; }
-.front:has(#spot-rest:empty) { grid-template-columns: minmax(0, 1fr); }
+#view-today .front { grid-template-columns: minmax(0, 1fr); gap: 32px; }
 #spot-rest:empty { display: none; }
+.lead:has(.plate) { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 48px; align-items: start; }
 .lead .story { padding: 0; }
 .lead .story + .story { border: 0; }
 .lead .topic-name { display: none; }
@@ -357,11 +370,12 @@ button.primary:hover, .search button:hover { background: var(--ink); opacity: .8
 .lead .topic:has(.badge) { margin-bottom: 8px; }
 .lead .coverage { margin-top: 18px; }
 .lead .scale { height: 10px; }
-.lead .bullets { font-size: 19px; line-height: 1.6; margin-top: 22px; max-width: 34em; }
-.lead .next { font-family: var(--read); font-size: 19px; line-height: 1.6; max-width: 34em; }
-.lead .next b { font-weight: 500; }
+.lead .what, .lead .next { font-size: 19px; line-height: 1.6; }
+.lead .what { margin-top: 18px; }
 .lead .meta { margin-top: 12px; }
+.also-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 48px; }
 .row-story { padding: 16px 0; border-bottom: 1px solid var(--line); }
+.row-story:has(.plate) { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 20px; align-items: start; }
 .row-story .coverage { margin-top: 12px; }
 .headline a { text-decoration: none; }
 .headline a:hover { text-decoration: underline; }
@@ -386,6 +400,8 @@ button.primary:hover, .search button:hover { background: var(--ink); opacity: .8
 .below .sheet-head h2 { font-size: 28px; line-height: 1.25; letter-spacing: -0.01em; }
 .below .quick { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px 48px; padding: 16px 0 0; }
 .below .quick .coverage { margin-top: 12px; }
+.below .quick li:has(.plate) { grid-template-columns: 148px minmax(0, 1fr); gap: 20px; align-items: start; }
+.below .quick li > div { display: grid; gap: 2px; min-width: 0; }
 
 /* ---------- One story */
 #story-page { display: grid; gap: 32px; }
@@ -399,10 +415,14 @@ button.primary:hover, .search button:hover { background: var(--ink); opacity: .8
 .story-main .next b { font-weight: 500; }
 .story-main .scale { height: 10px; }
 .story-key { margin-top: 10px; }
+.story-side .plate { margin-bottom: 4px; }
 .story-side h2 { font-family: var(--read); font-size: 21px; font-weight: 500; line-height: 1.3; margin: 12px 0 0; }
 .story-side .sources { margin-top: 10px; }
 .story-side .score { border-top: 0; padding-top: 0; }
 .story-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.story-wrong { font-size: 15px; color: var(--muted); margin: 14px 0 0; }
+.side-said { font-family: var(--read); font-size: 17px; line-height: 1.55; margin: 0 0 12px; }
+.related { padding-top: 6px; }
 .story-others { font-size: 16px; font-weight: 600; margin: 24px 0 0; }
 .formula { font: 400 14px/1.5 var(--code); white-space: pre-wrap; overflow-wrap: anywhere; margin: 12px 0 0; }
 
@@ -454,7 +474,9 @@ button.primary:hover, .search button:hover { background: var(--ink); opacity: .8
 }
 @media (max-width: 880px) {
   :root { --gutter: max(16px, env(safe-area-inset-left, 0px)); }
-  .front, .sides, .story-top { grid-template-columns: minmax(0, 1fr); }
+  .front, .sides, .story-top, .also-grid, .lead:has(.plate) { grid-template-columns: minmax(0, 1fr); }
+  .lead:has(.plate) { gap: 20px; }
+  .lead .plate { order: -1; }
   .side-col { padding-right: 0; }
 }
 @media (max-width: 600px) {
@@ -462,7 +484,8 @@ button.primary:hover, .search button:hover { background: var(--ink); opacity: .8
   .tabs { gap: 0 18px; justify-content: center; flex-wrap: wrap; overflow-x: visible; }
   .key div { grid-template-columns: 1fr; gap: 6px; }
   .foot-links { gap: 0 20px; }
-  .bullets, .lead .bullets, .lead .next { font-size: 17px; line-height: 1.55; }
+  .bullets, .lead .what, .lead .next { font-size: 17px; line-height: 1.55; }
+  .row-story:has(.plate), .below .quick li:has(.plate) { grid-template-columns: 96px minmax(0, 1fr); gap: 14px; }
   .weight { grid-template-columns: 7.5em 1fr 2.6em; gap: 8px; }
   .defs div { grid-template-columns: 1fr; gap: 2px; }
   .track { width: 80px; }

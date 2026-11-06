@@ -110,7 +110,7 @@ def test_edition_file_round_trip(tmp_path):
     pipeline_main(["run", "--fixtures", "--mock-llm", "--date", "2026-11-04", "--db", str(db), "--archive", str(arch)])
     data = json.loads((arch / "2026-11-04.json").read_text())
     assert data["rubric"]["version"] == rubric.VERSION
-    assert len(data["stories"]) == 17 and len(data["articles"]) == 50
+    assert len(data["stories"]) == 17 and len(data["articles"]) == 51
     assert all("score" in s and "checks" in s for s in data["stories"])
 
     restored = tmp_path / "restored.db"
